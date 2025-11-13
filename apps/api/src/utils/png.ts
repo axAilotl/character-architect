@@ -26,18 +26,45 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
 
       // Look for character card data in text chunks
       const textChunks = (data as PNG & { text?: Record<string, string> }).text || {};
+      const availableKeys = Object.keys(textChunks);
+
+      console.log('[PNG Extract] Available text chunks:', availableKeys);
+
+      // Helper function to try parsing JSON (supports plain and base64)
+      const tryParseChunk = (chunkData: string): any => {
+        // Try direct JSON parse first
+        try {
+          return JSON.parse(chunkData);
+        } catch {
+          // Try base64 decode then JSON parse
+          try {
+            const decoded = Buffer.from(chunkData, 'base64').toString('utf-8');
+            return JSON.parse(decoded);
+          } catch {
+            throw new Error('Not valid JSON or base64-encoded JSON');
+          }
+        }
+      };
 
       // Try v3 keys first
       for (const key of TEXT_CHUNK_KEYS.v3) {
         if (textChunks[key]) {
           try {
-            const json = JSON.parse(textChunks[key]);
+            const json = tryParseChunk(textChunks[key]);
             const spec = detectSpec(json);
+            console.log(`[PNG Extract] Found data in chunk '${key}', detected spec: ${spec}`);
             if (spec === 'v3') {
               resolve({ data: json, spec: 'v3' });
               return;
             }
-          } catch {
+            // Even if spec detection says v2, if we found it in a v3 key, it might still be v3
+            if (spec === 'v2' && json.spec === 'chara_card_v3') {
+              console.log(`[PNG Extract] Found v3 card with relaxed validation in chunk '${key}'`);
+              resolve({ data: json, spec: 'v3' });
+              return;
+            }
+          } catch (e) {
+            console.error(`[PNG Extract] Failed to parse data in chunk '${key}':`, e);
             // Continue to next key
           }
         }
@@ -47,18 +74,27 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
       for (const key of TEXT_CHUNK_KEYS.v2) {
         if (textChunks[key]) {
           try {
-            const json = JSON.parse(textChunks[key]);
+            const json = tryParseChunk(textChunks[key]);
             const spec = detectSpec(json);
+            console.log(`[PNG Extract] Found data in chunk '${key}', detected spec: ${spec}`);
             if (spec === 'v2') {
               resolve({ data: json, spec: 'v2' });
               return;
             }
-          } catch {
+            // Fallback: if we found valid JSON with a name field, treat as v2
+            if (json && typeof json === 'object' && 'name' in json) {
+              console.log(`[PNG Extract] Found v2 card with relaxed validation in chunk '${key}'`);
+              resolve({ data: json, spec: 'v2' });
+              return;
+            }
+          } catch (e) {
+            console.error(`[PNG Extract] Failed to parse data in chunk '${key}':`, e);
             // Continue to next key
           }
         }
       }
 
+      console.error('[PNG Extract] No valid character card data found. Available chunks:', availableKeys);
       resolve(null);
     });
   });

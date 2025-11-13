@@ -28,13 +28,19 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         cardData = JSON.parse(buffer.toString('utf-8'));
         const detectedSpec = detectSpec(cardData);
         if (!detectedSpec) {
+          fastify.log.error({
+            keys: Object.keys(cardData as Record<string, unknown>).slice(0, 10),
+            hasSpec: 'spec' in (cardData as Record<string, unknown>),
+            hasName: 'name' in (cardData as Record<string, unknown>),
+          }, 'Failed to detect spec for JSON card');
           reply.code(400);
-          return { error: 'Invalid card format' };
+          return { error: 'Invalid card format: unable to detect v2 or v3 spec' };
         }
         spec = detectedSpec;
       } catch (err) {
+        fastify.log.error({ error: err }, 'Failed to parse JSON');
         reply.code(400);
-        return { error: 'Invalid JSON' };
+        return { error: `Invalid JSON: ${err instanceof Error ? err.message : String(err)}` };
       }
     } else if (data.mimetype === 'image/png') {
       // Validate PNG size
@@ -44,6 +50,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       });
 
       if (!sizeCheck.valid) {
+        fastify.log.warn({ warnings: sizeCheck.warnings }, 'PNG size validation failed');
         reply.code(400);
         return { error: 'PNG too large', warnings: sizeCheck.warnings };
       }
@@ -53,23 +60,32 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       try {
         const extracted = await extractFromPNG(buffer);
         if (!extracted) {
+          fastify.log.error('No character card data found in PNG');
           reply.code(400);
-          return { error: 'No character card data found in PNG' };
+          return { error: 'No character card data found in PNG. Make sure the PNG contains embedded card data in tEXt chunks.' };
         }
         cardData = extracted.data;
         spec = extracted.spec;
+        fastify.log.info({ spec }, 'Successfully extracted card from PNG');
       } catch (err) {
+        fastify.log.error({ error: err }, 'Failed to extract card from PNG');
         reply.code(400);
-        return { error: 'Failed to extract card from PNG' };
+        return { error: `Failed to extract card from PNG: ${err instanceof Error ? err.message : String(err)}` };
       }
     } else {
+      fastify.log.warn({ mimetype: data.mimetype }, 'Unsupported file type');
       reply.code(400);
-      return { error: 'Unsupported file type' };
+      return { error: `Unsupported file type: ${data.mimetype}. Only JSON and PNG are supported.` };
     }
 
     // Validate card data
     const validation = spec === 'v3' ? validateV3(cardData) : validateV2(cardData);
     if (!validation.valid) {
+      fastify.log.error({
+        spec,
+        errors: validation.errors,
+        keys: Object.keys(cardData as Record<string, unknown>).slice(0, 10),
+      }, 'Card validation failed');
       reply.code(400);
       return { error: 'Card validation failed', errors: validation.errors };
     }

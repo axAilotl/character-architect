@@ -163,13 +163,37 @@ export function detectSpec(data: unknown): 'v2' | 'v3' | null {
   const obj = data as Record<string, unknown>;
 
   // v3 has explicit spec field
-  if (obj.spec === 'chara_card_v3' && obj.spec_version === '3.0') {
-    return 'v3';
+  if (obj.spec === 'chara_card_v3') {
+    // Accept both 3.0 and other minor versions
+    if (typeof obj.spec_version === 'string' && obj.spec_version.startsWith('3.')) {
+      return 'v3';
+    }
+    // Some cards might not have spec_version, treat as v3 anyway
+    if (!obj.spec_version) {
+      return 'v3';
+    }
   }
 
-  // v2 is the default/legacy format
-  if (obj.name && typeof obj.name === 'string') {
+  // Check for Chub v2 format (wrapped with spec field)
+  if (obj.spec === 'chara_card_v2' || obj.spec_version === '2.0') {
     return 'v2';
+  }
+
+  // v2 is the default/legacy format (direct fields)
+  if (obj.name && typeof obj.name === 'string') {
+    // Make sure it has other typical v2 fields
+    if ('description' in obj || 'personality' in obj || 'scenario' in obj) {
+      return 'v2';
+    }
+  }
+
+  // Check if it's a v3 card with data nested inside
+  if (obj.data && typeof obj.data === 'object') {
+    const dataObj = obj.data as Record<string, unknown>;
+    if (dataObj.name && typeof dataObj.name === 'string') {
+      // This might be a v3 card
+      return 'v3';
+    }
   }
 
   return null;
