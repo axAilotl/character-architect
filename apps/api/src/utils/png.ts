@@ -66,9 +66,9 @@ function parseTextChunks(buffer: Buffer): Record<string, string> {
       const nullIndex = data.indexOf(0);
       if (nullIndex !== -1) {
         const keyword = data.slice(0, nullIndex).toString('latin1');
-        const text = data.slice(nullIndex + 1).toString('latin1');
+        const text = data.slice(nullIndex + 1).toString('utf8');
         textChunks[keyword] = text;
-        console.log(`[PNG Extract] Found tEXt chunk: "${keyword}" (${text.length} bytes)`);
+        console.log(`[PNG Extract] Found tEXt chunk: "${keyword}" (${text.length} chars)`);
       }
     }
 
@@ -175,43 +175,100 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
 }
 
 /**
+ * Calculate CRC32 checksum for PNG chunks
+ */
+function calculateCRC32(buffer: Buffer): Buffer {
+  const CRC_TABLE = new Uint32Array(256);
+
+  // Build CRC table
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) {
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    CRC_TABLE[i] = c;
+  }
+
+  // Calculate CRC
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < buffer.length; i++) {
+    crc = CRC_TABLE[(crc ^ buffer[i]) & 0xFF] ^ (crc >>> 8);
+  }
+  crc = crc ^ 0xFFFFFFFF;
+
+  // Convert to buffer (big-endian)
+  const result = Buffer.alloc(4);
+  result.writeUInt32BE(crc >>> 0, 0);
+  return result;
+}
+
+/**
+ * Manually inject tEXt chunk into PNG buffer
+ * This is necessary because pngjs doesn't reliably write text chunks
+ */
+function injectTextChunk(pngBuffer: Buffer, keyword: string, text: string): Buffer {
+  // Find IEND chunk (marks end of PNG)
+  // IEND is always at the end: length(4) + "IEND"(4) + CRC(4) = 12 bytes
+  let iendOffset = -1;
+
+  // Search backwards from the end - IEND should be near the end
+  for (let i = pngBuffer.length - 12; i >= 8; i--) {
+    if (
+      pngBuffer[i + 4] === 0x49 && // 'I'
+      pngBuffer[i + 5] === 0x45 && // 'E'
+      pngBuffer[i + 6] === 0x4E && // 'N'
+      pngBuffer[i + 7] === 0x44    // 'D'
+    ) {
+      // Found "IEND"
+      iendOffset = i; // Start of length field
+      break;
+    }
+  }
+
+  if (iendOffset === -1) {
+    throw new Error('Invalid PNG: IEND chunk not found');
+  }
+
+  // Create tEXt chunk
+  const keywordBuffer = Buffer.from(keyword, 'latin1');
+  const textBuffer = Buffer.from(text, 'utf8');
+  const dataLength = keywordBuffer.length + 1 + textBuffer.length;
+
+  // Build chunk: length + type + data + CRC
+  const chunkType = Buffer.from('tEXt', 'ascii');
+  const chunkData = Buffer.concat([
+    keywordBuffer,
+    Buffer.from([0]), // null separator
+    textBuffer,
+  ]);
+
+  // Calculate CRC32
+  const crcData = Buffer.concat([chunkType, chunkData]);
+  const crc = calculateCRC32(crcData);
+
+  // Assemble the full chunk
+  const lengthBuffer = Buffer.alloc(4);
+  lengthBuffer.writeUInt32BE(dataLength, 0);
+
+  const textChunk = Buffer.concat([lengthBuffer, chunkType, chunkData, crc]);
+
+  // Insert before IEND
+  const beforeIend = pngBuffer.slice(0, iendOffset);
+  const iendAndAfter = pngBuffer.slice(iendOffset);
+
+  return Buffer.concat([beforeIend, textChunk, iendAndAfter]);
+}
+
+/**
  * Embed character card JSON into PNG tEXt chunk
  */
 export async function embedIntoPNG(imageBuffer: Buffer, cardData: CCv2Data | CCv3Data, spec: 'v2' | 'v3'): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const png = new PNG();
+  // Determine the text chunk key based on spec
+  const key = spec === 'v3' ? 'ccv3' : 'chara';
+  const json = JSON.stringify(cardData, null, 0); // Minified for smaller size
 
-    png.parse(imageBuffer, (err, data) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      // Add text chunk with card data
-      const key = spec === 'v3' ? 'ccv3' : 'chara';
-      const json = JSON.stringify(cardData, null, 0); // Minified for smaller size
-
-      // Create new PNG with text chunk
-      const output = new PNG({
-        width: data.width,
-        height: data.height,
-      });
-
-      data.data.copy(output.data);
-
-      // Add text chunk (this is a workaround since pngjs doesn't expose text chunks directly)
-      const textData = (output as PNG & { text?: Record<string, string> }).text || {};
-      textData[key] = json;
-      (output as PNG & { text?: Record<string, string> }).text = textData;
-
-      const chunks: Buffer[] = [];
-      output.on('data', (chunk: Buffer) => chunks.push(chunk));
-      output.on('end', () => resolve(Buffer.concat(chunks)));
-      output.on('error', reject);
-
-      output.pack();
-    });
-  });
+  // Manually inject the text chunk into the PNG
+  return injectTextChunk(imageBuffer, key, json);
 }
 
 /**

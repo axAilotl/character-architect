@@ -48,7 +48,7 @@ export function EditPanel() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
       <section className="card">
         <h2 className="text-xl font-bold mb-4">Basic Information</h2>
 
