@@ -6,4 +6,4 @@ node dist/index.js &
 
 # Start web server
 cd /app/apps/web
-serve -s dist -l 8080
+serve -s dist -l 8765

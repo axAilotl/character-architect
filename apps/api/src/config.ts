@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const config = {
-  port: parseInt(process.env.PORT || '3000', 10),
+  port: parseInt(process.env.PORT || '3456', 10),
   host: process.env.HOST || '127.0.0.1',
   databasePath: process.env.DATABASE_PATH || join(__dirname, '../data/cards.db'),
   storagePath: process.env.STORAGE_PATH || join(__dirname, '../storage'),
