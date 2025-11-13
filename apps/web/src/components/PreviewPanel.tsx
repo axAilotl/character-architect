@@ -12,7 +12,7 @@ export function PreviewPanel() {
   const cardData = isV3 ? (currentCard.data as CCv3Data).data : (currentCard.data as CCv2Data);
 
   const renderMarkdown = (text: string) => {
-    const html = marked(text);
+    const html = marked.parse(text) as string;
     return DOMPurify.sanitize(html, {
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'a', 'img', 'ul', 'ol', 'li', 'code', 'pre'],
       ALLOWED_ATTR: ['href', 'src', 'alt', 'title'],

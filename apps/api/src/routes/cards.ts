@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository } from '../db/repository.js';
-import { validateV2, validateV3 } from '@card-architect/schemas';
+import { validateV2, validateV3, type CCv2Data, type CCv3Data } from '@card-architect/schemas';
 
 export async function cardRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
@@ -49,7 +49,7 @@ export async function cardRoutes(fastify: FastifyInstance) {
     }
 
     const card = cardRepo.create({
-      data: body.data,
+      data: body.data as (CCv2Data | CCv3Data),
       meta: {
         name,
         spec: spec as 'v2' | 'v3',
@@ -83,7 +83,15 @@ export async function cardRoutes(fastify: FastifyInstance) {
       }
     }
 
-    const card = cardRepo.update(request.params.id, body);
+    const updateData: Partial<{ data: CCv2Data | CCv3Data; meta: unknown }> = {};
+    if (body.data) {
+      updateData.data = body.data as (CCv2Data | CCv3Data);
+    }
+    if (body.meta) {
+      updateData.meta = body.meta;
+    }
+
+    const card = cardRepo.update(request.params.id, updateData as any);
     if (!card) {
       reply.code(404);
       return { error: 'Card not found' };

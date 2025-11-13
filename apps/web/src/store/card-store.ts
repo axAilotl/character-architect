@@ -242,7 +242,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
 
     if (data) {
-      set({ tokenCounts: data.fields });
+      set({ tokenCounts: { ...data.fields, total: data.total } });
     }
   },
 
