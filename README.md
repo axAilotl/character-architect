@@ -165,7 +165,7 @@ Create `apps/api/.env`:
 
 ```env
 PORT=3456
-HOST=127.0.0.1
+HOST=0.0.0.0
 DATABASE_PATH=./data/cards.db
 STORAGE_PATH=./storage
 
