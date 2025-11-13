@@ -10,6 +10,9 @@ import { importExportRoutes } from './routes/import-export.js';
 import { assetRoutes } from './routes/assets.js';
 import { llmRoutes } from './routes/llm.js';
 import { ragRoutes } from './routes/rag.js';
+import { promptSimulatorRoutes } from './routes/prompt-simulator.js';
+import { redundancyRoutes } from './routes/redundancy.js';
+import { loreTriggerRoutes } from './routes/lore-trigger.js';
 import type Database from 'better-sqlite3';
 import { join } from 'path';
 
@@ -70,6 +73,9 @@ async function start() {
   await fastify.register(assetRoutes);
   await fastify.register(llmRoutes);
   await fastify.register(ragRoutes);
+  await fastify.register(promptSimulatorRoutes);
+  await fastify.register(redundancyRoutes);
+  await fastify.register(loreTriggerRoutes);
 
   // Graceful shutdown
   process.on('SIGTERM', async () => {
