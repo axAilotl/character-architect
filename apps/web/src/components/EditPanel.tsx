@@ -1,5 +1,5 @@
 import { useCardStore } from '../store/card-store';
-import type { CCv3Data } from '@card-architect/schemas';
+import type { CCv2Data, CCv3Data } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
 
@@ -10,7 +10,7 @@ export function EditPanel() {
   if (!currentCard) return null;
 
   const isV3 = currentCard.meta.spec === 'v3';
-  const cardData = isV3 ? (currentCard.data as CCv3Data).data : currentCard.data;
+  const cardData = isV3 ? (currentCard.data as CCv3Data).data : (currentCard.data as CCv2Data);
 
   const handleFieldChange = (field: string, value: string) => {
     if (isV3) {

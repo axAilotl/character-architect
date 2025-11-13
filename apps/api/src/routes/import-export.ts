@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { MultipartFile } from '@fastify/multipart';
 import { CardRepository } from '../db/repository.js';
 import { extractFromPNG, embedIntoPNG, validatePNGSize } from '../utils/png.js';
-import { detectSpec, validateV2, validateV3 } from '@card-architect/schemas';
+import { detectSpec, validateV2, validateV3, type CCv2Data, type CCv3Data } from '@card-architect/schemas';
 import { config } from '../config.js';
 
 export async function importExportRoutes(fastify: FastifyInstance) {
@@ -88,7 +88,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
     // Create card
     const card = cardRepo.create({
-      data: cardData,
+      data: cardData as (CCv2Data | CCv3Data),
       meta: {
         name,
         spec,
