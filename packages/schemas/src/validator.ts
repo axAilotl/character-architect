@@ -72,7 +72,7 @@ export function validateV3(data: unknown): ValidationResult {
 /**
  * Semantic validation rules
  */
-function performSemanticValidation(card: CCv2Data): ValidationError[] {
+function performSemanticValidation(card: CCv2Data | CCv3Data['data']): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // Check for empty required fields
