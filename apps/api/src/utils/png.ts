@@ -26,20 +26,75 @@ const TEXT_CHUNK_KEYS = {
 };
 
 /**
+ * Manually parse PNG text chunks from buffer
+ * pngjs library doesn't reliably read text chunks, so we parse them ourselves
+ */
+function parseTextChunks(buffer: Buffer): Record<string, string> {
+  const textChunks: Record<string, string> = {};
+
+  // Verify PNG signature
+  const signature = buffer.slice(0, 8);
+  if (signature.toString('hex') !== '89504e470d0a1a0a') {
+    console.error('[PNG Extract] Invalid PNG signature');
+    return textChunks;
+  }
+
+  let offset = 8; // Skip PNG signature
+
+  while (offset < buffer.length) {
+    // Read chunk length (4 bytes, big-endian)
+    if (offset + 4 > buffer.length) break;
+    const length = buffer.readUInt32BE(offset);
+    offset += 4;
+
+    // Read chunk type (4 bytes ASCII)
+    if (offset + 4 > buffer.length) break;
+    const type = buffer.slice(offset, offset + 4).toString('ascii');
+    offset += 4;
+
+    // Read chunk data
+    if (offset + length > buffer.length) break;
+    const data = buffer.slice(offset, offset + length);
+    offset += length;
+
+    // Skip CRC (4 bytes)
+    if (offset + 4 > buffer.length) break;
+    offset += 4;
+
+    // Parse tEXt chunks
+    if (type === 'tEXt') {
+      const nullIndex = data.indexOf(0);
+      if (nullIndex !== -1) {
+        const keyword = data.slice(0, nullIndex).toString('latin1');
+        const text = data.slice(nullIndex + 1).toString('latin1');
+        textChunks[keyword] = text;
+        console.log(`[PNG Extract] Found tEXt chunk: "${keyword}" (${text.length} bytes)`);
+      }
+    }
+
+    // Stop after IEND chunk
+    if (type === 'IEND') break;
+  }
+
+  return textChunks;
+}
+
+/**
  * Extract character card JSON from PNG tEXt chunks
  */
 export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data | CCv3Data; spec: 'v2' | 'v3' } | null> {
   return new Promise((resolve, reject) => {
+    // Validate PNG format using pngjs
     const png = new PNG();
 
-    png.parse(buffer, (err, data) => {
+    png.parse(buffer, (err) => {
       if (err) {
         reject(err);
         return;
       }
 
-      // Look for character card data in text chunks
-      const textChunks = (data as PNG & { text?: Record<string, string> }).text || {};
+      // Manually parse text chunks (pngjs doesn't read them reliably)
+      const textChunks = parseTextChunks(buffer);
       const availableKeys = Object.keys(textChunks);
 
       console.log('[PNG Extract] Available text chunks:', availableKeys);
