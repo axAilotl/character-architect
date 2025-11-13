@@ -1,8 +1,17 @@
-import type { Card, TokenizeRequest, TokenizeResponse } from '@card-architect/schemas';
+import type {
+  Card,
+  TokenizeRequest,
+  TokenizeResponse,
+  LLMInvokeRequest,
+  LLMAssistRequest,
+  LLMResponse,
+  LLMAssistResponse,
+} from '@card-architect/schemas';
 
 const API_BASE = '/api';
 
 class ApiClient {
+  public baseURL = API_BASE;
   private async request<T>(
     endpoint: string,
     options?: RequestInit
@@ -133,6 +142,73 @@ class ApiClient {
 
     const data = await response.json();
     return { data };
+  }
+
+  // LLM
+  async invokeLLM(req: LLMInvokeRequest) {
+    return this.request<LLMResponse>('/llm/invoke', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
+  }
+
+  async llmAssist(req: LLMAssistRequest) {
+    return this.request<LLMAssistResponse>('/llm/assist', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
+  }
+
+  // LLM streaming version
+  async llmAssistStream(
+    req: LLMAssistRequest,
+    onChunk: (chunk: any) => void,
+    onComplete: (response: LLMAssistResponse) => void,
+    onError: (error: string) => void
+  ) {
+    try {
+      const response = await fetch(`${API_BASE}/llm/assist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...req, stream: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const chunk = JSON.parse(line.slice(6));
+              if (chunk.done && chunk.assistResponse) {
+                onComplete(chunk.assistResponse);
+              } else {
+                onChunk(chunk);
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      onError(error.message);
+    }
   }
 }
 

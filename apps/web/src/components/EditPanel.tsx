@@ -1,11 +1,18 @@
+import { useState } from 'react';
 import { useCardStore } from '../store/card-store';
-import type { CCv2Data, CCv3Data } from '@card-architect/schemas';
+import type { CCv3Data, CCFieldName } from '@card-architect/schemas';
+'@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
+import { LLMAssistSidebar } from './LLMAssistSidebar';
 
 export function EditPanel() {
   const { currentCard, updateCardData, showAdvanced, setShowAdvanced } = useCardStore();
   const tokenCounts = useCardStore((state) => state.tokenCounts);
+
+  const [llmAssistOpen, setLLMAssistOpen] = useState(false);
+  const [llmAssistField, setLLMAssistField] = useState<CCFieldName>('description');
+  const [llmAssistValue, setLLMAssistValue] = useState('');
 
   if (!currentCard) return null;
 
@@ -25,6 +32,21 @@ export function EditPanel() {
     }
   };
 
+  const handleOpenLLMAssist = (fieldName: CCFieldName, value: string) => {
+    setLLMAssistField(fieldName);
+    setLLMAssistValue(value);
+    setLLMAssistOpen(true);
+  };
+
+  const handleLLMApply = (value: string, action: 'replace' | 'append' | 'insert') => {
+    if (action === 'replace') {
+      handleFieldChange(llmAssistField, value);
+    } else if (action === 'append') {
+      handleFieldChange(llmAssistField, llmAssistValue + '\n' + value);
+    }
+    // 'insert' would be for alt greetings array manipulation
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <section className="card">
@@ -35,6 +57,8 @@ export function EditPanel() {
           value={cardData.name}
           onChange={(v) => handleFieldChange('name', v)}
           tokenCount={tokenCounts.name}
+          fieldName="description"
+          onOpenLLMAssist={handleOpenLLMAssist}
         />
 
         <FieldEditor
@@ -44,6 +68,8 @@ export function EditPanel() {
           tokenCount={tokenCounts.description}
           multiline
           rows={4}
+          fieldName="description"
+          onOpenLLMAssist={handleOpenLLMAssist}
         />
 
         <FieldEditor
@@ -53,6 +79,8 @@ export function EditPanel() {
           tokenCount={tokenCounts.personality}
           multiline
           rows={4}
+          fieldName="personality"
+          onOpenLLMAssist={handleOpenLLMAssist}
         />
 
         <FieldEditor
@@ -62,6 +90,8 @@ export function EditPanel() {
           tokenCount={tokenCounts.scenario}
           multiline
           rows={4}
+          fieldName="scenario"
+          onOpenLLMAssist={handleOpenLLMAssist}
         />
 
         <FieldEditor
@@ -71,6 +101,8 @@ export function EditPanel() {
           tokenCount={tokenCounts.first_mes}
           multiline
           rows={4}
+          fieldName="first_mes"
+          onOpenLLMAssist={handleOpenLLMAssist}
         />
 
         <FieldEditor
@@ -80,6 +112,8 @@ export function EditPanel() {
           tokenCount={tokenCounts.mes_example}
           multiline
           rows={6}
+          fieldName="mes_example"
+          onOpenLLMAssist={handleOpenLLMAssist}
         />
       </section>
 
@@ -164,6 +198,15 @@ export function EditPanel() {
       </section>
 
       <LorebookEditor />
+
+      <LLMAssistSidebar
+        isOpen={llmAssistOpen}
+        onClose={() => setLLMAssistOpen(false)}
+        fieldName={llmAssistField}
+        currentValue={llmAssistValue}
+        onApply={handleLLMApply}
+        cardSpec={currentCard.meta.spec}
+      />
     </div>
   );
 }

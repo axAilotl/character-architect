@@ -1,3 +1,5 @@
+import type { CCFieldName } from '@card-architect/schemas';
+
 interface FieldEditorProps {
   label: string;
   value: string;
@@ -6,6 +8,8 @@ interface FieldEditorProps {
   multiline?: boolean;
   rows?: number;
   placeholder?: string;
+  fieldName?: CCFieldName;
+  onOpenLLMAssist?: (fieldName: CCFieldName, value: string) => void;
 }
 
 export function FieldEditor({
@@ -16,14 +20,27 @@ export function FieldEditor({
   multiline,
   rows = 3,
   placeholder,
+  fieldName,
+  onOpenLLMAssist,
 }: FieldEditorProps) {
   return (
     <div className="input-group mb-4">
       <div className="flex items-center justify-between">
         <label className="label">{label}</label>
-        {tokenCount !== undefined && (
-          <span className="chip chip-token">{tokenCount} tokens</span>
-        )}
+        <div className="flex items-center gap-2">
+          {tokenCount !== undefined && (
+            <span className="chip chip-token">{tokenCount} tokens</span>
+          )}
+          {fieldName && onOpenLLMAssist && (
+            <button
+              onClick={() => onOpenLLMAssist(fieldName, value)}
+              className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+              title="Open LLM Assist"
+            >
+              ✨ AI
+            </button>
+          )}
+        </div>
       </div>
 
       {multiline ? (

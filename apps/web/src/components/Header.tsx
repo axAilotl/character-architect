@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useCardStore } from '../store/card-store';
+import { SettingsModal } from './SettingsModal';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -7,6 +9,7 @@ interface HeaderProps {
 export function Header({ onToggleSidebar }: HeaderProps) {
   const { currentCard, isDirty, isSaving, saveCard, createNewCard } = useCardStore();
   const tokenCounts = useCardStore((state) => state.tokenCounts);
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleImport = async () => {
     const input = document.createElement('input');
@@ -48,6 +51,10 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           </div>
         )}
 
+        <button onClick={() => setShowSettings(true)} className="btn-secondary" title="LLM Settings">
+          ⚙️
+        </button>
+
         <button onClick={createNewCard} className="btn-secondary">
           New
         </button>
@@ -86,6 +93,8 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           </>
         )}
       </div>
+
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </header>
   );
 }

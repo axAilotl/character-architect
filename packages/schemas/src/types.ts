@@ -282,3 +282,197 @@ export interface VcsAdapter {
   commit(message: string): Promise<void>;
   log(limit?: number): Promise<Array<{ id: string; msg: string; when: ISO8601 }>>;
 }
+
+/**
+ * LLM Assist System Types
+ */
+
+// Provider configuration
+export type ProviderKind = 'openai' | 'openai-compatible' | 'anthropic';
+export type OpenAIMode = 'responses' | 'chat';
+
+export interface ProviderConfig {
+  id: string;
+  kind: ProviderKind;
+  label: string;
+  baseURL: string;
+  apiKey: string;
+  organization?: string; // OpenAI org/project
+  defaultModel: string;
+  mode?: OpenAIMode; // For OpenAI/compatible providers
+  streamDefault?: boolean;
+  anthropicVersion?: string; // For Anthropic (e.g., "2023-06-01")
+  temperature?: number;
+  maxTokens?: number;
+}
+
+// RAG (Retrieval-Augmented Generation) configuration
+export interface RagConfig {
+  enabled: boolean;
+  topK: number;
+  tokenCap: number;
+  indexPath: string;
+  embedModel: string;
+  sources: RagSource[];
+}
+
+export interface RagSource {
+  id: string;
+  path: string;
+  title: string;
+  type: 'markdown' | 'html' | 'pdf' | 'text';
+  indexed: boolean;
+  indexedAt?: ISO8601;
+}
+
+// LLM settings
+export interface LLMSettings {
+  providers: ProviderConfig[];
+  activeProviderId?: string;
+  rag: RagConfig;
+}
+
+// LLM message types
+export type MessageRole = 'system' | 'user' | 'assistant';
+
+export interface LLMMessage {
+  role: MessageRole;
+  content: string;
+}
+
+// LLM invocation request
+export interface LLMInvokeRequest {
+  providerId: string;
+  model: string;
+  mode?: OpenAIMode;
+  messages: LLMMessage[];
+  system?: string; // System message (Anthropic top-level)
+  temperature?: number;
+  maxTokens?: number;
+  stream?: boolean;
+}
+
+// LLM streaming response
+export interface LLMStreamChunk {
+  content: string;
+  done: boolean;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+// LLM non-streaming response
+export interface LLMResponse {
+  content: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  model: string;
+  finishReason?: 'stop' | 'length' | 'content_filter';
+}
+
+// Field context for LLM operations
+export type CCFieldName =
+  | 'description'
+  | 'personality'
+  | 'scenario'
+  | 'first_mes'
+  | 'mes_example'
+  | 'alternate_greetings'
+  | 'system_prompt'
+  | 'post_history_instructions'
+  | 'creator_notes'
+  | 'lore_entry';
+
+export interface FieldContext {
+  fieldName: CCFieldName;
+  currentValue: string;
+  selection?: string;
+  otherFields?: Partial<Record<CCFieldName, string>>;
+  loreEntries?: string[];
+  ragSnippets?: RagSnippet[];
+  spec: Spec;
+}
+
+// RAG snippet
+export interface RagSnippet {
+  content: string;
+  source: string;
+  score: number;
+}
+
+// Preset operations
+export type PresetOperation =
+  | 'tighten'
+  | 'convert-structured'
+  | 'convert-prose'
+  | 'convert-hybrid'
+  | 'enforce-style'
+  | 'generate-alts'
+  | 'generate-lore'
+  | 'custom';
+
+export interface PresetConfig {
+  operation: PresetOperation;
+  params?: Record<string, unknown>;
+}
+
+// LLM assist request (from UI)
+export interface LLMAssistRequest {
+  providerId: string;
+  model: string;
+  instruction: string;
+  context: FieldContext;
+  preset?: PresetConfig;
+  temperature?: number;
+  maxTokens?: number;
+  stream?: boolean;
+}
+
+// LLM assist response
+export interface LLMAssistResponse {
+  original: string;
+  revised: string;
+  diff?: DiffOperation[];
+  tokenDelta: {
+    before: number;
+    after: number;
+    delta: number;
+  };
+  metadata: {
+    provider: string;
+    model: string;
+    temperature: number;
+    promptTokens: number;
+    completionTokens: number;
+  };
+}
+
+// Diff operations for preview
+export type DiffOperationType = 'add' | 'remove' | 'unchanged';
+
+export interface DiffOperation {
+  type: DiffOperationType;
+  value: string;
+  lineNumber?: number;
+}
+
+// Apply action
+export type ApplyAction =
+  | 'replace'
+  | 'insert-alt-greeting'
+  | 'append-example'
+  | 'create-lore-entry';
+
+export interface ApplyRequest {
+  cardId: UUID;
+  fieldName: CCFieldName;
+  action: ApplyAction;
+  content: string;
+  snapshot?: boolean; // Create version snapshot
+  snapshotMessage?: string;
+}
