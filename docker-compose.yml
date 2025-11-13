@@ -6,13 +6,13 @@ services:
       context: .
       target: api
     ports:
-      - "3000:3000"
+      - "3456:3456"
     volumes:
       - ./data:/app/data
       - ./storage:/app/storage
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=3456
       - HOST=0.0.0.0
       - DATABASE_PATH=/app/data/cards.db
       - STORAGE_PATH=/app/storage
@@ -22,7 +22,7 @@ services:
       - WARN_CARD_SIZE_MB=2
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3456/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -32,7 +32,7 @@ services:
       context: .
       target: web
     ports:
-      - "8080:80"
+      - "8765:80"
     depends_on:
       - api
     restart: unless-stopped
