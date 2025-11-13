@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import type { MultipartFile } from '@fastify/multipart';
 import { CardRepository } from '../db/repository.js';
-import { extractFromPNG, embedIntoPNG, validatePNGSize } from '../utils/png.js';
+import { extractFromPNG, validatePNGSize, createCardPNG } from '../utils/png.js';
 import { detectSpec, validateV2, validateV3, type CCv2Data, type CCv3Data } from '@card-architect/schemas';
 import { config } from '../config.js';
+import sharp from 'sharp';
 
 export async function importExportRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
@@ -173,10 +173,31 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.json"`);
         return JSON.stringify(card.data, null, 2);
       } else if (format === 'png') {
-        // For PNG export, we need a base image
-        // In a real implementation, this would use the card's avatar or a default image
-        reply.code(501);
-        return { error: 'PNG export requires an avatar image (not yet implemented)' };
+        try {
+          // Create a default placeholder image (400x600 with a gradient)
+          const placeholderBuffer = await sharp({
+            create: {
+              width: 400,
+              height: 600,
+              channels: 4,
+              background: { r: 100, g: 120, b: 150, alpha: 1 }
+            }
+          })
+          .png()
+          .toBuffer();
+
+          // Embed card data into the PNG
+          const pngBuffer = await createCardPNG(placeholderBuffer, card);
+
+          // Return the PNG with appropriate headers
+          reply.header('Content-Type', 'image/png');
+          reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.png"`);
+          return pngBuffer;
+        } catch (err) {
+          fastify.log.error({ error: err }, 'Failed to create PNG export');
+          reply.code(500);
+          return { error: `Failed to create PNG export: ${err instanceof Error ? err.message : String(err)}` };
+        }
       } else {
         reply.code(400);
         return { error: 'Invalid export format' };
