@@ -19,7 +19,7 @@ interface CardStore {
   tokenizerModel: string;
 
   // UI state
-  activeTab: 'edit' | 'preview' | 'json' | 'diff';
+  activeTab: 'edit' | 'preview' | 'json' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger';
   showAdvanced: boolean;
 
   // Actions
@@ -36,7 +36,7 @@ interface CardStore {
   setTokenizerModel: (model: string) => void;
 
   // UI
-  setActiveTab: (tab: 'edit' | 'preview' | 'json' | 'diff') => void;
+  setActiveTab: (tab: 'edit' | 'preview' | 'json' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger') => void;
   setShowAdvanced: (show: boolean) => void;
 }
 
