@@ -28,13 +28,23 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         cardData = JSON.parse(buffer.toString('utf-8'));
         const detectedSpec = detectSpec(cardData);
         if (!detectedSpec) {
+          const obj = cardData as Record<string, unknown>;
           fastify.log.error({
-            keys: Object.keys(cardData as Record<string, unknown>).slice(0, 10),
-            hasSpec: 'spec' in (cardData as Record<string, unknown>),
-            hasName: 'name' in (cardData as Record<string, unknown>),
+            keys: Object.keys(obj).slice(0, 10),
+            hasSpec: 'spec' in obj,
+            specValue: obj.spec,
+            hasSpecVersion: 'spec_version' in obj,
+            specVersionValue: obj.spec_version,
+            specVersionType: typeof obj.spec_version,
+            hasData: 'data' in obj,
+            hasName: 'name' in obj,
+            dataHasName: obj.data && typeof obj.data === 'object' && 'name' in obj.data,
           }, 'Failed to detect spec for JSON card');
           reply.code(400);
-          return { error: 'Invalid card format: unable to detect v2 or v3 spec' };
+          return {
+            error: 'Invalid card format: unable to detect v2 or v3 spec. The JSON structure does not match expected character card formats.',
+            details: 'Expected either: (1) v3 format with "spec":"chara_card_v3" and "data" object, (2) v2 format with "spec":"chara_card_v2" and "data" object, or (3) legacy v2 with direct "name" field.'
+          };
         }
         spec = detectedSpec;
       } catch (err) {
@@ -62,7 +72,10 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         if (!extracted) {
           fastify.log.error('No character card data found in PNG');
           reply.code(400);
-          return { error: 'No character card data found in PNG. Make sure the PNG contains embedded card data in tEXt chunks.' };
+          return {
+            error: 'No character card data found in PNG',
+            details: 'This PNG does not contain embedded character card data in its text chunks. Make sure the PNG was exported from a character card editor that embeds the card data. Common text chunk keys checked: chara, ccv2, ccv3, character, chara_card_v3.'
+          };
         }
         cardData = extracted.data;
         spec = extracted.spec;

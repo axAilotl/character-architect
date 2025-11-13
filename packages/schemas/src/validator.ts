@@ -168,31 +168,53 @@ export function detectSpec(data: unknown): 'v2' | 'v3' | null {
     if (typeof obj.spec_version === 'string' && obj.spec_version.startsWith('3.')) {
       return 'v3';
     }
+    // Accept numeric version (some tools might export as number)
+    if (typeof obj.spec_version === 'number' && obj.spec_version >= 3.0) {
+      return 'v3';
+    }
     // Some cards might not have spec_version, treat as v3 anyway
     if (!obj.spec_version) {
       return 'v3';
     }
+    // If spec is v3 but version doesn't match, still try to validate as v3
+    // since the spec field is the primary indicator
+    return 'v3';
   }
 
   // Check for Chub v2 format (wrapped with spec field)
-  if (obj.spec === 'chara_card_v2' || obj.spec_version === '2.0') {
+  if (obj.spec === 'chara_card_v2') {
     return 'v2';
   }
 
-  // v2 is the default/legacy format (direct fields)
+  // Check for version field indicating v2
+  if (obj.spec_version === '2.0' || obj.spec_version === 2.0) {
+    return 'v2';
+  }
+
+  // Check if it's a wrapped card (has spec and data fields) but spec detection failed
+  if (obj.spec && obj.data && typeof obj.data === 'object') {
+    const dataObj = obj.data as Record<string, unknown>;
+    // If data has a name field, it's likely a wrapped format
+    if (dataObj.name && typeof dataObj.name === 'string') {
+      // Try to infer from spec field
+      if (typeof obj.spec === 'string') {
+        if (obj.spec.includes('v3') || obj.spec.includes('3')) {
+          return 'v3';
+        }
+        if (obj.spec.includes('v2') || obj.spec.includes('2')) {
+          return 'v2';
+        }
+      }
+      // Default wrapped format to v3 (more common modern format)
+      return 'v3';
+    }
+  }
+
+  // v2 is the default/legacy format (direct fields, not wrapped)
   if (obj.name && typeof obj.name === 'string') {
     // Make sure it has other typical v2 fields
     if ('description' in obj || 'personality' in obj || 'scenario' in obj) {
       return 'v2';
-    }
-  }
-
-  // Check if it's a v3 card with data nested inside
-  if (obj.data && typeof obj.data === 'object') {
-    const dataObj = obj.data as Record<string, unknown>;
-    if (dataObj.name && typeof dataObj.name === 'string') {
-      // This might be a v3 card
-      return 'v3';
     }
   }
 
