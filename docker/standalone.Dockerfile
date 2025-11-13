@@ -40,12 +40,12 @@ RUN npm install -g serve
 RUN mkdir -p /app/data /app/storage
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3456
 ENV HOST=0.0.0.0
 ENV DATABASE_PATH=/app/data/cards.db
 ENV STORAGE_PATH=/app/storage
 
-EXPOSE 3000 8080
+EXPOSE 3456 8765
 
 # Start script that runs both API and web server
 COPY docker/start.sh /start.sh

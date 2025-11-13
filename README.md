@@ -38,8 +38,8 @@ cd card-architect
 docker-compose up -d
 
 # Access the application
-# Web UI: http://localhost:8080
-# API: http://localhost:3000
+# Web UI: http://localhost:8765
+# API: http://localhost:3456
 ```
 
 ### Standalone Container
@@ -49,12 +49,12 @@ docker-compose up -d
 docker build -f docker/standalone.Dockerfile -t card-architect .
 
 # Run
-docker run -p 3000:3000 -p 8080:8080 \
+docker run -p 3456:3456 -p 8765:8765 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/storage:/app/storage \
   card-architect
 
-# Access at http://localhost:8080
+# Access at http://localhost:8765
 ```
 
 ### Local Development
@@ -68,7 +68,7 @@ npm install
 # Start development servers
 npm run dev
 
-# API will run on http://localhost:3000
+# API will run on http://localhost:3456
 # Web UI will run on http://localhost:5173
 ```
 
@@ -164,7 +164,7 @@ The lorebook editor supports all CCv3 entry fields:
 Create `apps/api/.env`:
 
 ```env
-PORT=3000
+PORT=3456
 HOST=127.0.0.1
 DATABASE_PATH=./data/cards.db
 STORAGE_PATH=./storage

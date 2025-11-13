@@ -4,6 +4,9 @@ import { EditPanel } from './EditPanel';
 import { PreviewPanel } from './PreviewPanel';
 import { JsonPanel } from './JsonPanel';
 import { DiffPanel } from './DiffPanel';
+import { PromptSimulatorPanel } from './PromptSimulatorPanel';
+import { RedundancyPanel } from './RedundancyPanel';
+import { LoreTriggerPanel } from './LoreTriggerPanel';
 
 export function CardEditor() {
   const activeTab = useCardStore((state) => state.activeTab);
@@ -17,6 +20,9 @@ export function CardEditor() {
         {activeTab === 'preview' && <PreviewPanel />}
         {activeTab === 'json' && <JsonPanel />}
         {activeTab === 'diff' && <DiffPanel />}
+        {activeTab === 'simulator' && <PromptSimulatorPanel />}
+        {activeTab === 'redundancy' && <RedundancyPanel />}
+        {activeTab === 'lore-trigger' && <LoreTriggerPanel />}
       </div>
     </div>
   );
