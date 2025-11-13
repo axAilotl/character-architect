@@ -8,6 +8,9 @@ export function EditorTabs() {
     { id: 'preview', label: 'Preview' },
     { id: 'json', label: 'JSON' },
     { id: 'diff', label: 'Diff' },
+    { id: 'simulator', label: 'Prompt Simulator' },
+    { id: 'redundancy', label: 'Redundancy Killer' },
+    { id: 'lore-trigger', label: 'Lore Trigger Tester' },
   ] as const;
 
   return (
