@@ -3,14 +3,19 @@
  * Shows semantic diffs between original and revised text
  */
 
+import { useState } from 'react';
 import type { DiffOperation } from '@card-architect/schemas';
+import { SideBySideDiffViewer } from './SideBySideDiffViewer';
 
 interface DiffViewerProps {
   diff: DiffOperation[];
+  originalText?: string;
+  revisedText?: string;
   compact?: boolean;
 }
 
-export function DiffViewer({ diff, compact = false }: DiffViewerProps) {
+export function DiffViewer({ diff, originalText, revisedText, compact = false }: DiffViewerProps) {
+  const [viewMode, setViewMode] = useState<'unified' | 'split'>('split');
   // Group consecutive unchanged lines for compaction
   const renderDiff = () => {
     if (compact) {
@@ -101,20 +106,66 @@ export function DiffViewer({ diff, compact = false }: DiffViewerProps) {
 
   const stats = computeStats(diff);
 
-  return (
-    <div className="border border-dark-border rounded overflow-hidden">
-      {/* Stats Header */}
-      <div className="bg-dark-bg px-3 py-2 border-b border-dark-border flex gap-4 text-xs">
-        <span className="text-green-400">+{stats.additions} additions</span>
-        <span className="text-red-400">-{stats.deletions} deletions</span>
-        {stats.unchanged > 0 && (
-          <span className="text-dark-muted">{stats.unchanged} unchanged</span>
-        )}
-      </div>
+  // Render toggle buttons
+  const renderViewToggle = () => {
+    if (!originalText || !revisedText) return null;
 
-      {/* Diff Content */}
-      <div className="bg-dark-card p-3 font-mono text-xs overflow-x-auto max-h-[400px] overflow-y-auto">
-        {renderDiff()}
+    return (
+      <div className="mb-2 flex justify-end">
+        <div className="inline-flex rounded border border-dark-border overflow-hidden">
+          <button
+            onClick={() => setViewMode('unified')}
+            className={`px-3 py-1 text-xs ${
+              viewMode === 'unified'
+                ? 'bg-blue-600 text-white'
+                : 'bg-dark-card text-dark-muted hover:bg-dark-surface'
+            }`}
+          >
+            Unified
+          </button>
+          <button
+            onClick={() => setViewMode('split')}
+            className={`px-3 py-1 text-xs ${
+              viewMode === 'split'
+                ? 'bg-blue-600 text-white'
+                : 'bg-dark-card text-dark-muted hover:bg-dark-surface'
+            }`}
+          >
+            Side-by-side
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // If we have original and revised text and split mode is selected, show the side-by-side viewer
+  if (viewMode === 'split' && originalText && revisedText) {
+    return (
+      <div>
+        {renderViewToggle()}
+        <SideBySideDiffViewer diff={diff} originalText={originalText} revisedText={revisedText} />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {renderViewToggle()}
+
+      <div className="border border-dark-border rounded overflow-hidden">
+        {/* Stats Header */}
+        <div className="bg-dark-bg px-3 py-2 border-b border-dark-border flex gap-4 text-xs">
+          <span className="text-green-400">+{stats.additions} additions</span>
+          <span className="text-red-400">-{stats.deletions} deletions</span>
+          {stats.unchanged > 0 && (
+            <span className="text-dark-muted">{stats.unchanged} unchanged</span>
+          )}
+        </div>
+
+        {/* Diff Content */}
+        <div className="bg-dark-card p-3 font-mono text-xs overflow-x-auto max-h-[400px] overflow-y-auto">
+          {renderDiff()}
+        </div>
       </div>
     </div>
   );
@@ -128,6 +179,8 @@ function getDiffLineClass(type: DiffOperation['type']): string {
       return 'bg-red-900/30 text-red-200';
     case 'unchanged':
       return 'text-dark-muted';
+    default:
+      return 'text-dark-muted';
   }
 }
 
@@ -139,6 +192,8 @@ function getDiffSymbolClass(type: DiffOperation['type']): string {
       return 'text-red-400 font-bold';
     case 'unchanged':
       return 'text-dark-muted';
+    default:
+      return 'text-dark-muted';
   }
 }
 
@@ -149,6 +204,8 @@ function getDiffSymbol(type: DiffOperation['type']): string {
     case 'remove':
       return '-';
     case 'unchanged':
+      return ' ';
+    default:
       return ' ';
   }
 }

@@ -375,7 +375,13 @@ export function LLMAssistSidebar({
               </div>
             </div>
 
-            {assistResponse.diff && <DiffViewer diff={assistResponse.diff} />}
+            {assistResponse.diff && (
+              <DiffViewer
+                diff={assistResponse.diff}
+                originalText={assistResponse.original}
+                revisedText={assistResponse.revised}
+              />
+            )}
 
             <div className="flex gap-2">
               <button
