@@ -25,7 +25,7 @@ export function JsonPanel() {
       </div>
 
       <div className="flex-1 overflow-auto p-4">
-        <pre className="bg-dark-surface p-4 rounded text-sm overflow-x-auto">
+        <pre className="bg-dark-surface p-4 rounded text-sm whitespace-pre-wrap break-words">
           <code>{json}</code>
         </pre>
       </div>

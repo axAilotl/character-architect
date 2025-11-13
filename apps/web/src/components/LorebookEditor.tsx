@@ -1,16 +1,47 @@
 import { useState } from 'react';
 import { useCardStore } from '../store/card-store';
-import type { CCv3Data, CCv3LorebookEntry } from '@card-architect/schemas';
+import type { CCv3Data, CCv2Data, CCv3LorebookEntry } from '@card-architect/schemas';
 
 export function LorebookEditor() {
   const { currentCard, updateCardData } = useCardStore();
   const [editingEntry, setEditingEntry] = useState<number | null>(null);
 
-  if (!currentCard || currentCard.meta.spec !== 'v3') return null;
+  if (!currentCard) return null;
 
-  const cardData = (currentCard.data as CCv3Data).data;
-  const lorebook = cardData.character_book || { entries: [] };
-  const entries = lorebook.entries || [];
+  const isV3 = currentCard.meta.spec === 'v3';
+  const cardData = isV3 ? (currentCard.data as CCv3Data).data : (currentCard.data as CCv2Data);
+
+  // Get lorebook based on card version
+  const lorebook = cardData.character_book;
+  const entries = lorebook?.entries || [];
+  const hasLorebook = Boolean(lorebook);
+
+  const handleInitializeLorebook = () => {
+    if (isV3) {
+      updateCardData({
+        data: {
+          ...cardData,
+          character_book: {
+            name: cardData.name + ' Lorebook',
+            description: '',
+            entries: [],
+          },
+        },
+      } as Partial<CCv3Data>);
+    } else {
+      updateCardData({
+        character_book: {
+          name: cardData.name + ' Lorebook',
+          description: '',
+          scan_depth: 100,
+          token_budget: 500,
+          recursive_scanning: false,
+          extensions: {},
+          entries: [],
+        },
+      } as Partial<CCv2Data>);
+    }
+  };
 
   const handleAddEntry = () => {
     const newEntry: CCv3LorebookEntry = {
@@ -21,15 +52,24 @@ export function LorebookEditor() {
       priority: 0,
     };
 
-    updateCardData({
-      data: {
-        ...cardData,
+    if (isV3) {
+      updateCardData({
+        data: {
+          ...cardData,
+          character_book: {
+            ...lorebook,
+            entries: [...entries, newEntry],
+          },
+        },
+      } as Partial<CCv3Data>);
+    } else {
+      updateCardData({
         character_book: {
           ...lorebook,
           entries: [...entries, newEntry],
         },
-      },
-    } as Partial<CCv3Data>);
+      } as Partial<CCv2Data>);
+    }
 
     setEditingEntry(entries.length);
   };
@@ -38,28 +78,47 @@ export function LorebookEditor() {
     const newEntries = [...entries];
     newEntries[index] = { ...newEntries[index], ...updates };
 
-    updateCardData({
-      data: {
-        ...cardData,
+    if (isV3) {
+      updateCardData({
+        data: {
+          ...cardData,
+          character_book: {
+            ...lorebook,
+            entries: newEntries,
+          },
+        },
+      } as Partial<CCv3Data>);
+    } else {
+      updateCardData({
         character_book: {
           ...lorebook,
           entries: newEntries,
         },
-      },
-    } as Partial<CCv3Data>);
+      } as Partial<CCv2Data>);
+    }
   };
 
   const handleDeleteEntry = (index: number) => {
     const newEntries = entries.filter((_, i) => i !== index);
-    updateCardData({
-      data: {
-        ...cardData,
+
+    if (isV3) {
+      updateCardData({
+        data: {
+          ...cardData,
+          character_book: {
+            ...lorebook,
+            entries: newEntries,
+          },
+        },
+      } as Partial<CCv3Data>);
+    } else {
+      updateCardData({
         character_book: {
           ...lorebook,
           entries: newEntries,
         },
-      },
-    } as Partial<CCv3Data>);
+      } as Partial<CCv2Data>);
+    }
 
     if (editingEntry === index) {
       setEditingEntry(null);
@@ -69,13 +128,29 @@ export function LorebookEditor() {
   return (
     <section className="card">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold">Character Book (Lorebook)</h2>
-        <button onClick={handleAddEntry} className="btn-primary">
-          Add Entry
-        </button>
+        <h2 className="text-xl font-bold">
+          Character Book (Lorebook)
+          <span className="ml-2 text-sm text-dark-muted font-normal">
+            {isV3 ? 'V3' : 'V2'} Format
+          </span>
+        </h2>
+        {hasLorebook ? (
+          <button onClick={handleAddEntry} className="btn-primary">
+            Add Entry
+          </button>
+        ) : (
+          <button onClick={handleInitializeLorebook} className="btn-primary">
+            Initialize Lorebook
+          </button>
+        )}
       </div>
 
-      {entries.length === 0 ? (
+      {!hasLorebook ? (
+        <div className="text-center text-dark-muted py-8">
+          <p className="mb-2">This card doesn't have a lorebook yet.</p>
+          <p className="text-sm">Click "Initialize Lorebook" to add one.</p>
+        </div>
+      ) : entries.length === 0 ? (
         <p className="text-dark-muted">No lorebook entries yet. Click "Add Entry" to create one.</p>
       ) : (
         <div className="space-y-2">

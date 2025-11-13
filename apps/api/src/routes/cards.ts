@@ -48,13 +48,17 @@ export async function cardRoutes(fastify: FastifyInstance) {
       }
     }
 
+    // Filter out fields that should be auto-generated
+    const userMeta = body.meta as Record<string, unknown> | undefined;
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...safeMeta } = userMeta || {};
+
     const card = cardRepo.create({
       data: body.data as (CCv2Data | CCv3Data),
       meta: {
         name,
         spec: spec as 'v2' | 'v3',
         tags: [],
-        ...(body.meta as Record<string, unknown>),
+        ...safeMeta,
       },
     });
 
