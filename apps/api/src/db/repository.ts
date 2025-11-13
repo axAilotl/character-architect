@@ -39,7 +39,7 @@ export class CardRepository {
   /**
    * Create a new card
    */
-  create(card: Omit<Card, 'meta'> & { meta: Omit<CardMeta, 'id' | 'createdAt' | 'updatedAt'> }): Card {
+  create(card: Omit<Card, 'meta'> & { meta: Omit<CardMeta, 'id' | 'createdAt' | 'updatedAt'> }, originalImage?: Buffer): Card {
     const id = nanoid();
     const now = new Date().toISOString();
 
@@ -51,8 +51,8 @@ export class CardRepository {
     };
 
     const stmt = this.db.prepare(`
-      INSERT INTO cards (id, name, spec, data, tags, creator, character_version, rating, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO cards (id, name, spec, data, tags, creator, character_version, rating, original_image, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -64,11 +64,21 @@ export class CardRepository {
       meta.creator || null,
       meta.characterVersion || null,
       meta.rating || null,
+      originalImage || null,
       meta.createdAt,
       meta.updatedAt
     );
 
     return { meta, data: card.data };
+  }
+
+  /**
+   * Get the original image for a card
+   */
+  getOriginalImage(id: string): Buffer | null {
+    const stmt = this.db.prepare('SELECT original_image FROM cards WHERE id = ?');
+    const row = stmt.get(id) as { original_image: Buffer | null } | undefined;
+    return row?.original_image || null;
   }
 
   /**

@@ -28,6 +28,7 @@ export function createTables(db: Database.Database): void {
       creator TEXT,
       character_version TEXT,
       rating TEXT CHECK (rating IN ('SFW', 'NSFW')),
+      original_image BLOB,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
@@ -69,4 +70,11 @@ export function createTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_versions_card_id ON versions(card_id);
     CREATE INDEX IF NOT EXISTS idx_versions_created_at ON versions(created_at);
   `);
+
+  // Migrations - add original_image column if it doesn't exist
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN original_image BLOB`);
+  } catch (err) {
+    // Column already exists, ignore error
+  }
 }

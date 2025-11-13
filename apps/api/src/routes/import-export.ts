@@ -21,6 +21,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
     let cardData: unknown;
     let spec: 'v2' | 'v3';
+    let originalImage: Buffer | undefined;
 
     // Detect format
     if (data.mimetype === 'application/json') {
@@ -79,6 +80,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         }
         cardData = extracted.data;
         spec = extracted.spec;
+        originalImage = buffer; // Store the original PNG
         fastify.log.info({ spec }, 'Successfully extracted card from PNG');
       } catch (err) {
         fastify.log.error({ error: err }, 'Failed to extract card from PNG');
@@ -150,7 +152,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         spec,
         tags: [],
       },
-    });
+    }, originalImage);
 
     reply.code(201);
     return { card, warnings };
@@ -174,20 +176,28 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         return JSON.stringify(card.data, null, 2);
       } else if (format === 'png') {
         try {
-          // Create a default placeholder image (400x600 with a gradient)
-          const placeholderBuffer = await sharp({
-            create: {
-              width: 400,
-              height: 600,
-              channels: 4,
-              background: { r: 100, g: 120, b: 150, alpha: 1 }
-            }
-          })
-          .png()
-          .toBuffer();
+          // Try to use the original image first
+          let baseImage = cardRepo.getOriginalImage(request.params.id);
+
+          // Fall back to creating a placeholder if no original image exists
+          if (!baseImage) {
+            fastify.log.info({ cardId: request.params.id }, 'No original image found, creating placeholder');
+            baseImage = await sharp({
+              create: {
+                width: 400,
+                height: 600,
+                channels: 4,
+                background: { r: 100, g: 120, b: 150, alpha: 1 }
+              }
+            })
+            .png()
+            .toBuffer();
+          } else {
+            fastify.log.info({ cardId: request.params.id, imageSize: baseImage.length }, 'Using original image for export');
+          }
 
           // Embed card data into the PNG
-          const pngBuffer = await createCardPNG(placeholderBuffer, card);
+          const pngBuffer = await createCardPNG(baseImage, card);
 
           // Return the PNG with appropriate headers
           reply.header('Content-Type', 'image/png');
