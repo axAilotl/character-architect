@@ -110,7 +110,7 @@ export function EditPanel() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div className={`mx-auto p-6 space-y-6 transition-all duration-300 ${llmAssistOpen ? 'max-w-4xl mr-[600px]' : 'max-w-7xl'}`}>
       {/* Basic Information - Collapsible */}
       <CollapsibleSection title="Basic Information" sectionId="basic-info" defaultExpanded={true}>
         <FieldEditor
