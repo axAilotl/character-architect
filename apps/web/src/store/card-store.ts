@@ -13,19 +13,22 @@ interface CardStore {
   currentCard: Card | null;
   isDirty: boolean;
   isSaving: boolean;
+  autoSaveTimeout: NodeJS.Timeout | null;
 
   // Token counts
   tokenCounts: TokenCounts;
   tokenizerModel: string;
 
   // UI state
-  activeTab: 'edit' | 'preview' | 'json' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger';
+  activeTab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger';
   showAdvanced: boolean;
 
   // Actions
   setCurrentCard: (card: Card | null) => void;
   updateCardData: (updates: Partial<CCv2Data | CCv3Data>) => void;
   saveCard: () => Promise<void>;
+  debouncedAutoSave: () => void;
+  createSnapshot: (message?: string) => Promise<void>;
   loadCard: (id: string) => Promise<void>;
   createNewCard: () => void;
   importCard: (file: File) => Promise<void>;
@@ -36,7 +39,7 @@ interface CardStore {
   setTokenizerModel: (model: string) => void;
 
   // UI
-  setActiveTab: (tab: 'edit' | 'preview' | 'json' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger') => void;
+  setActiveTab: (tab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger') => void;
   setShowAdvanced: (show: boolean) => void;
 }
 
@@ -45,6 +48,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
   currentCard: null,
   isDirty: false,
   isSaving: false,
+  autoSaveTimeout: null,
   tokenCounts: { total: 0 },
   tokenizerModel: 'gpt2-bpe-approx',
   activeTab: 'edit',
@@ -75,6 +79,46 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
     // Update token counts
     get().updateTokenCounts();
+
+    // Auto-save to server (debounced)
+    if (currentCard.meta.id) {
+      get().debouncedAutoSave();
+    }
+  },
+
+  // Debounced auto-save
+  debouncedAutoSave: () => {
+    const { autoSaveTimeout } = get();
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      get().saveCard();
+    }, 2000); // 2 second debounce
+
+    set({ autoSaveTimeout: timeout });
+  },
+
+  // Create snapshot (manual versioning)
+  createSnapshot: async (message?: string) => {
+    const { currentCard } = get();
+    if (!currentCard || !currentCard.meta.id) return;
+
+    try {
+      // Save current changes first
+      await get().saveCard();
+
+      // Create version snapshot
+      const { error } = await api.createVersion(currentCard.meta.id, message);
+      if (error) {
+        console.error('Failed to create snapshot:', error);
+        throw new Error(error);
+      }
+    } catch (err) {
+      console.error('Failed to create snapshot:', err);
+      throw err;
+    }
   },
 
   // Save card to API

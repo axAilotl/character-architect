@@ -2,7 +2,6 @@ import { useCardStore } from '../store/card-store';
 import { EditorTabs } from './EditorTabs';
 import { EditPanel } from './EditPanel';
 import { PreviewPanel } from './PreviewPanel';
-import { JsonPanel } from './JsonPanel';
 import { DiffPanel } from './DiffPanel';
 import { PromptSimulatorPanel } from './PromptSimulatorPanel';
 import { RedundancyPanel } from './RedundancyPanel';
@@ -18,7 +17,6 @@ export function CardEditor() {
       <div className="flex-1 overflow-auto">
         {activeTab === 'edit' && <EditPanel />}
         {activeTab === 'preview' && <PreviewPanel />}
-        {activeTab === 'json' && <JsonPanel />}
         {activeTab === 'diff' && <DiffPanel />}
         {activeTab === 'simulator' && <PromptSimulatorPanel />}
         {activeTab === 'redundancy' && <RedundancyPanel />}

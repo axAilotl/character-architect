@@ -6,7 +6,6 @@ export function EditorTabs() {
   const tabs = [
     { id: 'edit', label: 'Edit' },
     { id: 'preview', label: 'Preview' },
-    { id: 'json', label: 'JSON' },
     { id: 'diff', label: 'Diff' },
     { id: 'simulator', label: 'Prompt Simulator' },
     { id: 'redundancy', label: 'Redundancy Killer' },

@@ -3,6 +3,7 @@ import { useCardStore } from './store/card-store';
 import { CardEditor } from './components/CardEditor';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
+import { SnapshotButton } from './components/SnapshotButton';
 
 function App() {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -33,6 +34,8 @@ function App() {
           )}
         </main>
       </div>
+
+      <SnapshotButton />
     </div>
   );
 }
