@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Card, CCv2Data, CCv3Data } from '@card-architect/schemas';
+import type { Card, CCv2Data, CCv3Data, CardMeta } from '@card-architect/schemas';
 import { api } from '../lib/api';
 import { localDB } from '../lib/db';
 
@@ -26,6 +26,7 @@ interface CardStore {
   // Actions
   setCurrentCard: (card: Card | null) => void;
   updateCardData: (updates: Partial<CCv2Data | CCv3Data>) => void;
+  updateCardMeta: (updates: Partial<CardMeta>) => void;
   saveCard: () => Promise<void>;
   debouncedAutoSave: () => void;
   createSnapshot: (message?: string) => Promise<void>;
@@ -79,6 +80,27 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
     // Update token counts
     get().updateTokenCounts();
+
+    // Auto-save to server (debounced)
+    if (currentCard.meta.id) {
+      get().debouncedAutoSave();
+    }
+  },
+
+  // Update card metadata
+  updateCardMeta: (updates) => {
+    const { currentCard } = get();
+    if (!currentCard) return;
+
+    const newMeta = { ...currentCard.meta, ...updates };
+    const newCard = { ...currentCard, meta: newMeta };
+
+    set({ currentCard: newCard, isDirty: true });
+
+    // Autosave to IndexedDB
+    if (currentCard.meta.id) {
+      localDB.saveDraft(currentCard.meta.id, newCard).catch(console.error);
+    }
 
     // Auto-save to server (debounced)
     if (currentCard.meta.id) {

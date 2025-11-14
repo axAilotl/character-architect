@@ -4,6 +4,7 @@ import type { CCv3Data, CCv2Data, CCFieldName } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
 import { LLMAssistSidebar } from './LLMAssistSidebar';
+import { TagInput } from './TagInput';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -55,7 +56,7 @@ function CollapsibleSection({ title, sectionId, children, defaultExpanded = true
 }
 
 export function EditPanel() {
-  const { currentCard, updateCardData, showAdvanced, setShowAdvanced } = useCardStore();
+  const { currentCard, updateCardData, updateCardMeta, showAdvanced, setShowAdvanced } = useCardStore();
   const tokenCounts = useCardStore((state) => state.tokenCounts);
 
   const [llmAssistOpen, setLLMAssistOpen] = useState(false);
@@ -77,6 +78,19 @@ export function EditPanel() {
       } as Partial<CCv3Data>);
     } else {
       updateCardData({ [field]: value });
+    }
+  };
+
+  const handleTagsChange = (tags: string[]) => {
+    // Update both meta.tags and data.tags for consistency
+    updateCardMeta({ tags });
+    if (isV3) {
+      updateCardData({
+        data: {
+          ...(currentCard.data as CCv3Data).data,
+          tags,
+        },
+      } as Partial<CCv3Data>);
     }
   };
 
@@ -267,6 +281,43 @@ export function EditPanel() {
               multiline
               rows={3}
             />
+
+            <div>
+              <label className="label">Alternate Greetings</label>
+              <p className="text-sm text-dark-muted mb-2">
+                Additional first messages (one per line)
+              </p>
+              <textarea
+                value={cardData.alternate_greetings?.join('\n') || ''}
+                onChange={(e) => {
+                  const greetings = e.target.value.split('\n').filter((g) => g.trim());
+                  handleFieldChange('alternate_greetings', greetings as any);
+                }}
+                rows={4}
+                className="w-full"
+              />
+            </div>
+
+            {isV3 && (
+              <div className="input-group">
+                <FieldEditor
+                  label="Creator"
+                  value={cardData.creator || ''}
+                  onChange={(v) => handleFieldChange('creator', v)}
+                />
+
+                <FieldEditor
+                  label="Character Version"
+                  value={cardData.character_version || ''}
+                  onChange={(v) => handleFieldChange('character_version', v)}
+                />
+
+                <TagInput
+                  tags={currentCard.meta.tags || []}
+                  onChange={handleTagsChange}
+                />
+              </div>
+            )}
           </div>
         )}
       </section>
