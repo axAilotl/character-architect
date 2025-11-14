@@ -152,7 +152,7 @@ export function RedundancyPanel() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-slate-100 mb-2">Redundancy Killer</h2>
+            <h2 className="text-2xl font-bold text-slate-100 mb-2">Card Efficiency</h2>
             <p className="text-slate-400">
               Detect and eliminate repeated content across your card fields
             </p>

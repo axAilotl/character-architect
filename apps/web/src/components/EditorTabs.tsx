@@ -7,8 +7,7 @@ export function EditorTabs() {
     { id: 'edit', label: 'Edit' },
     { id: 'preview', label: 'Preview' },
     { id: 'diff', label: 'Diff' },
-    { id: 'simulator', label: 'Prompt Simulator' },
-    { id: 'redundancy', label: 'Redundancy Killer' },
+    { id: 'redundancy', label: 'Card Efficiency' },
     { id: 'lore-trigger', label: 'Lore Trigger Tester' },
   ] as const;
 

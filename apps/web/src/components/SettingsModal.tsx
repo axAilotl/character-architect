@@ -60,8 +60,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-dark-card rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+      <div className="bg-slate-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-dark-border flex justify-between items-center">
           <h2 className="text-xl font-bold">LLM Settings</h2>
@@ -298,18 +298,45 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                     <div>
                       <label className="block text-sm font-medium mb-1">Default Model</label>
-                      <input
-                        type="text"
-                        value={editingProvider.defaultModel || ''}
-                        onChange={(e) =>
-                          setEditingProvider({
-                            ...editingProvider,
-                            defaultModel: e.target.value,
-                          })
-                        }
-                        placeholder="gpt-4, claude-3-5-sonnet-20241022, etc."
-                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editingProvider.defaultModel || ''}
+                          onChange={(e) =>
+                            setEditingProvider({
+                              ...editingProvider,
+                              defaultModel: e.target.value,
+                            })
+                          }
+                          placeholder="gpt-4, claude-3-5-sonnet-20241022, etc."
+                          className="flex-1 bg-dark-card border border-dark-border rounded px-3 py-2"
+                        />
+                        <button
+                          onClick={async () => {
+                            if (!editingProvider.baseURL || !editingProvider.apiKey) {
+                              alert('Please enter Base URL and API Key first');
+                              return;
+                            }
+                            try {
+                              const response = await fetch(`${editingProvider.baseURL}/v1/models`, {
+                                headers: {
+                                  'Authorization': `Bearer ${editingProvider.apiKey}`,
+                                },
+                              });
+                              if (!response.ok) throw new Error('Failed to fetch models');
+                              const data = await response.json();
+                              const models = data.data?.map((m: any) => m.id).join(', ') || 'No models found';
+                              alert(`Available models:\n\n${models}\n\nSelect one and paste it in the model field.`);
+                            } catch (err) {
+                              alert(`Error fetching models: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                            }
+                          }}
+                          className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors whitespace-nowrap"
+                          title="Fetch available models from provider"
+                        >
+                          Fetch Models
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
