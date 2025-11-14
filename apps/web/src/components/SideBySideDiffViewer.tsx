@@ -63,12 +63,12 @@ export function SideBySideDiffViewer({ diff }: SideBySideDiffViewerProps) {
       </div>
 
       {/* Side-by-side content */}
-      <div className="grid grid-cols-2 max-h-[600px]">
+      <div className="grid grid-cols-2" style={{ height: '600px' }}>
         {/* Left side (original) */}
         <div
           ref={leftScrollRef}
           onScroll={handleLeftScroll}
-          className="overflow-auto border-r border-dark-border bg-dark-card"
+          className="overflow-auto border-r border-dark-border bg-dark-card h-full"
         >
           <div className="font-mono text-xs">
             {sideBySideLines.map((line, idx) => (
@@ -103,7 +103,7 @@ export function SideBySideDiffViewer({ diff }: SideBySideDiffViewerProps) {
         <div
           ref={rightScrollRef}
           onScroll={handleRightScroll}
-          className="overflow-auto bg-dark-card"
+          className="overflow-auto bg-dark-card h-full"
         >
           <div className="font-mono text-xs">
             {sideBySideLines.map((line, idx) => (

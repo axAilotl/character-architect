@@ -7,7 +7,7 @@ interface HeaderProps {
 }
 
 export function Header({ onToggleSidebar }: HeaderProps) {
-  const { currentCard, isDirty, isSaving, saveCard, createNewCard } = useCardStore();
+  const { currentCard, isSaving, createNewCard } = useCardStore();
   const tokenCounts = useCardStore((state) => state.tokenCounts);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -39,7 +39,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
 
         {currentCard && (
           <span className="text-sm text-dark-muted">
-            {currentCard.meta.name} {isDirty && '(unsaved)'}
+            {currentCard.meta.name} {isSaving && '(saving...)'}
           </span>
         )}
       </div>
@@ -64,33 +64,23 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         </button>
 
         {currentCard && (
-          <>
-            <div className="relative group">
-              <button className="btn-secondary">Export</button>
-              <div className="absolute right-0 mt-1 hidden group-hover:block bg-dark-surface border border-dark-border rounded shadow-lg">
-                <button
-                  onClick={() => handleExport('json')}
-                  className="block w-full px-4 py-2 text-left hover:bg-slate-700"
-                >
-                  JSON
-                </button>
-                <button
-                  onClick={() => handleExport('png')}
-                  className="block w-full px-4 py-2 text-left hover:bg-slate-700"
-                >
-                  PNG
-                </button>
-              </div>
+          <div className="relative group">
+            <button className="btn-secondary">Export</button>
+            <div className="absolute right-0 mt-1 hidden group-hover:block bg-dark-surface border border-dark-border rounded shadow-lg z-50">
+              <button
+                onClick={() => handleExport('json')}
+                className="block w-full px-4 py-2 text-left hover:bg-slate-700"
+              >
+                JSON
+              </button>
+              <button
+                onClick={() => handleExport('png')}
+                className="block w-full px-4 py-2 text-left hover:bg-slate-700"
+              >
+                PNG
+              </button>
             </div>
-
-            <button
-              onClick={saveCard}
-              disabled={!isDirty || isSaving}
-              className="btn-primary"
-            >
-              {isSaving ? 'Saving...' : 'Save'}
-            </button>
-          </>
+          </div>
         )}
       </div>
 

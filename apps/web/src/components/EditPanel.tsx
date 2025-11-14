@@ -148,6 +148,14 @@ export function EditPanel() {
               rows={4}
             />
 
+            <FieldEditor
+              label="Creator Notes (Not rendered in preview)"
+              value={cardData.creator_notes || ''}
+              onChange={(v) => handleFieldChange('creator_notes', v)}
+              multiline
+              rows={3}
+            />
+
             <div>
               <label className="label">Alternate Greetings</label>
               <p className="text-sm text-dark-muted mb-2">
