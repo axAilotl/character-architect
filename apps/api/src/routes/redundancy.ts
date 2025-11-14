@@ -16,7 +16,7 @@ export async function redundancyRoutes(fastify: FastifyInstance) {
       card: CCv2Data | CCv3Data;
       tokenizerModel?: string;
     };
-  }>('/redundancy/analyze', async (request, reply) => {
+  }>('/api/redundancy/analyze', async (request, reply) => {
     const { card, tokenizerModel = 'gpt2-bpe-approx' } = request.body;
 
     if (!card) {
@@ -63,7 +63,7 @@ export async function redundancyRoutes(fastify: FastifyInstance) {
       card: CCv2Data | CCv3Data;
       suggestion: ConsolidationSuggestion;
     };
-  }>('/redundancy/apply-fix', async (request, reply) => {
+  }>('/api/redundancy/apply-fix', async (request, reply) => {
     const { card, suggestion } = request.body;
 
     if (!card || !suggestion) {

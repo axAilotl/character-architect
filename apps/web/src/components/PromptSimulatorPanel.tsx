@@ -43,7 +43,7 @@ export function PromptSimulatorPanel() {
 
   // Load available profiles
   useEffect(() => {
-    fetch('http://localhost:3001/prompt-simulator/profiles')
+    fetch('http://localhost:3001/api/prompt-simulator/profiles')
       .then((res) => res.json())
       .then((data) => setProfiles(data.profiles))
       .catch((err) => console.error('Failed to load profiles:', err));
@@ -60,7 +60,7 @@ export function PromptSimulatorPanel() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3001/prompt-simulator/simulate', {
+      const response = await fetch('http://localhost:3001/api/prompt-simulator/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

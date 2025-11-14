@@ -43,7 +43,7 @@ export function LoreTriggerPanel() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3001/lore-trigger/test', {
+      const response = await fetch('http://localhost:3001/api/lore-trigger/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

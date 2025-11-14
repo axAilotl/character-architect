@@ -13,7 +13,7 @@ export async function promptSimulatorRoutes(fastify: FastifyInstance) {
    * GET /prompt-simulator/profiles
    * Get all available prompt profiles
    */
-  fastify.get('/prompt-simulator/profiles', async (request, reply) => {
+  fastify.get('/api/prompt-simulator/profiles', async (request, reply) => {
     const profiles = PromptSimulator.getProfiles();
     return { profiles };
   });
@@ -33,7 +33,7 @@ export async function promptSimulatorRoutes(fastify: FastifyInstance) {
         preserveFields?: string[];
       };
     };
-  }>('/prompt-simulator/simulate', async (request, reply) => {
+  }>('/api/prompt-simulator/simulate', async (request, reply) => {
     const { card, profile, tokenizerModel = 'gpt2-bpe-approx', budget } = request.body;
 
     if (!card) {
@@ -98,7 +98,7 @@ export async function promptSimulatorRoutes(fastify: FastifyInstance) {
         preserveFields?: string[];
       };
     };
-  }>('/prompt-simulator/compare', async (request, reply) => {
+  }>('/api/prompt-simulator/compare', async (request, reply) => {
     const {
       card,
       profiles = ['generic-ccv3', 'strict-ccv3', 'ccv2-compat'] as PromptProfile[],
@@ -164,7 +164,7 @@ export async function promptSimulatorRoutes(fastify: FastifyInstance) {
       profile: PromptProfile;
       tokenizerModel?: string;
     };
-  }>('/prompt-simulator/preview-field', async (request, reply) => {
+  }>('/api/prompt-simulator/preview-field', async (request, reply) => {
     const {
       card,
       fieldName,

@@ -18,7 +18,7 @@ export async function loreTriggerRoutes(fastify: FastifyInstance) {
       chatHistory?: string[];
       tokenizerModel?: string;
     };
-  }>('/lore-trigger/test', async (request, reply) => {
+  }>('/api/lore-trigger/test', async (request, reply) => {
     const { card, input, chatHistory = [], tokenizerModel = 'gpt2-bpe-approx' } = request.body;
 
     if (!card || input === undefined) {
@@ -73,7 +73,7 @@ export async function loreTriggerRoutes(fastify: FastifyInstance) {
     Body: {
       card: CCv2Data | CCv3Data;
     };
-  }>('/lore-trigger/stats', async (request, reply) => {
+  }>('/api/lore-trigger/stats', async (request, reply) => {
     const { card } = request.body;
 
     if (!card) {

@@ -56,7 +56,7 @@ export function RedundancyPanel() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3001/redundancy/analyze', {
+      const response = await fetch('http://localhost:3001/api/redundancy/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
