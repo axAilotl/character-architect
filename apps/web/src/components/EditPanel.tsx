@@ -1,11 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCardStore } from '../store/card-store';
-import type { CCv3Data, CCFieldName } from '@card-architect/schemas';
-'@card-architect/schemas';
+import type { CCv3Data, CCv2Data, CCFieldName } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
 import { LLMAssistSidebar } from './LLMAssistSidebar';
 import { TagInput } from './TagInput';
+
+interface CollapsibleSectionProps {
+  title: string;
+  sectionId: string;
+  children: React.ReactNode;
+  defaultExpanded?: boolean;
+}
+
+function CollapsibleSection({ title, sectionId, children, defaultExpanded = true }: CollapsibleSectionProps) {
+  const [isExpanded, setIsExpanded] = useState(() => {
+    const saved = localStorage.getItem(`section-${sectionId}-expanded`);
+    return saved !== null ? saved === 'true' : defaultExpanded;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`section-${sectionId}-expanded`, String(isExpanded));
+  }, [isExpanded, sectionId]);
+
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
+
+  return (
+    <section className="card">
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={toggleExpanded}
+          className="flex items-center gap-2 text-left flex-1"
+        >
+          <svg
+            className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <h2 className="text-xl font-bold">{title}</h2>
+        </button>
+      </div>
+
+      {isExpanded && (
+        <div className="space-y-4">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function EditPanel() {
   const { currentCard, updateCardData, updateCardMeta, showAdvanced, setShowAdvanced } = useCardStore();
@@ -63,9 +111,8 @@ export function EditPanel() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <section className="card">
-        <h2 className="text-xl font-bold mb-4">Basic Information</h2>
-
+      {/* Basic Information - Collapsible */}
+      <CollapsibleSection title="Basic Information" sectionId="basic-info" defaultExpanded={true}>
         <FieldEditor
           label="Name"
           value={cardData.name}
@@ -75,6 +122,39 @@ export function EditPanel() {
           onOpenLLMAssist={handleOpenLLMAssist}
         />
 
+        {isV3 && (
+          <>
+            <FieldEditor
+              label="Creator"
+              value={cardData.creator || ''}
+              onChange={(v) => handleFieldChange('creator', v)}
+            />
+
+            <FieldEditor
+              label="Character Version"
+              value={cardData.character_version || ''}
+              onChange={(v) => handleFieldChange('character_version', v)}
+            />
+
+            <div>
+              <label className="label">Tags</label>
+              <input
+                type="text"
+                value={cardData.tags?.join(', ') || ''}
+                onChange={(e) => {
+                  const tags = e.target.value.split(',').map((t) => t.trim()).filter(Boolean);
+                  handleFieldChange('tags', tags as any);
+                }}
+                placeholder="tag1, tag2, tag3"
+                className="w-full"
+              />
+            </div>
+          </>
+        )}
+      </CollapsibleSection>
+
+      {/* Description */}
+      <CollapsibleSection title="Description" sectionId="description" defaultExpanded={true}>
         <FieldEditor
           label="Description"
           value={cardData.description}
@@ -85,7 +165,10 @@ export function EditPanel() {
           fieldName="description"
           onOpenLLMAssist={handleOpenLLMAssist}
         />
+      </CollapsibleSection>
 
+      {/* Personality */}
+      <CollapsibleSection title="Personality" sectionId="personality" defaultExpanded={true}>
         <FieldEditor
           label="Personality"
           value={cardData.personality}
@@ -96,7 +179,10 @@ export function EditPanel() {
           fieldName="personality"
           onOpenLLMAssist={handleOpenLLMAssist}
         />
+      </CollapsibleSection>
 
+      {/* Scenario */}
+      <CollapsibleSection title="Scenario" sectionId="scenario" defaultExpanded={true}>
         <FieldEditor
           label="Scenario"
           value={cardData.scenario}
@@ -107,7 +193,10 @@ export function EditPanel() {
           fieldName="scenario"
           onOpenLLMAssist={handleOpenLLMAssist}
         />
+      </CollapsibleSection>
 
+      {/* First Message */}
+      <CollapsibleSection title="First Message" sectionId="first-message" defaultExpanded={true}>
         <FieldEditor
           label="First Message"
           value={cardData.first_mes}
@@ -118,7 +207,10 @@ export function EditPanel() {
           fieldName="first_mes"
           onOpenLLMAssist={handleOpenLLMAssist}
         />
+      </CollapsibleSection>
 
+      {/* Example Dialogue */}
+      <CollapsibleSection title="Example Dialogue" sectionId="example-dialogue" defaultExpanded={true}>
         <FieldEditor
           label="Example Dialogue"
           value={cardData.mes_example}
@@ -129,8 +221,28 @@ export function EditPanel() {
           fieldName="mes_example"
           onOpenLLMAssist={handleOpenLLMAssist}
         />
-      </section>
+      </CollapsibleSection>
 
+      {/* Alternate Greetings */}
+      <CollapsibleSection title="Alternate Greetings" sectionId="alternate-greetings" defaultExpanded={false}>
+        <div>
+          <label className="label">Alternate Greetings</label>
+          <p className="text-sm text-dark-muted mb-2">
+            Additional first messages (one per line)
+          </p>
+          <textarea
+            value={cardData.alternate_greetings?.join('\n') || ''}
+            onChange={(e) => {
+              const greetings = e.target.value.split('\n').filter((g) => g.trim());
+              handleFieldChange('alternate_greetings', greetings as any);
+            }}
+            rows={4}
+            className="w-full"
+          />
+        </div>
+      </CollapsibleSection>
+
+      {/* Advanced Section */}
       <section className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">Advanced</h2>
