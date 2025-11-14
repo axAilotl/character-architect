@@ -62,7 +62,7 @@ export function PreviewPanel() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* PNG Preview Card */}
       <div className="card bg-gradient-to-br from-slate-700 to-slate-800">
         <div className="flex items-center justify-between mb-4">
@@ -128,7 +128,7 @@ export function PreviewPanel() {
         </div>
 
         {viewMode === 'raw' ? (
-          <pre className="bg-dark-surface p-4 rounded overflow-x-auto text-xs">
+          <pre className="bg-dark-surface p-4 rounded overflow-x-auto text-xs whitespace-pre-wrap break-words">
             {JSON.stringify(currentCard.data, null, 2)}
           </pre>
         ) : (
