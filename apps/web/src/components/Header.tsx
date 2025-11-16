@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore, extractCardData } from '../store/card-store';
 import { SettingsModal } from './SettingsModal';
 import type { CCv2Data, CCv3Data } from '@card-architect/schemas';
 
@@ -42,8 +42,7 @@ export function Header({ onBack }: HeaderProps) {
   // Get character name from current card
   const getCharacterName = () => {
     if (!currentCard) return '';
-    const isV3 = currentCard.meta.spec === 'v3';
-    const data = isV3 ? (currentCard.data as CCv3Data).data : (currentCard.data as CCv2Data);
+    const data = extractCardData(currentCard);
     return data.name || 'Untitled';
   };
 
