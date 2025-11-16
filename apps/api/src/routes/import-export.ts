@@ -340,15 +340,15 @@ export async function importExportRoutes(fastify: FastifyInstance) {
     }, originalImage);
 
     // Debug: Verify lorebook is in the created card
-    const cardData = card.data as any;
-    const finalHasLorebook = cardData.character_book?.entries?.length > 0;
+    const createdCardData = card.data as any;
+    const finalHasLorebook = createdCardData.character_book?.entries?.length > 0;
 
     fastify.log.info({
       cardId: card.meta.id,
       name: card.meta.name,
       spec: card.meta.spec,
       hasLorebookAfterCreate: finalHasLorebook,
-      lorebookEntriesAfterCreate: finalHasLorebook ? cardData.character_book.entries.length : 0,
+      lorebookEntriesAfterCreate: finalHasLorebook ? createdCardData.character_book.entries.length : 0,
     }, 'Card created and ready to return');
 
     reply.code(201);
