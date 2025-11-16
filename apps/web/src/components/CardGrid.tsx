@@ -193,9 +193,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 id="import-card-file"
                 name="import-card-file"
                 type="file"
-                accept=".json,.png"
+                accept=".json,.png,.charx"
                 onChange={handleImport}
                 className="hidden"
+                title="Import JSON, PNG, or CHARX file"
               />
             </label>
             <button onClick={handleNewCard} className="btn-primary">
