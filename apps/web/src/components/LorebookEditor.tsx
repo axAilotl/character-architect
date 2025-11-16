@@ -25,31 +25,37 @@ export function LorebookEditor() {
   const entries = lorebook?.entries || [];
   const hasLorebook = Boolean(lorebook);
 
-  const handleInitializeLorebook = () => {
-    if (isV3) {
+  // Helper to update card data - handles wrapped V2 automatically
+  const updateLorebookData = (updates: any) => {
+    const v2Data = currentCard.data as any;
+    const isWrappedV2 = !isV3 && v2Data.spec === 'chara_card_v2' && 'data' in v2Data;
+
+    if (isV3 || isWrappedV2) {
+      // Wrapped cards - update nested data object
       updateCardData({
         data: {
           ...cardData,
-          character_book: {
-            name: cardData.name + ' Lorebook',
-            description: '',
-            entries: [],
-          },
+          ...updates,
         },
-      } as Partial<CCv3Data>);
+      } as any);
     } else {
-      updateCardData({
-        character_book: {
-          name: cardData.name + ' Lorebook',
-          description: '',
-          scan_depth: 100,
-          token_budget: 500,
-          recursive_scanning: false,
-          extensions: {},
-          entries: [],
-        },
-      } as Partial<CCv2Data>);
+      // Unwrapped legacy V2
+      updateCardData(updates);
     }
+  };
+
+  const handleInitializeLorebook = () => {
+    updateLorebookData({
+      character_book: {
+        name: cardData.name + ' Lorebook',
+        description: '',
+        scan_depth: 100,
+        token_budget: 500,
+        recursive_scanning: false,
+        extensions: {},
+        entries: [],
+      },
+    });
   };
 
   const handleAddEntry = () => {
@@ -73,24 +79,12 @@ export function LorebookEditor() {
       },
     };
 
-    if (isV3) {
-      updateCardData({
-        data: {
-          ...cardData,
-          character_book: {
-            ...lorebook,
-            entries: [...entries, newEntry],
-          },
-        },
-      } as Partial<CCv3Data>);
-    } else {
-      updateCardData({
-        character_book: {
-          ...lorebook,
-          entries: [...entries, newEntry],
-        },
-      } as Partial<CCv2Data>);
-    }
+    updateLorebookData({
+      character_book: {
+        ...lorebook,
+        entries: [...entries, newEntry],
+      },
+    });
 
     // Auto-select the new entry
     setSelectedEntryIndex(entries.length);
@@ -100,24 +94,12 @@ export function LorebookEditor() {
     const newEntries = [...entries];
     newEntries[index] = { ...newEntries[index], ...updates };
 
-    if (isV3) {
-      updateCardData({
-        data: {
-          ...cardData,
-          character_book: {
-            ...lorebook,
-            entries: newEntries,
-          },
-        },
-      } as Partial<CCv3Data>);
-    } else {
-      updateCardData({
-        character_book: {
-          ...lorebook,
-          entries: newEntries,
-        },
-      } as Partial<CCv2Data>);
-    }
+    updateLorebookData({
+      character_book: {
+        ...lorebook,
+        entries: newEntries,
+      },
+    });
   };
 
   const handleDeleteEntry = (index: number) => {
@@ -125,24 +107,12 @@ export function LorebookEditor() {
 
     const newEntries = entries.filter((_, i) => i !== index);
 
-    if (isV3) {
-      updateCardData({
-        data: {
-          ...cardData,
-          character_book: {
-            ...lorebook,
-            entries: newEntries,
-          },
-        },
-      } as Partial<CCv3Data>);
-    } else {
-      updateCardData({
-        character_book: {
-          ...lorebook,
-          entries: newEntries,
-        },
-      } as Partial<CCv2Data>);
-    }
+    updateLorebookData({
+      character_book: {
+        ...lorebook,
+        entries: newEntries,
+      },
+    });
 
     // Clear selection if deleted entry was selected
     if (selectedEntryIndex === index) {
@@ -159,48 +129,24 @@ export function LorebookEditor() {
       name: (entryToCopy.name || `Entry ${index + 1}`) + ' (Copy)',
     };
 
-    if (isV3) {
-      updateCardData({
-        data: {
-          ...cardData,
-          character_book: {
-            ...lorebook,
-            entries: [...entries, copiedEntry],
-          },
-        },
-      } as Partial<CCv3Data>);
-    } else {
-      updateCardData({
-        character_book: {
-          ...lorebook,
-          entries: [...entries, copiedEntry],
-        },
-      } as Partial<CCv2Data>);
-    }
+    updateLorebookData({
+      character_book: {
+        ...lorebook,
+        entries: [...entries, copiedEntry],
+      },
+    });
 
     // Select the copied entry
     setSelectedEntryIndex(entries.length);
   };
 
   const handleUpdateLorebookSettings = (updates: Partial<typeof lorebook>) => {
-    if (isV3) {
-      updateCardData({
-        data: {
-          ...cardData,
-          character_book: {
-            ...lorebook,
-            ...updates,
-          },
-        },
-      } as Partial<CCv3Data>);
-    } else {
-      updateCardData({
-        character_book: {
-          ...lorebook,
-          ...updates,
-        },
-      } as Partial<CCv2Data>);
-    }
+    updateLorebookData({
+      character_book: {
+        ...lorebook,
+        ...updates,
+      },
+    });
   };
 
   const selectedEntry = selectedEntryIndex !== null ? entries[selectedEntryIndex] : null;
