@@ -8,6 +8,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { CharxImportService } from '../services/charx-import.service.js';
+import { buildCharx, validateCharxBuild } from '../utils/charx-builder.js';
 
 /**
  * Normalize lorebook entry fields to match schema expectations
@@ -315,6 +316,38 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         reply.header('Content-Type', 'application/json');
         reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.json"`);
         return JSON.stringify(card.data, null, 2);
+      } else if (format === 'charx') {
+        try {
+          // CHARX export - get card assets
+          const assets = cardAssetRepo.listByCardWithDetails(request.params.id);
+
+          // Validate CHARX structure
+          const validation = validateCharxBuild(card.data as CCv3Data, assets);
+          if (!validation.valid) {
+            fastify.log.warn({ errors: validation.errors }, 'CHARX validation warnings');
+            // Continue anyway, just warn
+          }
+
+          // Build CHARX ZIP
+          const result = await buildCharx(card.data as CCv3Data, assets, {
+            storagePath: config.storagePath,
+          });
+
+          fastify.log.info({
+            cardId: request.params.id,
+            assetCount: result.assetCount,
+            totalSize: result.totalSize,
+          }, 'CHARX export successful');
+
+          // Return the CHARX file
+          reply.header('Content-Type', 'application/zip');
+          reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.charx"`);
+          return result.buffer;
+        } catch (err) {
+          fastify.log.error({ error: err }, 'Failed to create CHARX export');
+          reply.code(500);
+          return { error: `Failed to create CHARX export: ${err instanceof Error ? err.message : String(err)}` };
+        }
       } else if (format === 'png') {
         try {
           // Try to use the original image first

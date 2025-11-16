@@ -35,7 +35,7 @@ interface CardStore {
   loadCard: (id: string) => Promise<void>;
   createNewCard: () => Promise<void>;
   importCard: (file: File) => Promise<void>;
-  exportCard: (format: 'json' | 'png') => Promise<void>;
+  exportCard: (format: 'json' | 'png' | 'charx') => Promise<void>;
 
   // Token counting
   updateTokenCounts: () => Promise<void>;

@@ -146,7 +146,7 @@ class ApiClient {
     return { data };
   }
 
-  async exportCard(cardId: string, format: 'json' | 'png') {
+  async exportCard(cardId: string, format: 'json' | 'png' | 'charx') {
     const response = await fetch(`${API_BASE}/cards/${cardId}/export?format=${format}`);
 
     if (!response.ok) {

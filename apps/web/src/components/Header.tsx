@@ -25,7 +25,7 @@ export function Header({ onBack }: HeaderProps) {
     input.click();
   };
 
-  const handleExport = async (format: 'json' | 'png') => {
+  const handleExport = async (format: 'json' | 'png' | 'charx') => {
     setShowExportMenu(false);
     await useCardStore.getState().exportCard(format);
   };
@@ -88,9 +88,16 @@ export function Header({ onBack }: HeaderProps) {
                   </button>
                   <button
                     onClick={() => handleExport('png')}
-                    className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-b"
+                    className="block w-full px-4 py-2 text-left hover:bg-slate-700"
                   >
                     PNG
+                  </button>
+                  <button
+                    onClick={() => handleExport('charx')}
+                    className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-b"
+                    title="Export as CHARX (with assets)"
+                  >
+                    CHARX
                   </button>
                 </div>
               </>
