@@ -1,9 +1,13 @@
 import type { FastifyInstance } from 'fastify';
-import { CardRepository } from '../db/repository.js';
+import { CardRepository, AssetRepository, CardAssetRepository } from '../db/repository.js';
 import { extractFromPNG, validatePNGSize, createCardPNG } from '../utils/png.js';
 import { detectSpec, validateV2, validateV3, type CCv2Data, type CCv3Data } from '@card-architect/schemas';
 import { config } from '../config.js';
 import sharp from 'sharp';
+import { promises as fs } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { CharxImportService } from '../services/charx-import.service.js';
 
 /**
  * Normalize lorebook entry fields to match schema expectations
@@ -59,8 +63,11 @@ function normalizeLorebookEntries(dataObj: Record<string, unknown>) {
 
 export async function importExportRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
+  const assetRepo = new AssetRepository(fastify.db);
+  const cardAssetRepo = new CardAssetRepository(fastify.db);
+  const charxImportService = new CharxImportService(cardRepo, assetRepo, cardAssetRepo);
 
-  // Import from JSON or PNG
+  // Import from JSON, PNG, or CHARX
   fastify.post('/import', async (request, reply) => {
     const data = await request.file();
     if (!data) {
@@ -70,6 +77,52 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
     const buffer = await data.toBuffer();
     const warnings: string[] = [];
+
+    // Check for CHARX format (ZIP magic bytes: PK\x03\x04 or .charx extension)
+    const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+    const isCharxExt = data.filename?.endsWith('.charx');
+
+    if (isZip || isCharxExt) {
+      // Handle CHARX import
+      try {
+        // Write buffer to temp file (yauzl requires file path)
+        const tempPath = join(tmpdir(), `charx-${Date.now()}-${data.filename || 'upload.charx'}`);
+        await fs.writeFile(tempPath, buffer);
+
+        try {
+          // Import CHARX
+          const result = await charxImportService.importFromFile(tempPath, {
+            storagePath: config.storagePath,
+            preserveTimestamps: true,
+            setAsOriginalImage: true,
+          });
+
+          warnings.push(...result.warnings);
+
+          fastify.log.info({
+            cardId: result.card.meta.id,
+            assetsImported: result.assetsImported,
+            warnings: result.warnings,
+          }, 'Successfully imported CHARX file');
+
+          return {
+            success: true,
+            card: result.card,
+            assetsImported: result.assetsImported,
+            warnings,
+          };
+        } finally {
+          // Clean up temp file
+          await fs.unlink(tempPath).catch(() => {});
+        }
+      } catch (err) {
+        fastify.log.error({ error: err }, 'Failed to import CHARX');
+        reply.code(400);
+        return {
+          error: `Failed to import CHARX: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
 
     let cardData: unknown;
     let spec: 'v2' | 'v3';
@@ -142,7 +195,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
     } else {
       fastify.log.warn({ mimetype: data.mimetype }, 'Unsupported file type');
       reply.code(400);
-      return { error: `Unsupported file type: ${data.mimetype}. Only JSON and PNG are supported.` };
+      return { error: `Unsupported file type: ${data.mimetype}. Only JSON, PNG, and CHARX files are supported.` };
     }
 
     // Normalize spec values and data BEFORE validation
