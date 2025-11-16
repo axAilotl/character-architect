@@ -101,13 +101,18 @@ export function EditPanel() {
   const handleTagsChange = (tags: string[]) => {
     // Update both meta.tags and data.tags for consistency
     updateCardMeta({ tags });
-    if (isV3) {
+
+    // Also update data.tags for V3 and wrapped V2
+    const v2Data = currentCard.data as any;
+    const isWrappedV2 = !isV3 && v2Data.spec === 'chara_card_v2' && 'data' in v2Data;
+
+    if (isV3 || isWrappedV2) {
       updateCardData({
         data: {
-          ...(currentCard.data as CCv3Data).data,
+          ...cardData,
           tags,
         },
-      } as Partial<CCv3Data>);
+      } as any);
     }
   };
 

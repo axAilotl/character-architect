@@ -365,33 +365,24 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
     const payload: Record<string, string> = {};
 
-    // Extract fields based on spec
-    if (currentCard.meta.spec === 'v3') {
-      const data = (currentCard.data as CCv3Data).data;
-      payload.name = data.name || '';
-      payload.description = data.description || '';
-      payload.personality = data.personality || '';
-      payload.scenario = data.scenario || '';
-      payload.first_mes = data.first_mes || '';
-      payload.mes_example = data.mes_example || '';
-      payload.system_prompt = data.system_prompt || '';
-      payload.post_history_instructions = data.post_history_instructions || '';
+    // Extract card data (handles both wrapped and unwrapped formats)
+    const cardData = extractCardData(currentCard);
 
-      if (data.alternate_greetings) {
-        payload.alternate_greetings = data.alternate_greetings.join('\n');
-      }
+    payload.name = cardData.name || '';
+    payload.description = cardData.description || '';
+    payload.personality = cardData.personality || '';
+    payload.scenario = cardData.scenario || '';
+    payload.first_mes = cardData.first_mes || '';
+    payload.mes_example = cardData.mes_example || '';
+    payload.system_prompt = cardData.system_prompt || '';
+    payload.post_history_instructions = cardData.post_history_instructions || '';
 
-      if (data.character_book?.entries) {
-        payload.lorebook = data.character_book.entries.map((e) => e.content).join('\n');
-      }
-    } else {
-      const data = currentCard.data as CCv2Data;
-      payload.name = data.name || '';
-      payload.description = data.description || '';
-      payload.personality = data.personality || '';
-      payload.scenario = data.scenario || '';
-      payload.first_mes = data.first_mes || '';
-      payload.mes_example = data.mes_example || '';
+    if (cardData.alternate_greetings) {
+      payload.alternate_greetings = cardData.alternate_greetings.join('\n');
+    }
+
+    if (cardData.character_book?.entries) {
+      payload.lorebook = cardData.character_book.entries.map((e) => e.content).join('\n');
     }
 
     const { data, error } = await api.tokenize({ model: tokenizerModel, payload });
