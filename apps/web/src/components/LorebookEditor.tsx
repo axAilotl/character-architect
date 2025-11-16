@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore, extractCardData } from '../store/card-store';
 import type {
   CCv3Data,
   CCv2Data,
@@ -18,7 +18,7 @@ export function LorebookEditor() {
   if (!currentCard) return null;
 
   const isV3 = currentCard.meta.spec === 'v3';
-  const cardData = isV3 ? (currentCard.data as CCv3Data).data : (currentCard.data as CCv2Data);
+  const cardData = extractCardData(currentCard);
 
   // Get lorebook based on card version
   const lorebook = cardData.character_book;
