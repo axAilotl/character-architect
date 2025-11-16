@@ -285,8 +285,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           dataKeys: Object.keys(wrappedData).slice(0, 20),
         }, 'Importing wrapped v2 card');
 
-        // Store unwrapped v2 data (CCv2Data type expects unwrapped format)
-        storageData = wrappedData;
+        // CRITICAL: Store WITH wrapper to preserve exact format for export
+        // The spec REQUIRES: { spec: 'chara_card_v2', spec_version: '2.0', data: {...} }
+        storageData = cardData as any;
       }
       // Handle legacy v2 cards (direct fields)
       else if (spec === 'v2' && 'name' in cardData && typeof cardData.name === 'string') {
@@ -305,7 +306,12 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           lorebookEntries: hasLorebook ? v2Data.character_book!.entries.length : 0,
         }, 'Importing legacy v2 card');
 
-        storageData = v2Data;
+        // Legacy v2 (no wrapper) - wrap it for consistency
+        storageData = {
+          spec: 'chara_card_v2',
+          spec_version: '2.0',
+          data: v2Data,
+        } as any;
       }
       // Handle v3 cards (always wrapped)
       else if (spec === 'v3' && 'data' in cardData && typeof cardData.data === 'object' && cardData.data) {

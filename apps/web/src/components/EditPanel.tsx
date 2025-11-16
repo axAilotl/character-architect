@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore, extractCardData } from '../store/card-store';
 import type { CCv3Data, CCv2Data, CCFieldName, FocusField, Template, Snippet, CardAssetWithDetails } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
@@ -78,16 +78,21 @@ export function EditPanel() {
   if (!currentCard) return null;
 
   const isV3 = currentCard.meta.spec === 'v3';
-  const cardData = isV3 ? (currentCard.data as CCv3Data).data : (currentCard.data as CCv2Data);
+  const cardData = extractCardData(currentCard);
 
   const handleFieldChange = (field: string, value: string | string[] | Record<string, string>) => {
-    if (isV3) {
+    // For wrapped cards (V3 and wrapped V2), update nested data object
+    // For unwrapped V2, update directly
+    const v2Data = currentCard.data as any;
+    const isWrappedV2 = !isV3 && v2Data.spec === 'chara_card_v2' && 'data' in v2Data;
+
+    if (isV3 || isWrappedV2) {
       updateCardData({
         data: {
-          ...(currentCard.data as CCv3Data).data,
+          ...cardData,
           [field]: value,
         },
-      } as Partial<CCv3Data>);
+      } as any);
     } else {
       updateCardData({ [field]: value });
     }
