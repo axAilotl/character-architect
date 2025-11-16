@@ -15,7 +15,7 @@ export function Header({ onBack }: HeaderProps) {
   const handleImport = async () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json,.png';
+    input.accept = '.json,.png,.charx';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
