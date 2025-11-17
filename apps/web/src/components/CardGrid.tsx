@@ -14,6 +14,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const { importCard, createNewCard } = useCardStore();
 
   useEffect(() => {
@@ -385,7 +386,9 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 }`}
               >
                 {/* Image Preview */}
-                <div className="w-full aspect-[2/3] bg-dark-bg relative overflow-hidden">
+                <div className={`w-full aspect-[2/3] bg-dark-bg relative overflow-hidden ${
+                  imageErrors.has(card.meta.id) ? 'flex items-center justify-center' : ''
+                }`}>
                   {/* Selection Checkbox - only show in selection mode */}
                   {selectionMode && (
                     <div
@@ -401,21 +404,18 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                       />
                     </div>
                   )}
-                  <img
-                    src={`/api/cards/${card.meta.id}/image`}
-                    alt={getCardName(card)}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Hide image on error (no image available)
-                      e.currentTarget.style.display = 'none';
-                      // Show placeholder
-                      const parent = e.currentTarget.parentElement;
-                      if (parent) {
-                        parent.classList.add('flex', 'items-center', 'justify-center');
-                        parent.innerHTML = '<div class="text-dark-muted text-sm">No Image</div>';
-                      }
-                    }}
-                  />
+                  {imageErrors.has(card.meta.id) ? (
+                    <div className="text-dark-muted text-sm">No Image</div>
+                  ) : (
+                    <img
+                      src={`/api/cards/${card.meta.id}/image`}
+                      alt={getCardName(card)}
+                      className="w-full h-full object-cover"
+                      onError={() => {
+                        setImageErrors(prev => new Set(prev).add(card.meta.id));
+                      }}
+                    />
+                  )}
                 </div>
 
                 {/* Card Info */}
