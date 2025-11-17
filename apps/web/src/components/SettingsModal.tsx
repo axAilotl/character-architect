@@ -50,6 +50,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [uploading, setUploading] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
 
+  // Free text entry state
+  const [freeTextTitle, setFreeTextTitle] = useState('');
+  const [freeTextContent, setFreeTextContent] = useState('');
+  const [addingFreeText, setAddingFreeText] = useState(false);
+
   // Preset state
   const [presets, setPresets] = useState<UserPreset[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
@@ -337,6 +342,76 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const handleSetActiveDatabase = async (dbId: string) => {
     await setActiveRagDatabaseId(dbId);
     setRagStatus('Active knowledge base updated.');
+  };
+
+  const handleAddFreeText = async () => {
+    if (!selectedDbId || !freeTextTitle.trim() || !freeTextContent.trim()) {
+      setRagStatus('Please provide both title and content.');
+      return;
+    }
+
+    setAddingFreeText(true);
+    const result = await api.addRagFreeText(selectedDbId, {
+      title: freeTextTitle.trim(),
+      content: freeTextContent.trim(),
+    });
+    setAddingFreeText(false);
+
+    if ('error' in result) {
+      setRagStatus(result.error || 'Failed to add free text entry.');
+      return;
+    }
+
+    setFreeTextTitle('');
+    setFreeTextContent('');
+    setRagStatus(`Indexed ${result.data!.indexedChunks} chunks from free text.`);
+    if (selectedDbId) {
+      loadRagDatabaseDetail(selectedDbId);
+    }
+  };
+
+  const handleImportCurrentLorebook = async () => {
+    if (!selectedDbId) {
+      setRagStatus('Please select a knowledge base first.');
+      return;
+    }
+
+    // Get current card from card store
+    const cardStore = await import('../store/card-store');
+    const currentCard = cardStore.useCardStore.getState().currentCard;
+
+    if (!currentCard) {
+      setRagStatus('No card loaded.');
+      return;
+    }
+
+    // Extract card data
+    const cardData = cardStore.extractCardData(currentCard);
+    const lorebook = (cardData as any).character_book;
+
+    if (!lorebook || !lorebook.entries || lorebook.entries.length === 0) {
+      setRagStatus('Current card has no lorebook entries.');
+      return;
+    }
+
+    setUploading(true);
+    const result = await api.addRagLorebook(selectedDbId, {
+      characterName: cardData.name,
+      lorebook,
+    });
+    setUploading(false);
+
+    if ('error' in result) {
+      setRagStatus(result.error || 'Failed to import lorebook.');
+      return;
+    }
+
+    setRagStatus(
+      `Imported ${lorebook.entries.length} lorebook entries (${result.data!.indexedChunks} chunks indexed).`
+    );
+    if (selectedDbId) {
+      loadRagDatabaseDetail(selectedDbId);
+    }
   };
 
   if (!isOpen) return null;
@@ -974,7 +1049,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </button>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {/* File Upload */}
                     <div className="space-y-2">
                       <h6 className="font-semibold text-sm">Upload Document</h6>
                       <input
@@ -994,43 +1070,114 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <button
                         onClick={handleUploadDocument}
                         disabled={uploading || !uploadFile}
-                        className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm transition-colors"
+                        className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm transition-colors"
                       >
                         {uploading ? 'Uploading…' : 'Upload & Index'}
                       </button>
                       <p className="text-xs text-dark-muted">
-                        Supports Markdown, text, JSON, and PDF lore/guide files.
+                        PDF, Markdown, JSON, text files
                       </p>
                     </div>
 
-                    <div>
-                      <h6 className="font-semibold text-sm mb-2">Documents</h6>
-                      {selectedDatabase.sources.length === 0 ? (
-                        <p className="text-sm text-dark-muted">No documents indexed yet.</p>
-                      ) : (
-                        <div className="space-y-2 max-h-60 overflow-auto pr-1">
-                          {selectedDatabase.sources.map((source) => (
+                    {/* Free Text Entry */}
+                    <div className="space-y-2">
+                      <h6 className="font-semibold text-sm">Add Free Text</h6>
+                      <input
+                        type="text"
+                        placeholder="Title (e.g., Writing Guide)"
+                        value={freeTextTitle}
+                        onChange={(e) => setFreeTextTitle(e.target.value)}
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
+                      />
+                      <textarea
+                        placeholder="Paste your documentation, notes, or guidelines here..."
+                        value={freeTextContent}
+                        onChange={(e) => setFreeTextContent(e.target.value)}
+                        rows={3}
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm resize-none"
+                      />
+                      <button
+                        onClick={handleAddFreeText}
+                        disabled={addingFreeText || !freeTextTitle.trim() || !freeTextContent.trim()}
+                        className="w-full px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 text-sm transition-colors"
+                      >
+                        {addingFreeText ? 'Adding…' : 'Add Text Entry'}
+                      </button>
+                      <p className="text-xs text-dark-muted">
+                        Direct text input for notes
+                      </p>
+                    </div>
+
+                    {/* Lorebook Import */}
+                    <div className="space-y-2">
+                      <h6 className="font-semibold text-sm">Import Lorebook</h6>
+                      <p className="text-xs text-dark-muted mb-3">
+                        Import the lorebook from the currently loaded card as searchable knowledge.
+                      </p>
+                      <button
+                        onClick={handleImportCurrentLorebook}
+                        disabled={uploading}
+                        className="w-full px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 text-sm transition-colors"
+                      >
+                        {uploading ? 'Importing…' : 'Import Current Card Lorebook'}
+                      </button>
+                      <p className="text-xs text-dark-muted">
+                        Extracts all lorebook entries with keywords and content
+                      </p>
+                    </div>
+
+                  </div>
+
+                  {/* Documents List */}
+                  <div className="mt-4">
+                    <h6 className="font-semibold text-sm mb-2">Indexed Documents</h6>
+                    {selectedDatabase.sources.length === 0 ? (
+                      <p className="text-sm text-dark-muted">No documents indexed yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-auto pr-1">
+                        {selectedDatabase.sources.map((source) => {
+                          // Define type badge colors
+                          const typeColors: Record<string, string> = {
+                            pdf: 'bg-red-600',
+                            markdown: 'bg-blue-600',
+                            json: 'bg-yellow-600',
+                            text: 'bg-gray-600',
+                            html: 'bg-green-600',
+                            freetext: 'bg-purple-600',
+                            lorebook: 'bg-orange-600',
+                          };
+                          const typeColor = typeColors[source.type] || 'bg-slate-600';
+
+                          return (
                             <div
                               key={source.id}
                               className="border border-dark-border rounded-md p-2 flex justify-between items-start gap-3"
                             >
-                              <div>
-                                <div className="text-sm font-medium">{source.title}</div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-medium">{source.title}</div>
+                                  <span className={`text-xs px-2 py-0.5 rounded text-white ${typeColor}`}>
+                                    {source.type.toUpperCase()}
+                                  </span>
+                                </div>
                                 <div className="text-xs text-dark-muted">
-                                  {source.type.toUpperCase()} • {source.chunkCount} chunks • {source.tokenCount} tokens
+                                  {source.chunkCount} chunks • {source.tokenCount} tokens
+                                  {source.tags && source.tags.length > 0 && (
+                                    <span> • Tags: {source.tags.join(', ')}</span>
+                                  )}
                                 </div>
                               </div>
                               <button
                                 onClick={() => handleRemoveDocument(source.id)}
-                                className="text-xs text-red-300 hover:text-red-200"
+                                className="text-xs text-red-300 hover:text-red-200 transition-colors"
                               >
                                 Remove
                               </button>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
