@@ -8,6 +8,8 @@ interface CardGridProps {
   onCardClick: (cardId: string) => void;
 }
 
+type SortOption = 'added' | 'newest' | 'oldest' | 'name';
+
 export function CardGrid({ onCardClick }: CardGridProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +17,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<SortOption>('added');
   const { importCard, createNewCard } = useCardStore();
 
   useEffect(() => {
@@ -269,6 +272,25 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     return date.toLocaleDateString();
   };
 
+  const getSortedCards = () => {
+    const sorted = [...cards];
+    switch (sortBy) {
+      case 'newest':
+        return sorted.sort((a, b) => new Date(b.meta.createdAt).getTime() - new Date(a.meta.createdAt).getTime());
+      case 'oldest':
+        return sorted.sort((a, b) => new Date(a.meta.createdAt).getTime() - new Date(b.meta.createdAt).getTime());
+      case 'name':
+        return sorted.sort((a, b) => {
+          const nameA = getCardName(a).toLowerCase();
+          const nameB = getCardName(b).toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+      case 'added':
+      default:
+        return sorted.sort((a, b) => new Date(b.meta.updatedAt).getTime() - new Date(a.meta.updatedAt).getTime());
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -328,6 +350,22 @@ export function CardGrid({ onCardClick }: CardGridProps) {
               {selectionMode ? 'Cancel Selection' : 'Select'}
             </button>
 
+            <div className="h-4 w-px bg-dark-border" />
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-dark-muted">Sort by:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
+              >
+                <option value="added">Added</option>
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="name">Name</option>
+              </select>
+            </div>
+
             {selectionMode && (
               <>
                 <div className="h-4 w-px bg-dark-border" />
@@ -371,7 +409,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {cards.map((card) => (
+            {getSortedCards().map((card) => (
               <div
                 key={card.meta.id}
                 onClick={() => {
