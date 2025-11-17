@@ -27,6 +27,24 @@ function normalizeLorebookEntries(dataObj: Record<string, unknown>) {
   for (const entry of characterBook.entries) {
     if (!entry || typeof entry !== 'object') continue;
 
+    // Ensure all required V2 fields exist with defaults
+    // V2 schema requires: keys, content, enabled, insertion_order, extensions
+    if (!('keys' in entry) || !Array.isArray(entry.keys)) {
+      entry.keys = [];
+    }
+    if (!('content' in entry) || typeof entry.content !== 'string') {
+      entry.content = '';
+    }
+    if (!('enabled' in entry) || typeof entry.enabled !== 'boolean') {
+      entry.enabled = true; // Default to enabled
+    }
+    if (!('insertion_order' in entry) || typeof entry.insertion_order !== 'number') {
+      entry.insertion_order = 100; // Default order
+    }
+    if (!('extensions' in entry) || typeof entry.extensions !== 'object' || entry.extensions === null) {
+      entry.extensions = {};
+    }
+
     // Normalize position field
     // Some tools use numeric values (0, 1, 2) instead of string enums
     if ('position' in entry) {
@@ -58,11 +76,6 @@ function normalizeLorebookEntries(dataObj: Record<string, unknown>) {
     // Move V3-specific fields to extensions for V2 compatibility
     // Some cards (like Lilia) have V3 fields in V2 format which can cause issues
     const v3Fields = ['probability', 'depth', 'use_regex', 'scan_frequency', 'role', 'group', 'automation_id', 'selective_logic', 'selectiveLogic'];
-
-    // Ensure extensions field exists (required in v2 schema)
-    if (!('extensions' in entry)) {
-      entry.extensions = {};
-    }
 
     // Move V3 fields into extensions to preserve them
     const extensions = entry.extensions as Record<string, unknown>;
