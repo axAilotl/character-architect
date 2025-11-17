@@ -389,9 +389,15 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
   // Import multiple cards at once
   fastify.post('/import-multiple', async (request, reply) => {
-    const files = await request.files();
+    const files = request.files();
 
-    if (!files || files.length === 0) {
+    // Convert AsyncIterableIterator to array
+    const fileList: any[] = [];
+    for await (const file of files) {
+      fileList.push(file);
+    }
+
+    if (fileList.length === 0) {
       reply.code(400);
       return { error: 'No files provided' };
     }
@@ -404,7 +410,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       warnings?: string[];
     }> = [];
 
-    for await (const file of files) {
+    for (const file of fileList) {
       const filename = file.filename || 'unknown';
 
       try {
@@ -620,9 +626,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         fastify.log.info({
           cardId: request.params.id,
           spec: card.meta.spec,
-          hasSpec: 'spec' in (card.data as Record<string, unknown>),
-          hasSpecVersion: 'spec_version' in (card.data as Record<string, unknown>),
-          dataKeys: Object.keys(card.data as Record<string, unknown>),
+          hasSpec: 'spec' in (card.data as unknown as Record<string, unknown>),
+          hasSpecVersion: 'spec_version' in (card.data as unknown as Record<string, unknown>),
+          dataKeys: Object.keys(card.data as unknown as Record<string, unknown>),
         }, 'Exporting card as JSON');
 
         reply.header('Content-Type', 'application/json; charset=utf-8');
@@ -789,6 +795,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           creator: v2.creator || '',
           character_version: v2.character_version || '1.0',
           tags: v2.tags || [],
+          group_only_greetings: [],
           creator_notes: v2.creator_notes,
           system_prompt: v2.system_prompt,
           post_history_instructions: v2.post_history_instructions,

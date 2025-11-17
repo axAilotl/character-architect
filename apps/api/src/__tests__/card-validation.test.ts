@@ -127,6 +127,7 @@ describe('Card Validation', () => {
           system_prompt: 'Be very helpful',
           post_history_instructions: 'Maintain consistency',
           alternate_greetings: ['Hello!', 'Hi!', 'Greetings!'],
+          group_only_greetings: [],
           character_book: {
             name: 'Advanced Lorebook',
             description: 'Advanced lorebook',
