@@ -250,6 +250,32 @@ class ApiClient {
     return { data };
   }
 
+  async addRagFreeText(
+    dbId: string,
+    payload: { title: string; content: string; tags?: string[] }
+  ) {
+    return this.request<{ source: RagSource; indexedChunks: number }>(
+      `/rag/databases/${dbId}/text`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
+  }
+
+  async addRagLorebook(
+    dbId: string,
+    payload: { characterName: string; lorebook: any; tags?: string[] }
+  ) {
+    return this.request<{ source: RagSource; indexedChunks: number }>(
+      `/rag/databases/${dbId}/lorebook`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
+  }
+
   async deleteRagDocument(dbId: string, sourceId: string) {
     return this.request<{ success: boolean }>(
       `/rag/databases/${dbId}/documents/${sourceId}`,

@@ -381,7 +381,7 @@ export interface ProviderConfig {
   maxTokens?: number;
 }
 
-export type RagDocumentType = 'markdown' | 'html' | 'pdf' | 'text' | 'json';
+export type RagDocumentType = 'markdown' | 'html' | 'pdf' | 'text' | 'json' | 'lorebook' | 'freetext';
 
 // RAG (Retrieval-Augmented Generation) configuration
 export interface RagConfig {

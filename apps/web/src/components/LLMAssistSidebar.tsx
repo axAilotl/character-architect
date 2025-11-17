@@ -9,7 +9,6 @@ import { api } from '../lib/api';
 import type {
   FieldContext,
   CCFieldName,
-  PresetOperation,
   LLMAssistResponse,
   LLMStreamChunk,
   RagSnippet,
@@ -25,8 +24,6 @@ interface LLMAssistSidebarProps {
   selection?: string;
   onApply: (value: string, action: 'replace' | 'append' | 'insert') => void;
   cardSpec: 'v2' | 'v3';
-  panelWidth?: string;
-  panelRight?: string;
 }
 
 export function LLMAssistSidebar({
@@ -37,15 +34,11 @@ export function LLMAssistSidebar({
   selection,
   onApply,
   cardSpec,
-  panelWidth = '600px',
-  panelRight = '0px',
 }: LLMAssistSidebarProps) {
   const { settings, loadSettings, ragDatabases, ragActiveDatabaseId, loadRagDatabases } =
     useLLMStore();
 
   const [instruction, setInstruction] = useState('');
-  const [selectedPreset, setSelectedPreset] = useState<PresetOperation | null>(null);
-  const [presetParams, setPresetParams] = useState<Record<string, any>>({});
   const [presets, setPresets] = useState<UserPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
@@ -122,7 +115,7 @@ export function LLMAssistSidebar({
   }, [useKnowledgeBase]);
 
   const handleRun = async () => {
-    if (!instruction && !selectedPreset && !selectedPresetId) {
+    if (!instruction && !selectedPresetId) {
       setError('Please provide an instruction or select a preset');
       return;
     }
@@ -133,16 +126,13 @@ export function LLMAssistSidebar({
     setAssistResponse(null);
     setRagSearching(false);
 
-    // Get instruction from either custom instruction, new preset system, or old preset system
+    // Get instruction from either custom instruction or selected preset
     let finalInstruction = instruction;
     if (!finalInstruction && selectedPresetId) {
       const preset = presets.find(p => p.id === selectedPresetId);
       if (preset) {
         finalInstruction = preset.instruction;
       }
-    }
-    if (!finalInstruction && selectedPreset) {
-      finalInstruction = getPresetInstruction(selectedPreset, presetParams);
     }
 
     let ragSnippets: RagSnippet[] | undefined;
@@ -193,7 +183,6 @@ export function LLMAssistSidebar({
       model,
       instruction: finalInstruction,
       context,
-      preset: selectedPreset ? { operation: selectedPreset, params: presetParams } : undefined,
       temperature,
       maxTokens,
       stream: streaming,
@@ -235,24 +224,8 @@ export function LLMAssistSidebar({
     }
   };
 
-  const handlePresetSelect = (preset: PresetOperation) => {
-    setSelectedPreset(preset);
-    setSelectedPresetId(null); // Clear new preset selection
-    setInstruction(''); // Clear custom instruction when preset is selected
-
-    // Set default params for presets
-    if (preset === 'tighten') {
-      setPresetParams({ tokenTarget: 200 });
-    } else if (preset === 'generate-alts') {
-      setPresetParams({ count: 3 });
-    } else {
-      setPresetParams({});
-    }
-  };
-
   const handleUserPresetSelect = (presetId: string) => {
     setSelectedPresetId(presetId);
-    setSelectedPreset(null); // Clear old preset selection
     setInstruction(''); // Clear custom instruction when preset is selected
   };
 
@@ -260,8 +233,7 @@ export function LLMAssistSidebar({
 
   return (
     <div
-      className="absolute top-0 h-full bg-slate-800 border-l border-dark-border shadow-2xl z-40 flex flex-col"
-      style={{ width: panelWidth, right: panelRight }}
+      className="absolute top-0 right-0 h-full bg-slate-800 border-l border-dark-border shadow-2xl z-40 flex flex-col w-[500px]"
     >
       {/* Header */}
       <div className="p-4 border-b border-dark-border flex justify-between items-center">
@@ -415,77 +387,79 @@ export function LLMAssistSidebar({
         </div>
       )}
 
-      {/* Presets */}
-      <div className="p-4 border-b border-dark-border max-h-96 overflow-y-auto">
-        <label className="block text-sm font-medium mb-2">Presets</label>
+      {/* Presets - Fixed height scrollable */}
+      <div className="border-b border-dark-border flex flex-col" style={{ height: '200px' }}>
+        <div className="p-4 pb-2">
+          <label className="block text-sm font-medium mb-2">Presets</label>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 pb-4">
+          {presets.length === 0 ? (
+            <div className="text-xs text-dark-muted text-center py-4">
+              No presets available. Add presets in Settings.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(['rewrite', 'format', 'generate', 'custom'] as const).map((category) => {
+                const categoryPresets = presets.filter((p) => p.category === category);
+                if (categoryPresets.length === 0) return null;
 
-        {presets.length === 0 ? (
-          <div className="text-xs text-dark-muted text-center py-4">
-            No presets available. Add presets in Settings.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {(['rewrite', 'format', 'generate', 'custom'] as const).map((category) => {
-              const categoryPresets = presets.filter((p) => p.category === category);
-              if (categoryPresets.length === 0) return null;
-
-              return (
-                <div key={category}>
-                  <div className="text-xs font-semibold text-dark-muted uppercase tracking-wide mb-1.5">
-                    {category}
+                return (
+                  <div key={category}>
+                    <div className="text-xs font-semibold text-dark-muted uppercase tracking-wide mb-1.5">
+                      {category}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {categoryPresets.map((preset) => (
+                        <button
+                          key={preset.id}
+                          onClick={() => handleUserPresetSelect(preset.id)}
+                          className={`px-3 py-2 text-xs rounded border text-left ${
+                            selectedPresetId === preset.id
+                              ? 'border-blue-500 bg-blue-900/30'
+                              : 'border-dark-border hover:border-blue-500'
+                          }`}
+                          title={preset.description || preset.instruction.slice(0, 100)}
+                        >
+                          {preset.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {categoryPresets.map((preset) => (
-                      <button
-                        key={preset.id}
-                        onClick={() => handleUserPresetSelect(preset.id)}
-                        className={`px-3 py-2 text-xs rounded border text-left ${
-                          selectedPresetId === preset.id
-                            ? 'border-blue-500 bg-blue-900/30'
-                            : 'border-dark-border hover:border-blue-500'
-                        }`}
-                        title={preset.description || preset.instruction.slice(0, 100)}
-                      >
-                        {preset.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Custom Instruction */}
-      <div className="p-4 border-b border-dark-border">
+      {/* Custom Instruction - Fixed height */}
+      <div className="p-4 border-b border-dark-border flex flex-col" style={{ minHeight: '200px' }}>
         <label className="block text-sm font-medium mb-2">
-          Custom Instruction {(selectedPreset || selectedPresetId) && '(overrides preset)'}
+          Custom Instruction {selectedPresetId && '(overrides preset)'}
         </label>
         <textarea
           value={instruction}
           onChange={(e) => {
             setInstruction(e.target.value);
             if (e.target.value) {
-              setSelectedPreset(null);
               setSelectedPresetId(null);
             }
           }}
           placeholder="Describe what you want to do..."
-          className="w-full h-24 bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm resize-none"
+          className="flex-1 w-full bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm resize-none min-h-[120px]"
         />
 
         <button
           onClick={handleRun}
-          disabled={isProcessing || (!instruction && !selectedPreset && !selectedPresetId)}
+          disabled={isProcessing || (!instruction && !selectedPresetId)}
           className="mt-2 w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isProcessing ? 'Processing...' : 'Run'}
         </button>
       </div>
 
-      {/* Results */}
-      <div className="flex-1 overflow-auto p-4">
+      {/* Results - Takes remaining space */}
+      <div className="flex-1 overflow-auto p-4 min-h-0">
         {error && (
           <div className="p-3 bg-red-900/30 border border-red-500 rounded text-red-200 text-sm">
             {error}
@@ -558,30 +532,6 @@ export function LLMAssistSidebar({
       </div>
     </div>
   );
-}
-
-/**
- * Get preset instruction text
- */
-function getPresetInstruction(preset: PresetOperation, params: Record<string, any>): string {
-  switch (preset) {
-    case 'tighten':
-      return `Tighten this text to approximately ${params.tokenTarget || 200} tokens`;
-    case 'convert-structured':
-      return 'Convert to structured format with labeled sections';
-    case 'convert-prose':
-      return 'Convert to flowing prose style';
-    case 'convert-hybrid':
-      return 'Convert to hybrid format (prose + bullets)';
-    case 'enforce-style':
-      return 'Fix formatting and enforce style rules';
-    case 'generate-alts':
-      return `Generate ${params.count || 3} alternate greetings`;
-    case 'generate-lore':
-      return 'Create a lorebook entry from this content';
-    default:
-      return '';
-  }
 }
 
 function buildRagQuery(
