@@ -1,12 +1,13 @@
 import type { FastifyInstance } from 'fastify';
-import { CardRepository } from '../db/repository.js';
+import { CardRepository, CardAssetRepository } from '../db/repository.js';
 import { validateV2, validateV3, type CCv2Data, type CCv3Data } from '@card-architect/schemas';
 
 export async function cardRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
+  const cardAssetRepo = new CardAssetRepository(fastify.db);
 
   // List cards
-  fastify.get('/cards', async (request, reply) => {
+  fastify.get('/cards', async (request) => {
     const { query, page } = request.query as { query?: string; page?: string };
     const cards = cardRepo.list(query, parseInt(page || '1', 10));
     return cards;
@@ -21,6 +22,59 @@ export async function cardRoutes(fastify: FastifyInstance) {
     }
     return card;
   });
+
+  // Get card assets
+  fastify.get<{ Params: { id: string } }>('/cards/:id/assets', async (request, reply) => {
+    const card = cardRepo.get(request.params.id);
+    if (!card) {
+      reply.code(404);
+      return { error: 'Card not found' };
+    }
+
+    const assets = cardAssetRepo.listByCardWithDetails(request.params.id);
+    return assets;
+  });
+
+  // Set asset as main
+  fastify.patch<{ Params: { id: string; assetId: string } }>(
+    '/cards/:id/assets/:assetId/main',
+    async (request, reply) => {
+      const card = cardRepo.get(request.params.id);
+      if (!card) {
+        reply.code(404);
+        return { error: 'Card not found' };
+      }
+
+      const success = cardAssetRepo.setMain(request.params.id, request.params.assetId);
+      if (!success) {
+        reply.code(404);
+        return { error: 'Asset not found' };
+      }
+
+      return { success: true };
+    }
+  );
+
+  // Delete card asset
+  fastify.delete<{ Params: { id: string; assetId: string } }>(
+    '/cards/:id/assets/:assetId',
+    async (request, reply) => {
+      const card = cardRepo.get(request.params.id);
+      if (!card) {
+        reply.code(404);
+        return { error: 'Card not found' };
+      }
+
+      const success = cardAssetRepo.delete(request.params.assetId);
+      if (!success) {
+        reply.code(404);
+        return { error: 'Asset not found' };
+      }
+
+      reply.code(204);
+      return;
+    }
+  );
 
   // Create card
   fastify.post('/cards', async (request, reply) => {
@@ -117,7 +171,7 @@ export async function cardRoutes(fastify: FastifyInstance) {
   });
 
   // List versions
-  fastify.get<{ Params: { id: string } }>('/cards/:id/versions', async (request, reply) => {
+  fastify.get<{ Params: { id: string } }>('/cards/:id/versions', async (request) => {
     const versions = cardRepo.listVersions(request.params.id);
     return versions;
   });

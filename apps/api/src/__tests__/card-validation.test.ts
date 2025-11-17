@@ -100,6 +100,7 @@ describe('Card Validation', () => {
           creator: 'Test Creator',
           character_version: '1.0',
           tags: [],
+          group_only_greetings: [],
         },
       };
 
@@ -169,6 +170,7 @@ describe('Card Validation', () => {
           creator: 'Test',
           character_version: '1.0',
           tags: [],
+          group_only_greetings: [],
         },
       };
 
@@ -190,6 +192,7 @@ describe('Card Validation', () => {
           creator: 'Test',
           character_version: '1.0',
           tags: [],
+          group_only_greetings: [],
         },
       };
 
@@ -248,6 +251,7 @@ describe('Card Validation', () => {
           creator: 'Test',
           character_version: '1.0',
           tags: [],
+          group_only_greetings: [],
           character_book: {
             name: 'Test Lorebook',
             description: 'Test',
@@ -316,6 +320,7 @@ describe('Card Validation', () => {
           creator: 'Test',
           character_version: '1.0',
           tags: [],
+          group_only_greetings: [],
           alternate_greetings: [
             'Welcome!',
             'Good day!',

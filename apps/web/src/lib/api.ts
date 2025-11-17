@@ -10,6 +10,7 @@ import type {
   RagDatabaseDetail,
   RagSnippet,
   RagSource,
+  CardAssetWithDetails,
 } from '@card-architect/schemas';
 
 const API_BASE = '/api';
@@ -22,14 +23,17 @@ class ApiClient {
   ): Promise<{ data?: T; error?: string }> {
     try {
       // Only set Content-Type if there's a body
-      const headers: Record<string, string> = { ...options?.headers };
+      const headers: Record<string, string> = {};
       if (options?.body) {
         headers['Content-Type'] = 'application/json';
       }
 
       const response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
-        headers,
+        headers: {
+          ...options?.headers,
+          ...headers,
+        },
       });
 
       if (!response.ok) {
@@ -81,6 +85,22 @@ class ApiClient {
     return this.request<void>(`/cards/${id}`, { method: 'DELETE' });
   }
 
+  async getCardAssets(cardId: string) {
+    return this.request<CardAssetWithDetails[]>(`/cards/${cardId}/assets`);
+  }
+
+  async setAssetAsMain(cardId: string, assetId: string) {
+    return this.request<{ success: boolean }>(`/cards/${cardId}/assets/${assetId}/main`, {
+      method: 'PATCH',
+    });
+  }
+
+  async deleteCardAsset(cardId: string, assetId: string) {
+    return this.request<void>(`/cards/${cardId}/assets/${assetId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Versions
   async listVersions(cardId: string) {
     return this.request<unknown[]>(`/cards/${cardId}/versions`);
@@ -126,7 +146,7 @@ class ApiClient {
     return { data };
   }
 
-  async exportCard(cardId: string, format: 'json' | 'png') {
+  async exportCard(cardId: string, format: 'json' | 'png' | 'charx') {
     const response = await fetch(`${API_BASE}/cards/${cardId}/export?format=${format}`);
 
     if (!response.ok) {

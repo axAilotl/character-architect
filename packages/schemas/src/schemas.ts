@@ -110,7 +110,7 @@ export const ccv3Schema = {
     },
     spec_version: {
       type: 'string',
-      const: '3.0',
+      pattern: '^3\\.[0-9]+$', // Accept 3.0, 3.1, 3.2, etc. for forward compatibility
     },
     data: {
       type: 'object',
@@ -124,6 +124,7 @@ export const ccv3Schema = {
         'creator',
         'character_version',
         'tags',
+        'group_only_greetings', // REQUIRED field (can be empty array)
       ],
       properties: {
         name: { type: 'string', minLength: 1 },

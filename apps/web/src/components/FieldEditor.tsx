@@ -12,6 +12,7 @@ interface FieldEditorProps {
   onOpenLLMAssist?: (fieldName: CCFieldName, value: string) => void;
   onOpenTemplates?: (fieldName: FocusField, value: string) => void;
   specMarker?: 'v2' | 'v3' | 'v3-only' | 'both';
+  helpText?: string;
 }
 
 export function FieldEditor({
@@ -26,6 +27,7 @@ export function FieldEditor({
   onOpenLLMAssist,
   onOpenTemplates,
   specMarker,
+  helpText,
 }: FieldEditorProps) {
   const focusFields: FocusField[] = ['description', 'personality', 'scenario', 'first_mes', 'mes_example', 'system_prompt', 'post_history_instructions', 'creator_notes'];
   const isFocusField = fieldName && focusFields.includes(fieldName as FocusField);
@@ -100,6 +102,9 @@ export function FieldEditor({
           placeholder={placeholder}
           className="w-full"
         />
+      )}
+      {helpText && (
+        <p className="text-sm text-dark-muted mt-2">{helpText}</p>
       )}
     </div>
   );

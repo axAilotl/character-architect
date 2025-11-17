@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { nanoid } from 'nanoid';
-import type { Card, CardMeta, CardVersion, Spec } from '@card-architect/schemas';
+import type { Card, CardMeta, CardVersion, Spec, CardAsset, CardAssetWithDetails, Asset } from '@card-architect/schemas';
 
 export class CardRepository {
   constructor(private db: Database.Database) {}
@@ -312,6 +312,264 @@ export class AssetRepository {
       height: r.height || undefined,
       url: r.path,
       createdAt: r.created_at,
+    };
+  }
+}
+
+export class CardAssetRepository {
+  constructor(private db: Database.Database) {}
+
+  /**
+   * Create a card asset association
+   */
+  create(cardAsset: Omit<CardAsset, 'id' | 'createdAt' | 'updatedAt'>): CardAsset {
+    const id = nanoid();
+    const now = new Date().toISOString();
+
+    const stmt = this.db.prepare(`
+      INSERT INTO card_assets (id, card_id, asset_id, type, name, ext, order_index, is_main, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      id,
+      cardAsset.cardId,
+      cardAsset.assetId,
+      cardAsset.type,
+      cardAsset.name,
+      cardAsset.ext,
+      cardAsset.order,
+      cardAsset.isMain ? 1 : 0,
+      now,
+      now
+    );
+
+    return { ...cardAsset, id, createdAt: now, updatedAt: now };
+  }
+
+  /**
+   * Get all assets for a card
+   */
+  listByCard(cardId: string): CardAsset[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM card_assets
+      WHERE card_id = ?
+      ORDER BY order_index ASC, created_at ASC
+    `);
+
+    const rows = stmt.all(cardId) as unknown[];
+    return rows.map((row) => this.rowToCardAsset(row));
+  }
+
+  /**
+   * Get all assets for a card with full asset details
+   */
+  listByCardWithDetails(cardId: string): CardAssetWithDetails[] {
+    const stmt = this.db.prepare(`
+      SELECT
+        ca.*,
+        a.filename, a.mimetype, a.size, a.width, a.height, a.path, a.created_at as asset_created_at
+      FROM card_assets ca
+      JOIN assets a ON ca.asset_id = a.id
+      WHERE ca.card_id = ?
+      ORDER BY ca.order_index ASC, ca.created_at ASC
+    `);
+
+    const rows = stmt.all(cardId) as unknown[];
+    return rows.map((row) => this.rowToCardAssetWithDetails(row));
+  }
+
+  /**
+   * Get assets by type for a card
+   */
+  listByCardAndType(cardId: string, type: string): CardAsset[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM card_assets
+      WHERE card_id = ? AND type = ?
+      ORDER BY order_index ASC, created_at ASC
+    `);
+
+    const rows = stmt.all(cardId, type) as unknown[];
+    return rows.map((row) => this.rowToCardAsset(row));
+  }
+
+  /**
+   * Get the main asset for a card by type
+   */
+  getMain(cardId: string, type: string): CardAsset | null {
+    const stmt = this.db.prepare(`
+      SELECT * FROM card_assets
+      WHERE card_id = ? AND type = ? AND is_main = 1
+      LIMIT 1
+    `);
+
+    const row = stmt.get(cardId, type);
+    return row ? this.rowToCardAsset(row) : null;
+  }
+
+  /**
+   * Set an asset as main for its type (unsets previous main)
+   */
+  setMain(cardId: string, assetId: string): boolean {
+    // First, get the type of the asset
+    const getStmt = this.db.prepare('SELECT type FROM card_assets WHERE id = ? AND card_id = ?');
+    const row = getStmt.get(assetId, cardId) as { type: string } | undefined;
+
+    if (!row) return false;
+
+    // Unset all main flags for this type
+    const unsetStmt = this.db.prepare(`
+      UPDATE card_assets
+      SET is_main = 0, updated_at = ?
+      WHERE card_id = ? AND type = ?
+    `);
+    unsetStmt.run(new Date().toISOString(), cardId, row.type);
+
+    // Set the new main
+    const setStmt = this.db.prepare(`
+      UPDATE card_assets
+      SET is_main = 1, updated_at = ?
+      WHERE id = ? AND card_id = ?
+    `);
+    const result = setStmt.run(new Date().toISOString(), assetId, cardId);
+
+    return result.changes > 0;
+  }
+
+  /**
+   * Update a card asset
+   */
+  update(id: string, updates: Partial<Omit<CardAsset, 'id' | 'cardId' | 'assetId' | 'createdAt'>>): CardAsset | null {
+    const existing = this.get(id);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const merged = { ...existing, ...updates, updatedAt: now };
+
+    const stmt = this.db.prepare(`
+      UPDATE card_assets
+      SET type = ?, name = ?, ext = ?, order_index = ?, is_main = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      merged.type,
+      merged.name,
+      merged.ext,
+      merged.order,
+      merged.isMain ? 1 : 0,
+      merged.updatedAt,
+      id
+    );
+
+    return merged;
+  }
+
+  /**
+   * Delete a card asset
+   */
+  delete(id: string): boolean {
+    const stmt = this.db.prepare('DELETE FROM card_assets WHERE id = ?');
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+
+  /**
+   * Delete all assets for a card
+   */
+  deleteByCard(cardId: string): number {
+    const stmt = this.db.prepare('DELETE FROM card_assets WHERE card_id = ?');
+    const result = stmt.run(cardId);
+    return result.changes;
+  }
+
+  /**
+   * Get a single card asset
+   */
+  get(id: string): CardAsset | null {
+    const stmt = this.db.prepare('SELECT * FROM card_assets WHERE id = ?');
+    const row = stmt.get(id);
+    return row ? this.rowToCardAsset(row) : null;
+  }
+
+  /**
+   * Convert database row to CardAsset
+   */
+  private rowToCardAsset(row: unknown): CardAsset {
+    const r = row as {
+      id: string;
+      card_id: string;
+      asset_id: string;
+      type: string;
+      name: string;
+      ext: string;
+      order_index: number;
+      is_main: number;
+      created_at: string;
+      updated_at: string;
+    };
+
+    return {
+      id: r.id,
+      cardId: r.card_id,
+      assetId: r.asset_id,
+      type: r.type,
+      name: r.name,
+      ext: r.ext,
+      order: r.order_index,
+      isMain: r.is_main === 1,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    };
+  }
+
+  /**
+   * Convert database row to CardAssetWithDetails
+   */
+  private rowToCardAssetWithDetails(row: unknown): CardAssetWithDetails {
+    const r = row as {
+      id: string;
+      card_id: string;
+      asset_id: string;
+      type: string;
+      name: string;
+      ext: string;
+      order_index: number;
+      is_main: number;
+      created_at: string;
+      updated_at: string;
+      filename: string;
+      mimetype: string;
+      size: number;
+      width: number | null;
+      height: number | null;
+      path: string;
+      asset_created_at: string;
+    };
+
+    const asset: Asset = {
+      id: r.asset_id,
+      filename: r.filename,
+      mimetype: r.mimetype,
+      size: r.size,
+      width: r.width || undefined,
+      height: r.height || undefined,
+      url: r.path,
+      createdAt: r.asset_created_at,
+    };
+
+    return {
+      id: r.id,
+      cardId: r.card_id,
+      assetId: r.asset_id,
+      type: r.type,
+      name: r.name,
+      ext: r.ext,
+      order: r.order_index,
+      isMain: r.is_main === 1,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      asset,
     };
   }
 }

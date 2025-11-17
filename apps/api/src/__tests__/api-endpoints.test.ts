@@ -137,6 +137,7 @@ describe('API Endpoints', () => {
           system_prompt: 'Be helpful',
           post_history_instructions: 'Stay consistent',
           alternate_greetings: ['Hi!', 'Hey!'],
+          group_only_greetings: [],
           character_book: {
             name: 'Test Lorebook',
             description: 'Test',

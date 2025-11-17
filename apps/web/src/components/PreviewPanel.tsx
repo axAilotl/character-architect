@@ -1,6 +1,6 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { useCardStore } from '../store/card-store';
+import { useCardStore, extractCardData } from '../store/card-store';
 import type { CCv3Data, CCv2Data } from '@card-architect/schemas';
 import { useState, useEffect, useRef } from 'react';
 
@@ -82,7 +82,7 @@ export function PreviewPanel() {
   }, [cardId]);
 
   const isV3 = currentCard.meta.spec === 'v3';
-  const cardData = isV3 ? (currentCard.data as CCv3Data).data : (currentCard.data as CCv2Data);
+  const cardData = extractCardData(currentCard);
 
   // Load PNG preview when shown
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore, extractCardData } from '../store/card-store';
 import type { CCv2Data, CCv3Data, Template, Snippet, CCFieldName } from '@card-architect/schemas';
 import { MilkdownProvider } from '@milkdown/react';
 import { Crepe } from '@milkdown/crepe';
@@ -162,8 +162,8 @@ function FocusedEditorInner() {
   const isV3 = currentCard?.meta.spec === 'v3';
   const cardData = useMemo(() => {
     if (!currentCard) return null;
-    return isV3 ? (currentCard.data as CCv3Data).data : (currentCard.data as CCv2Data);
-  }, [currentCard, isV3]);
+    return extractCardData(currentCard);
+  }, [currentCard]);
 
   const getFieldValue = useCallback(
     (field: FocusField) => {

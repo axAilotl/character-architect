@@ -1,9 +1,26 @@
 import { useState } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore, extractCardData } from '../store/card-store';
 import { SettingsModal } from './SettingsModal';
+import type { CCv2Data, CCv3Data } from '@card-architect/schemas';
 
 interface HeaderProps {
   onBack: () => void;
+}
+
+// Simple circular favicon icon
+function FaviconIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" fill="url(#gradient)" />
+      <path d="M8 10 L12 14 L16 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <defs>
+        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#8b5cf6" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
 }
 
 export function Header({ onBack }: HeaderProps) {
@@ -12,10 +29,27 @@ export function Header({ onBack }: HeaderProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
+  // Calculate permanent tokens (name + description + personality + scenario)
+  const getPermanentTokens = () => {
+    if (!tokenCounts) return 0;
+    const name = tokenCounts.name || 0;
+    const description = tokenCounts.description || 0;
+    const personality = tokenCounts.personality || 0;
+    const scenario = tokenCounts.scenario || 0;
+    return name + description + personality + scenario;
+  };
+
+  // Get character name from current card
+  const getCharacterName = () => {
+    if (!currentCard) return '';
+    const data = extractCardData(currentCard);
+    return data.name || 'Untitled';
+  };
+
   const handleImport = async () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json,.png';
+    input.accept = '.json,.png,.charx';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
@@ -25,7 +59,7 @@ export function Header({ onBack }: HeaderProps) {
     input.click();
   };
 
-  const handleExport = async (format: 'json' | 'png') => {
+  const handleExport = async (format: 'json' | 'png' | 'charx') => {
     setShowExportMenu(false);
     await useCardStore.getState().exportCard(format);
   };
@@ -37,20 +71,28 @@ export function Header({ onBack }: HeaderProps) {
           ← Back
         </button>
 
-        <h1 className="text-xl font-bold">Card Architect</h1>
+        <div className="flex items-center gap-2">
+          <FaviconIcon />
+          <h1 className="text-lg font-semibold text-dark-muted">Card Architect</h1>
+        </div>
 
         {currentCard && (
-          <span className="text-sm text-dark-muted">
-            {currentCard.meta.name} {isSaving && '(saving...)'}
+          <span className="text-2xl font-bold">
+            {getCharacterName()} {isSaving && <span className="text-sm text-dark-muted">(saving...)</span>}
           </span>
         )}
       </div>
 
       <div className="flex items-center gap-2">
         {tokenCounts && (
-          <div className="chip chip-token">
-            Total: {tokenCounts.total} tokens
-          </div>
+          <>
+            <div className="chip chip-token" title="Permanent tokens: Name + Description + Personality + Scenario">
+              Permanent: {getPermanentTokens()} tokens
+            </div>
+            <div className="chip chip-token">
+              Total: {tokenCounts.total} tokens
+            </div>
+          </>
         )}
 
         <button onClick={() => setShowSettings(true)} className="btn-secondary" title="LLM Settings">
@@ -88,9 +130,16 @@ export function Header({ onBack }: HeaderProps) {
                   </button>
                   <button
                     onClick={() => handleExport('png')}
-                    className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-b"
+                    className="block w-full px-4 py-2 text-left hover:bg-slate-700"
                   >
                     PNG
+                  </button>
+                  <button
+                    onClick={() => handleExport('charx')}
+                    className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-b"
+                    title="Export as CHARX (with assets)"
+                  >
+                    CHARX
                   </button>
                 </div>
               </>

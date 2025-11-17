@@ -57,6 +57,17 @@ export interface CCv2LorebookEntry {
 }
 
 /**
+ * Character Card v3 Asset Descriptor
+ * Based on: https://github.com/kwaroran/character-card-spec-v3
+ */
+export interface AssetDescriptor {
+  type: 'icon' | 'background' | 'user_icon' | 'emotion' | string; // x-prefixed for custom
+  uri: string; // embeded://, http://, https://, data:, ccdefault:
+  name: string; // 'main' for primary, arbitrary for others
+  ext: string; // file extension without dot (e.g., 'png', 'webp', 'jpg')
+}
+
+/**
  * Character Card v3 Types
  * Based on: https://github.com/kwaroran/character-card-spec-v3
  */
@@ -81,7 +92,15 @@ export interface CCv3Data {
     alternate_greetings?: string[];
     character_book?: CCv3CharacterBook;
     extensions?: Record<string, unknown>;
-    group_only_greetings?: string[];
+    // CCv3 required field (can be empty array)
+    group_only_greetings: string[];
+    // CCv3 Asset and metadata fields
+    assets?: AssetDescriptor[];
+    nickname?: string;
+    creator_notes_multilingual?: Record<string, string>;
+    source?: string[];
+    creation_date?: number; // Unix timestamp in seconds
+    modification_date?: number; // Unix timestamp in seconds
   };
 }
 
@@ -123,6 +142,12 @@ export interface CCv3LorebookEntry {
 }
 
 /**
+ * Type aliases for backward compatibility
+ */
+export type CharacterBook = CCv3CharacterBook;
+export type LorebookEntry = CCv3LorebookEntry;
+
+/**
  * Unified card metadata for internal use
  */
 export interface CardMeta {
@@ -162,7 +187,7 @@ export interface CardVersion {
  * Import/Export formats
  */
 export type ExportFormat = 'json' | 'png' | 'charx' | 'voxta';
-export type ImportSource = 'json' | 'png';
+export type ImportSource = 'json' | 'png' | 'charx';
 
 export interface ImportResult {
   card: Card;
@@ -174,6 +199,33 @@ export interface ExportOptions {
   format: ExportFormat;
   minify?: boolean;
   includeMetadata?: boolean;
+}
+
+/**
+ * CHARX Format Types
+ */
+export interface CharxMetadata {
+  type: string; // e.g., 'WEBP', 'PNG', 'JPEG'
+}
+
+export interface CharxAssetInfo {
+  path: string; // Path within ZIP (e.g., 'assets/icon/image/1.png')
+  descriptor: AssetDescriptor; // Corresponding asset descriptor from card.json
+  buffer?: Buffer; // Binary data (for export)
+}
+
+export interface CharxData {
+  card: CCv3Data; // card.json content
+  assets: CharxAssetInfo[]; // All assets extracted from ZIP
+  metadata?: Map<number, CharxMetadata>; // x_meta/*.json files
+  moduleRisum?: Buffer; // module.risum binary data (preserved but not parsed)
+}
+
+export interface CharxValidationResult extends ValidationResult {
+  hasMainIcon: boolean;
+  assetCount: number;
+  totalSize: number;
+  missingAssets: string[];
 }
 
 /**
@@ -232,6 +284,29 @@ export interface AssetTransformOptions {
   format?: 'png' | 'jpg' | 'webp';
   quality?: number;
   fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+}
+
+/**
+ * Card Asset (asset associated with a character card)
+ */
+export interface CardAsset {
+  id: UUID;
+  cardId: UUID;
+  assetId: UUID; // Reference to Asset table
+  type: 'icon' | 'background' | 'user_icon' | 'emotion' | string;
+  name: string; // Display name
+  ext: string; // File extension without dot
+  order: number; // Display order
+  isMain: boolean; // Is this the main asset for its type?
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
+}
+
+/**
+ * Card Asset with full asset details
+ */
+export interface CardAssetWithDetails extends CardAsset {
+  asset: Asset;
 }
 
 /**

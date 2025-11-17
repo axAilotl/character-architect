@@ -62,6 +62,24 @@ export function createTables(db: Database.Database): void {
     )
   `);
 
+  // Card Assets table (links cards to their assets with CCv3 metadata)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS card_assets (
+      id TEXT PRIMARY KEY,
+      card_id TEXT NOT NULL,
+      asset_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      ext TEXT NOT NULL,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      is_main INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+      FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+    )
+  `);
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_cards_name ON cards(name);
@@ -69,6 +87,10 @@ export function createTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_cards_updated_at ON cards(updated_at);
     CREATE INDEX IF NOT EXISTS idx_versions_card_id ON versions(card_id);
     CREATE INDEX IF NOT EXISTS idx_versions_created_at ON versions(created_at);
+    CREATE INDEX IF NOT EXISTS idx_card_assets_card_id ON card_assets(card_id);
+    CREATE INDEX IF NOT EXISTS idx_card_assets_asset_id ON card_assets(asset_id);
+    CREATE INDEX IF NOT EXISTS idx_card_assets_type ON card_assets(type);
+    CREATE INDEX IF NOT EXISTS idx_card_assets_is_main ON card_assets(is_main);
   `);
 
   // Migrations - add original_image column if it doesn't exist
