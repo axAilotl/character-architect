@@ -124,14 +124,14 @@ export async function cardRoutes(fastify: FastifyInstance) {
   fastify.patch<{ Params: { id: string } }>('/cards/:id', async (request, reply) => {
     const body = request.body as { data?: unknown; meta?: unknown };
 
+    const existing = cardRepo.get(request.params.id);
+    if (!existing) {
+      reply.code(404);
+      return { error: 'Card not found' };
+    }
+
     // Validate if data is being updated
     if (body.data) {
-      const existing = cardRepo.get(request.params.id);
-      if (!existing) {
-        reply.code(404);
-        return { error: 'Card not found' };
-      }
-
       const spec = existing.meta.spec;
       const validation = spec === 'v3' ? validateV3(body.data) : validateV2(body.data);
 
@@ -142,11 +142,29 @@ export async function cardRoutes(fastify: FastifyInstance) {
     }
 
     const updateData: Partial<{ data: CCv2Data | CCv3Data; meta: unknown }> = {};
-    if (body.data) {
-      updateData.data = body.data as (CCv2Data | CCv3Data);
-    }
+
+    // Start with any meta updates from the request
     if (body.meta) {
       updateData.meta = body.meta;
+    }
+
+    if (body.data) {
+      updateData.data = body.data as (CCv2Data | CCv3Data);
+
+      // Extract name from data and sync to meta.name
+      let name: string | undefined;
+      if (typeof body.data === 'object' && body.data) {
+        if ('name' in body.data && typeof body.data.name === 'string') {
+          name = body.data.name;
+        } else if ('data' in body.data && typeof body.data.data === 'object' && body.data.data && 'name' in body.data.data) {
+          name = (body.data.data as { name: string }).name;
+        }
+      }
+
+      // Update meta.name if we found a name in the data
+      if (name) {
+        updateData.meta = { ...(updateData.meta || {}), name };
+      }
     }
 
     const card = cardRepo.update(request.params.id, updateData as any);

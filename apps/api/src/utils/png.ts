@@ -306,12 +306,15 @@ function injectTextChunk(pngBuffer: Buffer, keyword: string, text: string): Buff
  * Embed character card JSON into PNG tEXt chunk
  */
 export async function embedIntoPNG(imageBuffer: Buffer, cardData: CCv2Data | CCv3Data, spec: 'v2' | 'v3'): Promise<Buffer> {
-  // Determine the text chunk key based on spec
-  const key = spec === 'v3' ? 'ccv3' : 'chara';
+  // Use 'chara' key for both V2 and V3 (SillyTavern standard)
+  const key = 'chara';
   const json = JSON.stringify(cardData, null, 0); // Minified for smaller size
 
+  // Base64 encode the JSON (standard for SillyTavern and other tools)
+  const base64 = Buffer.from(json, 'utf-8').toString('base64');
+
   // Manually inject the text chunk into the PNG
-  return injectTextChunk(imageBuffer, key, json);
+  return injectTextChunk(imageBuffer, key, base64);
 }
 
 /**
