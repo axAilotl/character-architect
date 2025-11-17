@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore, extractCardData } from '../store/card-store';
 import { api } from '../lib/api';
 import type { Card, CCv2Data, CCv3Data } from '@card-architect/schemas';
 import { SettingsModal } from './SettingsModal';
@@ -107,60 +107,53 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   };
 
   const getCardName = (card: Card) => {
-    const isV3 = card.meta.spec === 'v3';
-    const data = isV3 ? (card.data as CCv3Data).data : (card.data as CCv2Data);
+    const data = extractCardData(card);
     return data.name || 'Untitled Card';
   };
 
   const getCreatorNotes = (card: Card) => {
-    const isV3 = card.meta.spec === 'v3';
-    const data = isV3 ? (card.data as CCv3Data).data : (card.data as CCv2Data);
+    const data = extractCardData(card);
     const notes = data.creator_notes || '';
     const lines = notes.split('\n').slice(0, 2).join('\n');
     return lines.length > 150 ? lines.slice(0, 150) + '...' : lines;
   };
 
   const getTags = (card: Card) => {
-    const isV3 = card.meta.spec === 'v3';
-    const data = isV3 ? (card.data as CCv3Data).data : (card.data as CCv2Data);
+    const data = extractCardData(card);
     return data.tags || [];
   };
 
   const hasAlternateGreetings = (card: Card) => {
-    const isV3 = card.meta.spec === 'v3';
-    const data = isV3 ? (card.data as CCv3Data).data : (card.data as CCv2Data);
+    const data = extractCardData(card);
     return (data.alternate_greetings?.length ?? 0) > 0;
   };
 
   const hasLorebook = (card: Card) => {
-    const isV3 = card.meta.spec === 'v3';
-    const data = isV3 ? (card.data as CCv3Data).data : (card.data as CCv2Data);
+    const data = extractCardData(card);
     return (data.character_book?.entries?.length ?? 0) > 0;
   };
 
   const getLorebookEntryCount = (card: Card) => {
-    const isV3 = card.meta.spec === 'v3';
-    const data = isV3 ? (card.data as CCv3Data).data : (card.data as CCv2Data);
+    const data = extractCardData(card);
     return data.character_book?.entries?.length ?? 0;
   };
 
   const getAlternateGreetingCount = (card: Card) => {
-    const isV3 = card.meta.spec === 'v3';
-    const data = isV3 ? (card.data as CCv3Data).data : (card.data as CCv2Data);
+    const data = extractCardData(card);
     return data.alternate_greetings?.length ?? 0;
   };
 
   const hasAssets = (card: Card) => {
     const isV3 = card.meta.spec === 'v3';
     if (!isV3) return false;
-    const data = (card.data as CCv3Data).data;
+    const data = extractCardData(card) as CCv3Data['data'];
     return (data.assets?.length ?? 0) > 0;
   };
 
   const getAssetCount = (card: Card) => {
     const isV3 = card.meta.spec === 'v3';
     if (!isV3) return 0;
-    const data = (card.data as CCv3Data).data;
+    const data = extractCardData(card) as CCv3Data['data'];
     return data.assets?.length ?? 0;
   };
 

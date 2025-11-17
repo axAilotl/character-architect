@@ -315,9 +315,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
 
     if (data && data.card) {
-      const cardData = data.card.meta.spec === 'v3'
-        ? (data.card.data as any).data
-        : (data.card.data as any);
+      const cardData = extractCardData(data.card);
       const cardName = cardData?.name || 'Untitled Card';
 
       console.log(`[Import] Successfully imported card: ${cardName}`);
