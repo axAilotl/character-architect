@@ -465,7 +465,7 @@ function FocusedEditorInner() {
   };
 
   const renderWysiwyg = (suffix = '') => (
-    <div className="flex-1 bg-slate-900/60 border border-dark-border rounded-lg p-3 overflow-auto">
+    <div className="flex-1 bg-slate-900/60 border border-dark-border rounded-lg p-3 overflow-auto min-h-[50vh]">
       <CrepeMarkdownEditor
         key={`${editorKey}-${suffix}`}
         value={currentValue}

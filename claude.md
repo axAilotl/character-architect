@@ -111,10 +111,14 @@ card_doctor/
 - **Security**: API keys stored in `~/.card-architect/config.json` with 600 permissions, redacted in all responses
 
 ### 4. RAG System (Knowledge Bases)
+- **Vector embeddings**: Semantic search powered by FastEmbed (BAAI/bge-small-en-v1.5)
 - **File-based vector storage**: `~/.card-architect/rag-index/`
-- **Document types**: PDF, JSON, Markdown, HTML, plain text
+- **Document types**:
+  - **File uploads**: PDF, JSON, Markdown, HTML, plain text
+  - **Free text entry**: Direct text input for notes and documentation
+  - **Lorebook import**: Import character lorebooks as searchable knowledge
 - **Intelligent chunking**: 1200 char chunks, 200 char overlap
-- **Semantic search**: Token-aware snippet retrieval (keyword matching for MVP)
+- **Semantic search**: Cosine similarity with 384-dimensional embeddings
 - **Multiple knowledge bases**: Tags, descriptions, document management
 - **Integration**: Automatically provides context to LLM operations
 
@@ -249,9 +253,11 @@ POST   /api/rag/databases             # Create RAG database
 GET    /api/rag/databases/:dbId       # Get database details
 PATCH  /api/rag/databases/:dbId       # Update database metadata
 DELETE /api/rag/databases/:dbId       # Delete database
-POST   /api/rag/databases/:dbId/documents      # Upload & index document
+POST   /api/rag/databases/:dbId/documents      # Upload & index document (file)
+POST   /api/rag/databases/:dbId/text           # Add free text entry
+POST   /api/rag/databases/:dbId/lorebook       # Import lorebook as knowledge
 DELETE /api/rag/databases/:dbId/documents/:sourceId  # Remove document
-GET    /api/rag/search                # Search RAG database
+GET    /api/rag/search                # Search RAG database (semantic)
 GET    /api/rag/stats                 # Get RAG statistics
 ```
 
@@ -681,7 +687,6 @@ All formats are normalized during import to match CCv2/CCv3 specifications.
 - **Lore Trigger Tester**: Backend implemented, UI disabled (available for future use)
 
 ### Technical Limitations
-- **RAG Search**: Uses keyword matching instead of semantic embeddings (acceptable for MVP)
 - **No Rate Limiting**: LLM usage not tracked; could burn through API credits
 - **Streaming Error Recovery**: Broken SSE streams not gracefully handled
 - **Settings Validation**: No JSON schema validation on settings deserialization
@@ -691,8 +696,7 @@ All formats are normalized during import to match CCv2/CCv3 specifications.
 ## Future Considerations
 
 ### Planned Features
-- User-defined LLM presets (save custom operations)
-- Vector embeddings for RAG (semantic search)
+- User-defined LLM presets (save custom operations) - IN PROGRESS
 - Rate limiting and quota management for LLM usage
 - Style Guard (format enforcement)
 - Alt-Greeting Workbench (variant generation)
@@ -735,6 +739,39 @@ Card Architect solves these problems with professional tooling for character car
 
 - CCv2 Spec: https://github.com/malfoyslastname/character-card-spec-v2
 - CCv3 Spec: https://github.com/kwaroran/character-card-spec-v3
+
+## Recent Implementation: RAG System Enhancement (2025-11-17)
+
+### Vector Embeddings with FastEmbed
+Upgraded RAG system from keyword matching to semantic search using vector embeddings:
+
+**Technology:**
+- **FastEmbed**: Lightweight embedding library for Node.js
+- **Model**: BAAI/bge-small-en-v1.5 (384-dimensional embeddings)
+- **Performance**: Quantized weights, ONNX Runtime, outperforms OpenAI Ada-002
+- **Search**: Cosine similarity-based semantic search
+
+**New Capabilities:**
+1. **Free Text Entry** (`POST /api/rag/databases/:dbId/text`)
+   - Direct text input without file upload
+   - Perfect for notes, documentation snippets, guidelines
+   - Auto-chunked and embedded
+
+2. **Lorebook Import** (`POST /api/rag/databases/:dbId/lorebook`)
+   - Import character lorebooks as searchable knowledge
+   - Structured extraction: keywords + content
+   - Enables cross-character lore search
+
+**Implementation Files:**
+- `apps/api/src/utils/embedding.ts` - FastEmbed wrapper
+- `apps/api/src/utils/rag-store.ts` - Enhanced with embeddings
+- `apps/api/src/routes/rag.ts` - New endpoints
+- `packages/schemas/src/types.ts` - Updated types ('freetext', 'lorebook')
+
+**Search Improvements:**
+- Semantic understanding vs. exact keyword matching
+- Better context retrieval for LLM operations
+- More relevant results even with different phrasing
 
 ## Recent Code Review Findings (2025-11-16)
 
