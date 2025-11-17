@@ -41,7 +41,10 @@ export async function embedPassages(texts: string[], batchSize = 32): Promise<Fl
   const generator = model.embed(prefixedTexts, batchSize);
 
   for await (const batch of generator) {
-    embeddings.push(...batch);
+    // batch is an array of embeddings (may be number[] or Float32Array)
+    for (const embedding of batch) {
+      embeddings.push(embedding instanceof Float32Array ? embedding : new Float32Array(embedding));
+    }
   }
 
   return embeddings;
@@ -62,7 +65,8 @@ export async function embedQuery(query: string): Promise<Float32Array> {
   // Prefix query for better retrieval
   const embedding = await model.queryEmbed(`query: ${query}`);
 
-  return embedding;
+  // Ensure we return Float32Array
+  return embedding instanceof Float32Array ? embedding : new Float32Array(embedding);
 }
 
 /**
@@ -71,7 +75,7 @@ export async function embedQuery(query: string): Promise<Float32Array> {
  * @param b Second vector
  * @returns Similarity score (0-1, higher is more similar)
  */
-export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
+export function cosineSimilarity(a: Float32Array | number[], b: Float32Array | number[]): number {
   if (a.length !== b.length) {
     throw new Error('Vectors must have same dimensions');
   }

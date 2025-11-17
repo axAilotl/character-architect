@@ -12,6 +12,8 @@ import {
   updateDatabase,
   deleteDatabase,
   addDocument,
+  addFreeText,
+  addLorebook,
   removeDocument,
   searchDocuments,
 } from '../utils/rag-store.js';
@@ -184,6 +186,80 @@ export async function ragRoutes(fastify: FastifyInstance) {
         title,
         filename: file.filename,
         buffer,
+        tags,
+      });
+
+      reply.send({ source: result.source, indexedChunks: result.indexedChunks });
+    } catch (error: any) {
+      fastify.log.error(error);
+      if (error.message === 'Database not found') {
+        reply.status(404).send({ error: error.message });
+      } else {
+        reply.status(500).send({ error: error.message });
+      }
+    }
+  });
+
+  /**
+   * Add free text entry to database
+   */
+  fastify.post<{
+    Params: { dbId: string };
+    Body: { title: string; content: string; tags?: string[] };
+  }>('/rag/databases/:dbId/text', async (request, reply) => {
+    try {
+      const { title, content, tags } = request.body;
+
+      if (!title?.trim()) {
+        return reply.status(400).send({ error: 'Title is required' });
+      }
+
+      if (!content?.trim()) {
+        return reply.status(400).send({ error: 'Content is required' });
+      }
+
+      const settings = await getSettings();
+      const result = await addFreeText(settings.rag.indexPath, {
+        dbId: request.params.dbId,
+        title: title.trim(),
+        content: content.trim(),
+        tags,
+      });
+
+      reply.send({ source: result.source, indexedChunks: result.indexedChunks });
+    } catch (error: any) {
+      fastify.log.error(error);
+      if (error.message === 'Database not found') {
+        reply.status(404).send({ error: error.message });
+      } else {
+        reply.status(500).send({ error: error.message });
+      }
+    }
+  });
+
+  /**
+   * Import lorebook into database
+   */
+  fastify.post<{
+    Params: { dbId: string };
+    Body: { characterName: string; lorebook: any; tags?: string[] };
+  }>('/rag/databases/:dbId/lorebook', async (request, reply) => {
+    try {
+      const { characterName, lorebook, tags } = request.body;
+
+      if (!characterName?.trim()) {
+        return reply.status(400).send({ error: 'Character name is required' });
+      }
+
+      if (!lorebook || typeof lorebook !== 'object') {
+        return reply.status(400).send({ error: 'Valid lorebook object is required' });
+      }
+
+      const settings = await getSettings();
+      const result = await addLorebook(settings.rag.indexPath, {
+        dbId: request.params.dbId,
+        characterName: characterName.trim(),
+        lorebook,
         tags,
       });
 
