@@ -24,8 +24,6 @@ interface LLMAssistSidebarProps {
   selection?: string;
   onApply: (value: string, action: 'replace' | 'append' | 'insert') => void;
   cardSpec: 'v2' | 'v3';
-  panelWidth?: string;
-  panelRight?: string;
 }
 
 export function LLMAssistSidebar({
@@ -36,8 +34,6 @@ export function LLMAssistSidebar({
   selection,
   onApply,
   cardSpec,
-  panelWidth = '600px',
-  panelRight = '0px',
 }: LLMAssistSidebarProps) {
   const { settings, loadSettings, ragDatabases, ragActiveDatabaseId, loadRagDatabases } =
     useLLMStore();
@@ -237,8 +233,7 @@ export function LLMAssistSidebar({
 
   return (
     <div
-      className="absolute top-0 h-full bg-slate-800 border-l border-dark-border shadow-2xl z-40 flex flex-col"
-      style={{ width: panelWidth, right: panelRight }}
+      className="fixed top-0 right-0 h-screen bg-slate-800 border-l border-dark-border shadow-2xl z-50 flex flex-col w-[500px]"
     >
       {/* Header */}
       <div className="p-4 border-b border-dark-border flex justify-between items-center">

@@ -880,8 +880,6 @@ export function EditPanel() {
           currentValue={llmAssistValue}
           onApply={handleLLMApply}
           cardSpec={currentCard.meta.spec}
-          panelWidth={`${ASSIST_WIDTH_PX}px`}
-          panelRight={`${ASSIST_GAP_PX}px`}
         />
       )}
 

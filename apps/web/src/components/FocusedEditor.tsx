@@ -665,8 +665,6 @@ function FocusedEditorInner() {
           currentValue={currentValue}
           onApply={handleLLMApply}
           cardSpec={currentCard?.meta.spec || 'v3'}
-          panelWidth="420px"
-          panelRight="24px"
         />
       )}
     </div>
