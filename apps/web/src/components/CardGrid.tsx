@@ -475,6 +475,13 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                     </span>
                   </div>
 
+                  {/* Creator */}
+                  {card.meta.creator && (
+                    <p className="text-sm text-dark-muted mb-2">
+                      by {card.meta.creator}
+                    </p>
+                  )}
+
                   {/* Feature Badges */}
                   {(hasAlternateGreetings(card) || hasLorebook(card) || hasAssets(card)) && (
                     <div className="flex gap-2 mb-2">
