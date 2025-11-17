@@ -21,6 +21,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# NPM cache
+.npm-cache/
+
 # Database
 *.db
 *.db-shm
@@ -54,3 +57,6 @@ apps/api/storage/
 
 # Build artifacts
 *.tgz
+
+# Project-specific
+savvy.json
