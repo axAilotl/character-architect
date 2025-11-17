@@ -627,7 +627,7 @@ function FocusedEditorInner() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col p-6 space-y-4">
+      <div className="flex-1 flex flex-col p-6 space-y-4 relative">
         {/* Editor Container with relative positioning for chevron */}
         <div className="flex-1 flex gap-4 min-h-0 relative">
           <div
@@ -640,6 +640,18 @@ function FocusedEditorInner() {
 
           {/* Collapsible Control Panel */}
           {renderControlPanel()}
+
+          {/* LLM Assist Sidebar - positioned within editor area */}
+          {llmAssistOpen && (
+            <LLMAssistSidebar
+              isOpen={llmAssistOpen}
+              onClose={() => setLLMAssistOpen(false)}
+              fieldName={selectedField as CCFieldName}
+              currentValue={currentValue}
+              onApply={handleLLMApply}
+              cardSpec={currentCard?.meta.spec || 'v3'}
+            />
+          )}
         </div>
 
         <div className="text-xs text-dark-muted">
@@ -655,18 +667,6 @@ function FocusedEditorInner() {
         onInsertSnippet={handleInsertSnippet}
         currentField={selectedField === 'alternate_greetings' ? 'description' : selectedField as FocusField}
       />
-
-      {/* LLM Assist Sidebar */}
-      {llmAssistOpen && (
-        <LLMAssistSidebar
-          isOpen={llmAssistOpen}
-          onClose={() => setLLMAssistOpen(false)}
-          fieldName={selectedField as CCFieldName}
-          currentValue={currentValue}
-          onApply={handleLLMApply}
-          cardSpec={currentCard?.meta.spec || 'v3'}
-        />
-      )}
     </div>
   );
 }

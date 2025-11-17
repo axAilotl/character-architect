@@ -233,7 +233,7 @@ export function LLMAssistSidebar({
 
   return (
     <div
-      className="fixed top-0 right-0 h-screen bg-slate-800 border-l border-dark-border shadow-2xl z-50 flex flex-col w-[500px]"
+      className="absolute top-0 right-0 h-full bg-slate-800 border-l border-dark-border shadow-2xl z-40 flex flex-col w-[500px]"
     >
       {/* Header */}
       <div className="p-4 border-b border-dark-border flex justify-between items-center">

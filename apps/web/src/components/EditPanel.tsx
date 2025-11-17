@@ -238,7 +238,7 @@ export function EditPanel() {
 
       {/* Tab Content */}
       <div
-        className={`flex-1 overflow-y-auto w-full p-6 space-y-6 transition-all duration-300 ${
+        className={`flex-1 overflow-y-auto w-full p-6 space-y-6 transition-all duration-300 relative ${
           llmAssistOpen ? '' : 'max-w-5xl mx-auto'
         }`}
         style={contentStyle}
@@ -870,18 +870,19 @@ export function EditPanel() {
         {activeTab === 'lorebook' && (
           <LorebookEditor />
         )}
-      </div>
 
-      {llmAssistOpen && (
-        <LLMAssistSidebar
-          isOpen={llmAssistOpen}
-          onClose={() => setLLMAssistOpen(false)}
-          fieldName={llmAssistField}
-          currentValue={llmAssistValue}
-          onApply={handleLLMApply}
-          cardSpec={currentCard.meta.spec}
-        />
-      )}
+        {/* LLM Assist Sidebar - positioned within content area */}
+        {llmAssistOpen && (
+          <LLMAssistSidebar
+            isOpen={llmAssistOpen}
+            onClose={() => setLLMAssistOpen(false)}
+            fieldName={llmAssistField}
+            currentValue={llmAssistValue}
+            onApply={handleLLMApply}
+            cardSpec={currentCard.meta.spec}
+          />
+        )}
+      </div>
 
       <TemplateSnippetPanel
         isOpen={templatesOpen}
