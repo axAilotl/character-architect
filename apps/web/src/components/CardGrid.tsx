@@ -12,6 +12,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
   const { importCard, createNewCard } = useCardStore();
 
@@ -98,13 +99,19 @@ export function CardGrid({ onCardClick }: CardGridProps) {
         alert(`${selectedCards.size - failedDeletes.length} cards deleted, ${failedDeletes.length} failed`);
       }
 
-      // Reload cards and clear selection
+      // Reload cards, clear selection, and exit selection mode
       await loadCards();
       setSelectedCards(new Set());
+      setSelectionMode(false);
     } catch (error) {
       console.error('Bulk delete failed:', error);
       alert('Bulk delete failed');
     }
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedCards(new Set()); // Clear selection when toggling mode
   };
 
   const handleExport = async (cardId: string, format: 'json' | 'png', e: React.MouseEvent) => {
@@ -272,44 +279,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   return (
     <div className="h-full flex flex-col bg-dark-bg">
       {/* Header */}
-      <div className="bg-dark-surface border-b border-dark-border p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">Card Architect</h1>
-            {cards.length > 0 && (
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 text-sm text-dark-muted cursor-pointer hover:text-dark-text">
-                  <input
-                    type="checkbox"
-                    checked={selectedCards.size === cards.length && cards.length > 0}
-                    onChange={toggleSelectAll}
-                    className="w-4 h-4 rounded border-dark-border"
-                  />
-                  Select All ({cards.length})
-                </label>
-                {selectedCards.size > 0 && (
-                  <>
-                    <span className="text-sm text-dark-muted">
-                      {selectedCards.size} selected
-                    </span>
-                    <button
-                      onClick={handleBulkDelete}
-                      className="px-3 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded text-sm transition-colors"
-                      title={`Delete ${selectedCards.size} card(s)`}
-                    >
-                      Delete Selected
-                    </button>
-                    <button
-                      onClick={() => setSelectedCards(new Set())}
-                      className="px-3 py-1 bg-dark-bg hover:bg-dark-border rounded text-sm transition-colors"
-                    >
-                      Clear
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+      <div className="bg-dark-surface border-b border-dark-border">
+        {/* Main Row */}
+        <div className="p-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Card Architect</h1>
           <div className="flex gap-2">
             <button
               onClick={() => setShowSettings(true)}
@@ -339,6 +312,51 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             </button>
           </div>
         </div>
+
+        {/* Selection Row - only show when cards exist */}
+        {cards.length > 0 && (
+          <div className="px-4 pb-3 flex items-center gap-3 border-t border-dark-border/50 pt-3">
+            <button
+              onClick={toggleSelectionMode}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                selectionMode
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-dark-bg hover:bg-dark-border text-dark-text'
+              }`}
+            >
+              {selectionMode ? 'Cancel Selection' : 'Select'}
+            </button>
+
+            {selectionMode && (
+              <>
+                <div className="h-4 w-px bg-dark-border" />
+                <label className="flex items-center gap-2 text-sm text-dark-muted cursor-pointer hover:text-dark-text">
+                  <input
+                    type="checkbox"
+                    checked={selectedCards.size === cards.length && cards.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-dark-border"
+                  />
+                  Select All ({cards.length})
+                </label>
+                {selectedCards.size > 0 && (
+                  <>
+                    <span className="text-sm text-dark-muted">
+                      {selectedCards.size} selected
+                    </span>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded text-sm font-medium transition-colors"
+                      title={`Delete ${selectedCards.size} card(s)`}
+                    >
+                      Delete Selected
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Grid */}
@@ -355,26 +373,34 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             {cards.map((card) => (
               <div
                 key={card.meta.id}
-                onClick={() => onCardClick(card.meta.id)}
+                onClick={() => {
+                  if (selectionMode) {
+                    toggleSelectCard(card.meta.id, { stopPropagation: () => {} } as any);
+                  } else {
+                    onCardClick(card.meta.id);
+                  }
+                }}
                 className={`bg-dark-surface border rounded-lg overflow-hidden hover:border-blue-500 transition-colors cursor-pointer flex flex-col ${
                   selectedCards.has(card.meta.id) ? 'border-blue-500 ring-2 ring-blue-500/50' : 'border-dark-border'
                 }`}
               >
                 {/* Image Preview */}
                 <div className="w-full aspect-[2/3] bg-dark-bg relative overflow-hidden">
-                  {/* Selection Checkbox */}
-                  <div
-                    className="absolute top-2 left-2 z-10"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedCards.has(card.meta.id)}
-                      onChange={(e) => toggleSelectCard(card.meta.id, e as any)}
-                      className="w-5 h-5 rounded border-2 border-white bg-dark-bg/80 backdrop-blur cursor-pointer"
+                  {/* Selection Checkbox - only show in selection mode */}
+                  {selectionMode && (
+                    <div
+                      className="absolute top-2 left-2 z-10"
                       onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCards.has(card.meta.id)}
+                        onChange={(e) => toggleSelectCard(card.meta.id, e as any)}
+                        className="w-5 h-5 rounded border-2 border-white bg-dark-bg/80 backdrop-blur cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
                   <img
                     src={`/api/cards/${card.meta.id}/image`}
                     alt={getCardName(card)}
