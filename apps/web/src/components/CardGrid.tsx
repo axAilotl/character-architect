@@ -228,7 +228,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             >
               ⚙️
             </button>
-            <label htmlFor="import-card-file" className="btn-secondary cursor-pointer">
+            <label
+              htmlFor="import-card-file"
+              className="btn-secondary cursor-pointer px-4 py-2 rounded font-medium transition-colors inline-block"
+            >
               Import
               <input
                 id="import-card-file"
