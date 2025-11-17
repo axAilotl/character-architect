@@ -305,7 +305,7 @@ function injectTextChunk(pngBuffer: Buffer, keyword: string, text: string): Buff
 /**
  * Embed character card JSON into PNG tEXt chunk
  */
-export async function embedIntoPNG(imageBuffer: Buffer, cardData: CCv2Data | CCv3Data, spec: 'v2' | 'v3'): Promise<Buffer> {
+export async function embedIntoPNG(imageBuffer: Buffer, cardData: CCv2Data | CCv3Data): Promise<Buffer> {
   // Use 'chara' key for both V2 and V3 (SillyTavern standard)
   const key = 'chara';
   const json = JSON.stringify(cardData, null, 0); // Minified for smaller size
@@ -321,8 +321,7 @@ export async function embedIntoPNG(imageBuffer: Buffer, cardData: CCv2Data | CCv
  * Create a PNG from card data and base image
  */
 export async function createCardPNG(baseImage: Buffer, card: Card): Promise<Buffer> {
-  const spec = card.meta.spec;
-  return embedIntoPNG(baseImage, card.data, spec);
+  return embedIntoPNG(baseImage, card.data);
 }
 
 /**
