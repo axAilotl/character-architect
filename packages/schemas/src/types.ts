@@ -525,6 +525,30 @@ export interface PresetConfig {
   params?: Record<string, unknown>;
 }
 
+// User-defined preset (stored in database)
+export interface UserPreset {
+  id: string; // UUID
+  name: string; // User-friendly name (e.g., "Tighten to 150 tokens")
+  description?: string; // Optional description
+  instruction: string; // The actual instruction/prompt template
+  category?: 'rewrite' | 'format' | 'generate' | 'custom'; // For UI grouping
+  isBuiltIn: boolean; // True for system presets, false for user-created
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
+}
+
+// Create/Update preset request
+export interface CreatePresetRequest {
+  name: string;
+  description?: string;
+  instruction: string;
+  category?: 'rewrite' | 'format' | 'generate' | 'custom';
+}
+
+export interface UpdatePresetRequest extends Partial<CreatePresetRequest> {
+  id: string;
+}
+
 // LLM assist request (from UI)
 export interface LLMAssistRequest {
   providerId: string;

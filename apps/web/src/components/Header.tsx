@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
 import { SettingsModal } from './SettingsModal';
-import type { CCv2Data, CCv3Data } from '@card-architect/schemas';
 
 interface HeaderProps {
   onBack: () => void;

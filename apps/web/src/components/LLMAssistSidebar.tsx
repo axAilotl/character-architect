@@ -13,6 +13,7 @@ import type {
   LLMAssistResponse,
   LLMStreamChunk,
   RagSnippet,
+  UserPreset,
 } from '@card-architect/schemas';
 import { DiffViewer } from './DiffViewer';
 
@@ -45,6 +46,8 @@ export function LLMAssistSidebar({
   const [instruction, setInstruction] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<PresetOperation | null>(null);
   const [presetParams, setPresetParams] = useState<Record<string, any>>({});
+  const [presets, setPresets] = useState<UserPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [model, setModel] = useState('');
   const [temperature, setTemperature] = useState(0.7);
@@ -66,6 +69,19 @@ export function LLMAssistSidebar({
     loadSettings();
     loadRagDatabases();
   }, [loadSettings, loadRagDatabases]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadPresets();
+    }
+  }, [isOpen]);
+
+  const loadPresets = async () => {
+    const result = await api.getPresets();
+    if (result.data?.presets) {
+      setPresets(result.data.presets);
+    }
+  };
 
   useEffect(() => {
     if (settings.providers.length > 0) {
@@ -106,7 +122,7 @@ export function LLMAssistSidebar({
   }, [useKnowledgeBase]);
 
   const handleRun = async () => {
-    if (!instruction && !selectedPreset) {
+    if (!instruction && !selectedPreset && !selectedPresetId) {
       setError('Please provide an instruction or select a preset');
       return;
     }
@@ -117,10 +133,17 @@ export function LLMAssistSidebar({
     setAssistResponse(null);
     setRagSearching(false);
 
-    const presetInstructionText = selectedPreset
-      ? getPresetInstruction(selectedPreset, presetParams)
-      : '';
-    const finalInstruction = instruction || presetInstructionText;
+    // Get instruction from either custom instruction, new preset system, or old preset system
+    let finalInstruction = instruction;
+    if (!finalInstruction && selectedPresetId) {
+      const preset = presets.find(p => p.id === selectedPresetId);
+      if (preset) {
+        finalInstruction = preset.instruction;
+      }
+    }
+    if (!finalInstruction && selectedPreset) {
+      finalInstruction = getPresetInstruction(selectedPreset, presetParams);
+    }
 
     let ragSnippets: RagSnippet[] | undefined;
 
@@ -214,6 +237,7 @@ export function LLMAssistSidebar({
 
   const handlePresetSelect = (preset: PresetOperation) => {
     setSelectedPreset(preset);
+    setSelectedPresetId(null); // Clear new preset selection
     setInstruction(''); // Clear custom instruction when preset is selected
 
     // Set default params for presets
@@ -224,6 +248,12 @@ export function LLMAssistSidebar({
     } else {
       setPresetParams({});
     }
+  };
+
+  const handleUserPresetSelect = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    setSelectedPreset(null); // Clear old preset selection
+    setInstruction(''); // Clear custom instruction when preset is selected
   };
 
   if (!isOpen) return null;
@@ -386,99 +416,43 @@ export function LLMAssistSidebar({
       )}
 
       {/* Presets */}
-      <div className="p-4 border-b border-dark-border">
-        <label className="block text-sm font-medium mb-2">Quick Presets</label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => handlePresetSelect('tighten')}
-            className={`px-3 py-2 text-sm rounded border ${
-              selectedPreset === 'tighten'
-                ? 'border-blue-500 bg-blue-900/30'
-                : 'border-dark-border hover:border-blue-500'
-            }`}
-          >
-            Tighten
-          </button>
-          <button
-            onClick={() => handlePresetSelect('convert-structured')}
-            className={`px-3 py-2 text-sm rounded border ${
-              selectedPreset === 'convert-structured'
-                ? 'border-blue-500 bg-blue-900/30'
-                : 'border-dark-border hover:border-blue-500'
-            }`}
-          >
-            → Structured
-          </button>
-          <button
-            onClick={() => handlePresetSelect('convert-prose')}
-            className={`px-3 py-2 text-sm rounded border ${
-              selectedPreset === 'convert-prose'
-                ? 'border-blue-500 bg-blue-900/30'
-                : 'border-dark-border hover:border-blue-500'
-            }`}
-          >
-            → Prose
-          </button>
-          <button
-            onClick={() => handlePresetSelect('enforce-style')}
-            className={`px-3 py-2 text-sm rounded border ${
-              selectedPreset === 'enforce-style'
-                ? 'border-blue-500 bg-blue-900/30'
-                : 'border-dark-border hover:border-blue-500'
-            }`}
-          >
-            Fix Style
-          </button>
-          <button
-            onClick={() => handlePresetSelect('generate-alts')}
-            className={`px-3 py-2 text-sm rounded border ${
-              selectedPreset === 'generate-alts'
-                ? 'border-blue-500 bg-blue-900/30'
-                : 'border-dark-border hover:border-blue-500'
-            }`}
-          >
-            Gen Alts
-          </button>
-          <button
-            onClick={() => handlePresetSelect('generate-lore')}
-            className={`px-3 py-2 text-sm rounded border ${
-              selectedPreset === 'generate-lore'
-                ? 'border-blue-500 bg-blue-900/30'
-                : 'border-dark-border hover:border-blue-500'
-            }`}
-          >
-            → Lore Entry
-          </button>
-        </div>
+      <div className="p-4 border-b border-dark-border max-h-96 overflow-y-auto">
+        <label className="block text-sm font-medium mb-2">Presets</label>
 
-        {/* Preset Params */}
-        {selectedPreset === 'tighten' && (
-          <div className="mt-3">
-            <label className="block text-sm font-medium mb-1">Target Tokens</label>
-            <input
-              type="number"
-              value={presetParams.tokenTarget || 200}
-              onChange={(e) =>
-                setPresetParams({ ...presetParams, tokenTarget: parseInt(e.target.value) })
-              }
-              className="w-full bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm"
-            />
+        {presets.length === 0 ? (
+          <div className="text-xs text-dark-muted text-center py-4">
+            No presets available. Add presets in Settings.
           </div>
-        )}
+        ) : (
+          <div className="space-y-3">
+            {(['rewrite', 'format', 'generate', 'custom'] as const).map((category) => {
+              const categoryPresets = presets.filter((p) => p.category === category);
+              if (categoryPresets.length === 0) return null;
 
-        {selectedPreset === 'generate-alts' && (
-          <div className="mt-3">
-            <label className="block text-sm font-medium mb-1">Number of Alternatives</label>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={presetParams.count || 3}
-              onChange={(e) =>
-                setPresetParams({ ...presetParams, count: parseInt(e.target.value) })
-              }
-              className="w-full bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm"
-            />
+              return (
+                <div key={category}>
+                  <div className="text-xs font-semibold text-dark-muted uppercase tracking-wide mb-1.5">
+                    {category}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {categoryPresets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => handleUserPresetSelect(preset.id)}
+                        className={`px-3 py-2 text-xs rounded border text-left ${
+                          selectedPresetId === preset.id
+                            ? 'border-blue-500 bg-blue-900/30'
+                            : 'border-dark-border hover:border-blue-500'
+                        }`}
+                        title={preset.description || preset.instruction.slice(0, 100)}
+                      >
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -486,13 +460,16 @@ export function LLMAssistSidebar({
       {/* Custom Instruction */}
       <div className="p-4 border-b border-dark-border">
         <label className="block text-sm font-medium mb-2">
-          Custom Instruction {selectedPreset && '(overrides preset)'}
+          Custom Instruction {(selectedPreset || selectedPresetId) && '(overrides preset)'}
         </label>
         <textarea
           value={instruction}
           onChange={(e) => {
             setInstruction(e.target.value);
-            if (e.target.value) setSelectedPreset(null);
+            if (e.target.value) {
+              setSelectedPreset(null);
+              setSelectedPresetId(null);
+            }
           }}
           placeholder="Describe what you want to do..."
           className="w-full h-24 bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm resize-none"
@@ -500,7 +477,7 @@ export function LLMAssistSidebar({
 
         <button
           onClick={handleRun}
-          disabled={isProcessing || (!instruction && !selectedPreset)}
+          disabled={isProcessing || (!instruction && !selectedPreset && !selectedPresetId)}
           className="mt-2 w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isProcessing ? 'Processing...' : 'Run'}

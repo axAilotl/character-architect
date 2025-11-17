@@ -11,6 +11,8 @@ import type {
   RagSnippet,
   RagSource,
   CardAssetWithDetails,
+  UserPreset,
+  CreatePresetRequest,
 } from '@card-architect/schemas';
 
 const API_BASE = '/api';
@@ -264,6 +266,52 @@ class ApiClient {
     if (params?.topK) searchParams.set('k', params.topK.toString());
     if (params?.tokenCap) searchParams.set('tokenCap', params.tokenCap.toString());
     return this.request<{ snippets: RagSnippet[] }>(`/rag/search?${searchParams.toString()}`);
+  }
+
+  // Presets
+  async getPresets() {
+    return this.request<{ presets: UserPreset[] }>('/presets');
+  }
+
+  async getPreset(id: string) {
+    return this.request<{ preset: UserPreset }>(`/presets/${id}`);
+  }
+
+  async createPreset(data: CreatePresetRequest) {
+    return this.request<{ preset: UserPreset }>('/presets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePreset(id: string, data: Partial<CreatePresetRequest>) {
+    return this.request<{ preset: UserPreset }>(`/presets/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePreset(id: string) {
+    return this.request<{ success: boolean }>(`/presets/${id}`, { method: 'DELETE' });
+  }
+
+  async exportPresets() {
+    const response = await fetch(`${API_BASE}/presets/export/all`);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Export failed' }));
+      return { error: error.error };
+    }
+
+    const blob = await response.blob();
+    return { data: blob };
+  }
+
+  async importPresets(presets: CreatePresetRequest[]) {
+    return this.request<{ success: boolean; imported: number; failed: number; failures: Array<{ name: string; error: string }> }>('/presets/import', {
+      method: 'POST',
+      body: JSON.stringify({ presets }),
+    });
   }
 
   // LLM streaming version
