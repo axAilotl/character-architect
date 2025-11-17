@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
 import type {
-  CCv3Data,
-  CCv2Data,
   CCv3LorebookEntry,
-  CCv2LorebookEntry,
 } from '@card-architect/schemas';
-
-const hasV3Fields = (
-  entry: CCv3LorebookEntry | CCv2LorebookEntry
-): entry is CCv3LorebookEntry => 'probability' in entry;
 
 export function LorebookEditor() {
   const { currentCard, updateCardData } = useCardStore();
@@ -383,7 +376,7 @@ export function LorebookEditor() {
                       <label className="label">Depth</label>
                       <input
                         type="number"
-                        value={selectedEntry.depth ?? 4}
+                        value={(selectedEntry as CCv3LorebookEntry).depth ?? 4}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, { depth: parseInt(e.target.value, 10) || 4 })
                         }
@@ -395,7 +388,7 @@ export function LorebookEditor() {
                       <label className="label">Probability (%)</label>
                       <input
                         type="number"
-                        value={selectedEntry.probability ?? 100}
+                        value={(selectedEntry as CCv3LorebookEntry).probability ?? 100}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, {
                             probability: parseInt(e.target.value, 10) || 100,

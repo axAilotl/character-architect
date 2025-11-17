@@ -4,8 +4,9 @@
 
 import { useState, useEffect } from 'react';
 import { useLLMStore } from '../store/llm-store';
-import type { ProviderConfig, ProviderKind, OpenAIMode } from '@card-architect/schemas';
+import type { ProviderConfig, ProviderKind, OpenAIMode, UserPreset, CreatePresetRequest } from '@card-architect/schemas';
 import { TemplateSnippetPanel } from './TemplateSnippetPanel';
+import { api } from '../lib/api';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -34,7 +35,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     removeRagDocument,
   } = useLLMStore();
 
-  const [activeTab, setActiveTab] = useState<'providers' | 'rag' | 'templates'>('providers');
+  const [activeTab, setActiveTab] = useState<'providers' | 'rag' | 'templates' | 'presets'>('providers');
   const [editingProvider, setEditingProvider] = useState<Partial<ProviderConfig> | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; error?: string }>>({});
   const [modelOptions, setModelOptions] = useState<string[]>([]);
@@ -48,6 +49,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
+
+  // Preset state
+  const [presets, setPresets] = useState<UserPreset[]>([]);
+  const [presetsLoading, setPresetsLoading] = useState(false);
+  const [presetError, setPresetError] = useState<string | null>(null);
+  const [editingPreset, setEditingPreset] = useState<Partial<UserPreset> | null>(null);
+  const [presetStatus, setPresetStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +76,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }, [isOpen, activeTab, loadRagDatabases]);
 
   useEffect(() => {
+    if (isOpen && activeTab === 'presets') {
+      loadPresets();
+    }
+  }, [isOpen, activeTab]);
+
+  useEffect(() => {
     if (!selectedDbId && ragDatabases.length > 0) {
       const defaultId = ragActiveDatabaseId || ragDatabases[0].id;
       setSelectedDbId(defaultId);
@@ -81,6 +95,130 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }, [selectedDbId, ragDatabaseDetails, loadRagDatabaseDetail]);
 
   const selectedDatabase = selectedDbId ? ragDatabaseDetails[selectedDbId] : null;
+
+  // Preset handlers
+  const loadPresets = async () => {
+    setPresetsLoading(true);
+    setPresetError(null);
+    const result = await api.getPresets();
+    setPresetsLoading(false);
+
+    if (result.error) {
+      setPresetError(result.error);
+      return;
+    }
+
+    setPresets(result.data?.presets || []);
+  };
+
+  const handleNewPreset = () => {
+    setEditingPreset({
+      name: '',
+      description: '',
+      instruction: '',
+      category: 'custom',
+    });
+  };
+
+  const handleSavePreset = async () => {
+    if (!editingPreset || !editingPreset.name || !editingPreset.instruction) {
+      setPresetStatus('Name and instruction are required.');
+      return;
+    }
+
+    const data: CreatePresetRequest = {
+      name: editingPreset.name,
+      description: editingPreset.description,
+      instruction: editingPreset.instruction,
+      category: editingPreset.category as any,
+    };
+
+    let result;
+    if (editingPreset.id) {
+      // Update existing preset
+      result = await api.updatePreset(editingPreset.id, data);
+    } else {
+      // Create new preset
+      result = await api.createPreset(data);
+    }
+
+    if (result.error) {
+      setPresetStatus(result.error);
+      return;
+    }
+
+    setEditingPreset(null);
+    setPresetStatus(editingPreset.id ? 'Preset updated.' : 'Preset created.');
+    loadPresets();
+  };
+
+  const handleDeletePreset = async (id: string) => {
+    const confirmed = window.confirm('Delete this preset? This cannot be undone.');
+    if (!confirmed) return;
+
+    const result = await api.deletePreset(id);
+    if (result.error) {
+      setPresetStatus(result.error);
+      return;
+    }
+
+    setPresetStatus('Preset deleted.');
+    loadPresets();
+  };
+
+  const handleExportPresets = async () => {
+    const result = await api.exportPresets();
+    if (result.error) {
+      setPresetStatus(result.error);
+      return;
+    }
+
+    if (result.data) {
+      const url = URL.createObjectURL(result.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'llm-presets.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      setPresetStatus('Presets exported.');
+    }
+  };
+
+  const handleImportPresets = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+
+      if (!Array.isArray(json.presets)) {
+        setPresetStatus('Invalid preset file format.');
+        return;
+      }
+
+      const result = await api.importPresets(json.presets);
+      if (result.error) {
+        setPresetStatus(result.error);
+        return;
+      }
+
+      if (result.data) {
+        const { imported, failed, failures } = result.data;
+        let message = `Imported ${imported} preset(s).`;
+        if (failed > 0) {
+          message += ` ${failed} failed: ${failures.map(f => f.name).join(', ')}`;
+        }
+        setPresetStatus(message);
+        loadPresets();
+      }
+    } catch (err) {
+      setPresetStatus('Failed to parse preset file.');
+    }
+
+    // Reset file input
+    e.target.value = '';
+  };
 
   const handleSaveProvider = async () => {
     if (!editingProvider || !editingProvider.id) return;
@@ -248,6 +386,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             onClick={() => setActiveTab('templates')}
           >
             Templates & Snippets
+          </button>
+          <button
+            className={`px-6 py-3 font-medium transition-colors ${
+              activeTab === 'presets'
+                ? 'border-b-2 border-blue-500 text-blue-500'
+                : 'text-dark-muted hover:text-dark-text'
+            }`}
+            onClick={() => setActiveTab('presets')}
+          >
+            LLM Presets
           </button>
         </div>
 
@@ -896,6 +1044,225 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               manageMode={true}
               embedded={true}
             />
+          )}
+
+          {activeTab === 'presets' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">LLM Presets</h3>
+                <p className="text-dark-muted">
+                  Manage custom AI operation presets for rewriting, formatting, and generating content.
+                  Built-in presets cannot be modified.
+                </p>
+              </div>
+
+              {(presetError || presetStatus) && (
+                <div className="space-y-2">
+                  {presetError && (
+                    <div className="p-2 rounded bg-red-900/30 border border-red-700 text-red-100 text-sm">
+                      {presetError}
+                    </div>
+                  )}
+                  {presetStatus && (
+                    <div className="p-2 rounded bg-green-900/20 border border-green-700 text-green-100 text-sm">
+                      {presetStatus}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <h4 className="text-lg font-semibold">All Presets</h4>
+                <div className="flex gap-2">
+                  <label className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors cursor-pointer">
+                    Import
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportPresets}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    onClick={handleExportPresets}
+                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                  >
+                    Export
+                  </button>
+                  <button
+                    onClick={handleNewPreset}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    + New Preset
+                  </button>
+                </div>
+              </div>
+
+              {presetsLoading ? (
+                <div className="text-center py-8 text-dark-muted">Loading presets...</div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Group by category */}
+                  {(['rewrite', 'format', 'generate', 'custom'] as const).map((category) => {
+                    const categoryPresets = presets.filter((p) => p.category === category);
+                    if (categoryPresets.length === 0) return null;
+
+                    return (
+                      <div key={category} className="space-y-2">
+                        <h5 className="font-semibold text-sm text-dark-muted uppercase tracking-wider">
+                          {category}
+                        </h5>
+                        {categoryPresets.map((preset) => (
+                          <div
+                            key={preset.id}
+                            className={`border rounded-lg p-4 ${
+                              preset.isBuiltIn
+                                ? 'border-dark-border bg-dark-card/50'
+                                : 'border-dark-border hover:border-blue-500'
+                            } transition-colors`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h6 className="font-semibold">{preset.name}</h6>
+                                  {preset.isBuiltIn && (
+                                    <span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
+                                      Built-in
+                                    </span>
+                                  )}
+                                </div>
+                                {preset.description && (
+                                  <p className="text-sm text-dark-muted mt-1">{preset.description}</p>
+                                )}
+                                <details className="mt-2">
+                                  <summary className="text-xs text-dark-muted cursor-pointer hover:text-dark-text">
+                                    Show instruction
+                                  </summary>
+                                  <pre className="mt-2 text-xs bg-dark-bg p-2 rounded border border-dark-border whitespace-pre-wrap">
+                                    {preset.instruction}
+                                  </pre>
+                                </details>
+                              </div>
+                              {!preset.isBuiltIn && (
+                                <div className="flex gap-2 ml-4">
+                                  <button
+                                    onClick={() => setEditingPreset(preset)}
+                                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePreset(preset.id)}
+                                    className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+
+                  {presets.length === 0 && (
+                    <div className="text-center py-8 text-dark-muted">
+                      No presets found. Built-in presets will be created automatically on first server start.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Preset Editor */}
+              {editingPreset && (
+                <div className="border border-blue-500 rounded-lg p-6 bg-dark-bg">
+                  <h4 className="text-lg font-semibold mb-4">
+                    {editingPreset.id ? 'Edit Preset' : 'New Preset'}
+                  </h4>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Name *</label>
+                      <input
+                        type="text"
+                        value={editingPreset.name || ''}
+                        onChange={(e) =>
+                          setEditingPreset({ ...editingPreset, name: e.target.value })
+                        }
+                        placeholder="e.g., Tighten to 100 tokens"
+                        maxLength={100}
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={editingPreset.description || ''}
+                        onChange={(e) =>
+                          setEditingPreset({ ...editingPreset, description: e.target.value })
+                        }
+                        placeholder="Brief description of what this preset does"
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Category</label>
+                      <select
+                        value={editingPreset.category || 'custom'}
+                        onChange={(e) =>
+                          setEditingPreset({
+                            ...editingPreset,
+                            category: e.target.value as any,
+                          })
+                        }
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                      >
+                        <option value="rewrite">Rewrite</option>
+                        <option value="format">Format</option>
+                        <option value="generate">Generate</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Instruction *</label>
+                      <textarea
+                        value={editingPreset.instruction || ''}
+                        onChange={(e) =>
+                          setEditingPreset({ ...editingPreset, instruction: e.target.value })
+                        }
+                        placeholder="The prompt/instruction to send to the LLM"
+                        maxLength={5000}
+                        rows={8}
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
+                      />
+                      <p className="text-xs text-dark-muted mt-1">
+                        {editingPreset.instruction?.length || 0} / 5000 characters
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setEditingPreset(null)}
+                        className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSavePreset}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

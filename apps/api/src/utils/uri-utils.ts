@@ -133,7 +133,7 @@ export function embedToInternal(embedPath: string): string {
 /**
  * Convert an internal asset ID to a CHARX embeded:// URI
  */
-export function internalToEmbed(assetId: string, type: string, ext: string, index: number): string {
+export function internalToEmbed(_assetId: string, type: string, ext: string, index: number): string {
   // Organize by type following CHARX conventions
   let subdir = 'other';
 

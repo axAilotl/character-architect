@@ -736,6 +736,37 @@ Card Architect solves these problems with professional tooling for character car
 - CCv2 Spec: https://github.com/malfoyslastname/character-card-spec-v2
 - CCv3 Spec: https://github.com/kwaroran/character-card-spec-v3
 
+## Recent Code Review Findings (2025-11-16)
+
+### Build Status
+✅ **All TypeScript compilation errors fixed** - Build passes successfully across all workspaces
+
+### Issues Fixed
+1. **Missing `group_only_greetings` property** - Added to V3 test fixtures and import handlers
+2. **Type casting issues** - Fixed unsafe casts in import-export.ts using proper type guards
+3. **Unused variables** - Cleaned up 18+ unused parameter warnings across the codebase
+4. **Type mismatches in lore-trigger-tester.ts** - Fixed scan_depth V2-only field access and type assertions
+5. **Unused imports in frontend** - Removed unused type imports from 5+ React components
+6. **FocusedEditor type issues** - Created LocalFocusField type to handle alternate_greetings properly
+
+### Codebase Health
+- **Total TypeScript files**: 7,962 files
+- **All routes registered**: cards, tokenize, import-export, assets, llm, rag, prompt-simulator, redundancy, lore-trigger
+- **All components present**: 23 React components verified
+- **All services present**: 4 backend services verified
+- **All providers present**: OpenAI, Anthropic
+
+### Documentation Status
+- ✅ **claude.md** - Complete unified documentation (merged from @claude.md)
+- ✅ **README.md** - User-facing documentation (up to date)
+- ✅ **CONTRIBUTING.md** - Contribution guidelines
+- ⚠️ **DELETED FILES** (on feature/ccv3-assets-charx branch):
+  - IMPLEMENTATION_STATUS.md
+  - LLM_ASSIST_V2_DOCUMENTATION.md
+  - CCV3.md
+  - CHARX_CARDS.md
+  - CCv3_ASSETS_CHARX_IMPLEMENTATION_PLAN.md
+
 ## License
 
 MIT License - See README.md for full text

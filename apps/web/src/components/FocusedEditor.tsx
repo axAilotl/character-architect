@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
-import type { CCv2Data, CCv3Data, Template, Snippet, CCFieldName } from '@card-architect/schemas';
+import type { CCv2Data, CCv3Data, Template, Snippet, CCFieldName, FocusField } from '@card-architect/schemas';
 import { MilkdownProvider } from '@milkdown/react';
 import { Crepe } from '@milkdown/crepe';
 import '@milkdown/crepe/theme/common/style.css';
@@ -30,7 +30,7 @@ const focusableFields = [
   { id: 'alternate_greetings', label: 'Alt Greetings' },
 ] as const;
 
-type FocusField = (typeof focusableFields)[number]['id'];
+type LocalFocusField = (typeof focusableFields)[number]['id'];
 
 interface CrepeEditorProps {
   value: string;
@@ -137,8 +137,8 @@ type FocusType = 'wysiwyg' | 'raw' | null;
 
 function FocusedEditorInner() {
   const { currentCard, updateCardData } = useCardStore();
-  const [selectedField, setSelectedField] = useState<FocusField>('description');
-  const [drafts, setDrafts] = useState<Record<FocusField, string>>({
+  const [selectedField, setSelectedField] = useState<LocalFocusField>('description');
+  const [drafts, setDrafts] = useState<Record<LocalFocusField, string>>({
     description: '',
     personality: '',
     scenario: '',
@@ -157,7 +157,7 @@ function FocusedEditorInner() {
   const [llmAssistOpen, setLLMAssistOpen] = useState(false);
   const crepeRef = useRef<Crepe | null>(null);
   const rawMarkdownRef = useRef<string>('');
-  const prevFieldRef = useRef<FocusField | null>(null);
+  const prevFieldRef = useRef<LocalFocusField | null>(null);
 
   const isV3 = currentCard?.meta.spec === 'v3';
   const cardData = useMemo(() => {
@@ -166,11 +166,11 @@ function FocusedEditorInner() {
   }, [currentCard]);
 
   const getFieldValue = useCallback(
-    (field: FocusField) => {
+    (field: LocalFocusField) => {
       if (!cardData) return '';
 
       // Handle alternate_greetings specially - get the selected greeting
-      if (field === 'alternate_greetings') {
+      if (field === 'alternate_greetings' as LocalFocusField) {
         const greetings = cardData.alternate_greetings;
         if (Array.isArray(greetings) && greetings.length > 0) {
           return greetings[alternateGreetingIndex] || '';
@@ -186,7 +186,7 @@ function FocusedEditorInner() {
 
   useEffect(() => {
     if (!currentCard) return;
-    const next: Record<FocusField, string> = {
+    const next: Record<LocalFocusField, string> = {
       description: getFieldValue('description'),
       personality: getFieldValue('personality'),
       scenario: getFieldValue('scenario'),
@@ -206,7 +206,7 @@ function FocusedEditorInner() {
   // Use programmatic update when switching fields instead of destroying editor
   useEffect(() => {
     // Update editor when field or alternate greeting index changes
-    const shouldUpdate = prevFieldRef.current !== selectedField || selectedField === 'alternate_greetings';
+    const shouldUpdate = prevFieldRef.current !== selectedField || (selectedField as string) === 'alternate_greetings';
 
     if (!shouldUpdate && selectedField !== 'alternate_greetings') {
       return;
@@ -374,17 +374,18 @@ function FocusedEditorInner() {
         return;
       }
 
-      const newDrafts: Record<FocusField, string> = { ...drafts };
+      const newDrafts: Record<LocalFocusField, string> = { ...drafts };
       Object.entries(template.content).forEach(([field, content]) => {
-        const focusField = field as FocusField;
-        const currentValue = newDrafts[focusField] ?? '';
+        // template.content keys are FocusField (from schema), cast to LocalFocusField
+        const localField = field as LocalFocusField;
+        const currentValue = newDrafts[localField] ?? '';
 
         if (mode === 'replace') {
-          newDrafts[focusField] = content ?? '';
+          newDrafts[localField] = content ?? '';
         } else if (mode === 'append') {
-          newDrafts[focusField] = currentValue + '\n\n' + (content ?? '');
+          newDrafts[localField] = currentValue + '\n\n' + (content ?? '');
         } else if (mode === 'prepend') {
-          newDrafts[focusField] = (content ?? '') + '\n\n' + currentValue;
+          newDrafts[localField] = (content ?? '') + '\n\n' + currentValue;
         }
       });
 
@@ -398,7 +399,12 @@ function FocusedEditorInner() {
       rawMarkdownRef.current = updatedValue;
     } else {
       // Apply to current field only
-      const content = template.content[selectedField];
+      // Skip alternate_greetings since it's not a valid template field
+      if (selectedField === 'alternate_greetings') {
+        alert('Templates cannot be applied to alternate greetings.');
+        return;
+      }
+      const content = template.content[selectedField as FocusField];
       if (!content) {
         alert(`This template does not have content for the ${selectedField} field.`);
         return;
@@ -647,7 +653,7 @@ function FocusedEditorInner() {
         onClose={() => setShowTemplatePanel(false)}
         onApplyTemplate={handleApplyTemplate}
         onInsertSnippet={handleInsertSnippet}
-        currentField={selectedField}
+        currentField={selectedField === 'alternate_greetings' ? 'description' : selectedField as FocusField}
       />
 
       {/* LLM Assist Sidebar */}

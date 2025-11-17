@@ -104,7 +104,7 @@ export class RedundancyKiller {
     const fields: Record<string, string> = {};
 
     // Common fields
-    const fieldNames = [
+    const _fieldNames = [
       'description',
       'personality',
       'scenario',
@@ -113,7 +113,7 @@ export class RedundancyKiller {
       'system_prompt',
     ];
 
-    for (const fieldName of fieldNames) {
+    for (const fieldName of _fieldNames) {
       let value = '';
 
       // Try direct access
@@ -138,10 +138,9 @@ export class RedundancyKiller {
    */
   private findExactDuplicates(fields: Record<string, string>): Redundancy[] {
     const redundancies: Redundancy[] = [];
-    const fieldNames = Object.keys(fields);
     const seenSentences = new Map<string, { field: string; index: number }>();
 
-    for (const fieldName of fieldNames) {
+    for (const fieldName of Object.keys(fields)) {
       const content = fields[fieldName];
       const sentences = this.splitIntoSentences(content);
 
@@ -194,7 +193,6 @@ export class RedundancyKiller {
    */
   private findSemanticOverlap(fields: Record<string, string>): Redundancy[] {
     const redundancies: Redundancy[] = [];
-    const fieldNames = Object.keys(fields);
 
     // Check specific field pairs that commonly overlap
     const checkPairs = [
@@ -269,7 +267,7 @@ export class RedundancyKiller {
     }
 
     // Find phrases that appear in multiple fields
-    for (const [phraseKey, occurrences] of phraseMap.entries()) {
+    for (const [_phraseKey, occurrences] of phraseMap.entries()) {
       if (occurrences.length > 1) {
         const uniqueFields = new Set(occurrences.map((o) => o.field));
 

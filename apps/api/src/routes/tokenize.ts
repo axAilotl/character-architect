@@ -4,7 +4,7 @@ import type { TokenizeRequest, TokenizeResponse } from '@card-architect/schemas'
 
 export async function tokenizeRoutes(fastify: FastifyInstance) {
   // List available tokenizers
-  fastify.get('/tokenizers', async (request, reply) => {
+  fastify.get('/tokenizers', async (_request, _reply) => {
     const tokenizers = tokenizerRegistry.list();
     return tokenizers.map((t) => ({ id: t.id }));
   });

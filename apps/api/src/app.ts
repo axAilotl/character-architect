@@ -13,6 +13,7 @@ import { redundancyRoutes } from './routes/redundancy.js';
 import { loreTriggerRoutes } from './routes/lore-trigger.js';
 import { llmRoutes } from './routes/llm.js';
 import { ragRoutes } from './routes/rag.js';
+import { presetRoutes } from './routes/presets.js';
 import type Database from 'better-sqlite3';
 
 // Extend Fastify instance type
@@ -62,6 +63,7 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(assetRoutes, apiPrefix);
   await fastify.register(llmRoutes, apiPrefix);
   await fastify.register(ragRoutes, apiPrefix);
+  await fastify.register(presetRoutes, apiPrefix);
   await fastify.register(promptSimulatorRoutes, apiPrefix);
   await fastify.register(redundancyRoutes, apiPrefix);
   await fastify.register(loreTriggerRoutes, apiPrefix);

@@ -7,7 +7,6 @@ import type {
   LLMMessage,
   FieldContext,
   PresetConfig,
-  PresetOperation,
 } from '@card-architect/schemas';
 
 /**

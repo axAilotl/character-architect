@@ -76,9 +76,9 @@ export class LoreTriggerTester {
           entry,
           matchedKeys: testResult.matchedPrimaryKeys,
           matchedSecondaryKeys: testResult.matchedSecondaryKeys,
-          matchType: testResult.matchType,
-          position: entry.position || 0,
-          injectionDepth: entry.insertion_order || 0,
+          matchType: testResult.matchType as 'both' | 'primary' | 'secondary',
+          position: typeof entry.position === 'number' ? entry.position : 0,
+          injectionDepth: typeof entry.insertion_order === 'number' ? entry.insertion_order : 0,
           reason: testResult.reason,
           selectiveLogic: testResult.selectiveLogic,
         });
@@ -133,7 +133,8 @@ export class LoreTriggerTester {
     const secondaryKeys = Array.isArray(entry.secondary_keys) ? entry.secondary_keys : [];
 
     // Determine what to search (based on scan depth or just input)
-    const scanDepth = entry.scan_depth || 0;
+    // Note: scan_depth is a V2 field, not in CCv3LorebookEntry
+    const scanDepth = (entry as any).scan_depth || 0;
     let searchText = input;
 
     if (scanDepth > 0 && chatHistory.length > 0) {
@@ -165,7 +166,7 @@ export class LoreTriggerTester {
 
     // Handle selective logic (AND/NOT)
     if (secondaryKeys.length > 0 && entry.selective) {
-      const selectiveLogic = entry.selective_logic || 0;
+      const selectiveLogic = typeof entry.selective_logic === 'number' ? entry.selective_logic : 0;
       const isAND = selectiveLogic === 0; // 0 = AND, 1 = NOT
 
       let shouldActivate = false;
@@ -273,7 +274,7 @@ export class LoreTriggerTester {
     const afterPrompt: string[] = [];
 
     for (const active of activeEntries) {
-      const position = active.entry.position || 0;
+      const position = typeof active.entry.position === 'number' ? active.entry.position : 0;
 
       if (position === 0) {
         // Before prompt (depth determines order within this section)

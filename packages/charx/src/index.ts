@@ -22,7 +22,7 @@ export interface CharxUnpackResult {
 /**
  * Pack a card into CHARX format
  */
-export async function pack(card: Card, options?: CharxPackOptions): Promise<Buffer> {
+export async function pack(_card: Card, _options?: CharxPackOptions): Promise<Buffer> {
   // TODO: Implement CHARX packing
   // 1. Create ZIP archive
   // 2. Add card.json
@@ -34,7 +34,7 @@ export async function pack(card: Card, options?: CharxPackOptions): Promise<Buff
 /**
  * Unpack a CHARX file
  */
-export async function unpack(buffer: Buffer): Promise<CharxUnpackResult> {
+export async function unpack(_buffer: Buffer): Promise<CharxUnpackResult> {
   // TODO: Implement CHARX unpacking
   // 1. Unzip archive
   // 2. Parse card.json
@@ -46,7 +46,7 @@ export async function unpack(buffer: Buffer): Promise<CharxUnpackResult> {
 /**
  * Validate CHARX structure
  */
-export function validate(buffer: Buffer): { valid: boolean; errors: string[] } {
+export function validate(_buffer: Buffer): { valid: boolean; errors: string[] } {
   // TODO: Implement CHARX validation
   return { valid: false, errors: ['Not implemented'] };
 }
