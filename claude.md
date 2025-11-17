@@ -496,6 +496,37 @@ CREATE TABLE llm_presets (
 - Also supports angled brackets: `![alt](<url> =100%x100%)`
 - Location: `apps/web/src/components/PreviewPanel.tsx`
 
+### PNG Export SillyTavern Compatibility (2025-11-17)
+- **Fixed metadata encoding**: PNG exports now use base64 encoding for JSON data (SillyTavern standard)
+- **Fixed tEXt chunk key**: Uses 'chara' key for both V2 and V3 cards (universal compatibility)
+- **Previous issue**: Was using plain JSON and 'ccv3' key, causing import failures in SillyTavern
+- **Location**: `apps/api/src/utils/png.ts:308-318` (embedIntoPNG function)
+
+### Card Grid Creator Display (2025-11-17)
+- **Feature**: Creator name now displays under card title in grid view
+- **Format**: "by {creator name}" in muted text
+- **Implementation**: Uses `extractCardData()` helper to read creator from card data structure
+  - V3 cards: `data.data.creator`
+  - V2 cards: `data.creator`
+- **Location**: `apps/web/src/components/CardGrid.tsx:214-217, 484-488`
+
+### Tag Import/Export Support (2025-11-17)
+- **Import**: Tags now properly extracted from card data during import
+  - V3 format: `data.data.tags`
+  - Wrapped V2: `data.data.tags`
+  - Unwrapped V2: `tags` (top-level)
+- **Export**: Card name sync - `data.name` automatically syncs to `meta.name` on updates
+- **Locations**:
+  - Import: `apps/api/src/routes/import-export.ts:364-385, 564-580`
+  - Export: `apps/api/src/routes/cards.ts:144-168`
+  - UI: `apps/web/src/components/EditPanel.tsx:101-121`
+
+### Multiple File Import Fix (2025-11-17)
+- **Issue**: Multiple file import was hanging/stuck pending
+- **Root cause**: Two-pass processing (collect files, then process) caused Fastify multipart async iterator deadlock
+- **Fix**: Changed to single-pass processing - files consumed during iteration with `for await (const file of request.files())`
+- **Location**: `apps/api/src/routes/import-export.ts:518-595`
+
 ## Development Workflow
 
 ### Local Development Setup
