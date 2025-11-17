@@ -10,6 +10,7 @@ import type {
   RagSource,
 } from '@card-architect/schemas';
 import { estimateTokensMany } from './tokenizer.js';
+import { embedPassages, embedQuery, cosineSimilarity } from './embedding.js';
 
 const MANIFEST_FILE = 'db.json';
 const CHUNKS_FILE = 'chunks.json';
@@ -20,6 +21,7 @@ interface RagChunk {
   sourceId: string;
   content: string;
   tokenCount: number;
+  embedding: number[];
 }
 
 interface CreateDatabaseInput {
@@ -39,6 +41,20 @@ interface AddDocumentInput {
   title?: string;
   filename: string;
   buffer: Buffer;
+  tags?: string[];
+}
+
+interface AddTextInput {
+  dbId: string;
+  title: string;
+  content: string;
+  tags?: string[];
+}
+
+interface AddLorebookInput {
+  dbId: string;
+  characterName: string;
+  lorebook: any; // CCv2CharacterBook | CCv3CharacterBook
   tags?: string[];
 }
 
@@ -282,6 +298,9 @@ export async function addDocument(
   const chunkTexts = chunkText(text);
   const tokenEstimates = estimateTokensMany(chunkTexts);
 
+  // Generate embeddings for all chunks
+  const embeddings = await embedPassages(chunkTexts);
+
   const sourceId = nanoid(12);
   const now = new Date().toISOString();
   const chunkRecords: RagChunk[] = chunkTexts.map((content, idx) => ({
@@ -289,6 +308,7 @@ export async function addDocument(
     sourceId,
     content,
     tokenCount: tokenEstimates[idx] || 0,
+    embedding: Array.from(embeddings[idx]),
   }));
 
   const existingChunks = await loadChunks(indexPath, manifest.id);
@@ -367,20 +387,27 @@ export async function searchDocuments(
   }
 
   const chunks = await loadChunks(indexPath, input.dbId);
-  const query = input.query.toLowerCase().trim();
+  const query = input.query.trim();
   if (!query) return [];
-  const keywords = query.split(/\s+/).filter(Boolean);
 
+  // Generate embedding for the query
+  const queryEmbedding = await embedQuery(query);
+
+  // Calculate cosine similarity between query and all chunks
   const scored = chunks
-    .map((chunk) => ({
-      chunk,
-      score: keywords.reduce((score, keyword) => {
-        const matches = chunk.content.toLowerCase().split(keyword).length - 1;
-        return score + (matches > 0 ? matches : 0);
-      }, 0),
-    }))
+    .map((chunk) => {
+      // Convert stored embedding array back to Float32Array
+      const chunkEmbedding = new Float32Array(chunk.embedding);
+      const similarity = cosineSimilarity(queryEmbedding, chunkEmbedding);
+
+      return {
+        chunk,
+        score: similarity,
+      };
+    })
     .filter((entry) => entry.score > 0);
 
+  // Sort by similarity score (descending)
   scored.sort((a, b) => b.score - a.score);
 
   const snippets: RagSnippet[] = [];
@@ -409,4 +436,171 @@ export async function searchDocuments(
   }
 
   return snippets;
+}
+
+/**
+ * Add free text entry to database
+ * @param indexPath RAG index path
+ * @param input Text entry input
+ * @returns Source record and chunk count
+ */
+export async function addFreeText(
+  indexPath: string,
+  input: AddTextInput
+): Promise<{ source: RagSource; indexedChunks: number }> {
+  const manifest = await loadManifest(indexPath, input.dbId);
+  if (!manifest) {
+    throw new Error('Database not found');
+  }
+
+  const content = input.content.trim();
+  if (!content) {
+    throw new Error('Content cannot be empty');
+  }
+
+  const dbDir = join(indexPath, manifest.id);
+  await ensureDir(join(dbDir, SOURCES_DIR));
+
+  const chunkTexts = chunkText(content);
+  const tokenEstimates = estimateTokensMany(chunkTexts);
+
+  // Generate embeddings for all chunks
+  const embeddings = await embedPassages(chunkTexts);
+
+  const sourceId = nanoid(12);
+  const now = new Date().toISOString();
+  const chunkRecords: RagChunk[] = chunkTexts.map((chunkContent, idx) => ({
+    id: `${sourceId}-${idx}`,
+    sourceId,
+    content: chunkContent,
+    tokenCount: tokenEstimates[idx] || 0,
+    embedding: Array.from(embeddings[idx]),
+  }));
+
+  const existingChunks = await loadChunks(indexPath, manifest.id);
+  const updatedChunks = [...existingChunks, ...chunkRecords];
+  await saveChunks(indexPath, manifest.id, updatedChunks);
+
+  const totalTokens = chunkRecords.reduce((sum, chunk) => sum + chunk.tokenCount, 0);
+
+  // Store the original text content
+  const filename = `${input.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
+  const storedPath = join(SOURCES_DIR, sourceId, filename);
+  const relativePath = storedPath.replace(/\\/g, '/');
+  await ensureDir(join(dbDir, SOURCES_DIR, sourceId));
+  await fs.writeFile(join(dbDir, storedPath), content, 'utf-8');
+
+  const source: RagSource = {
+    id: sourceId,
+    databaseId: manifest.id,
+    title: input.title,
+    filename,
+    path: relativePath,
+    type: 'freetext',
+    size: Buffer.byteLength(content, 'utf-8'),
+    indexed: true,
+    indexedAt: now,
+    chunkCount: chunkRecords.length,
+    tokenCount: totalTokens,
+    tags: input.tags,
+  };
+
+  manifest.sources.push(source);
+  manifest.chunkCount += chunkRecords.length;
+  manifest.tokenCount += totalTokens;
+  manifest.updatedAt = now;
+
+  await saveManifest(indexPath, manifest);
+
+  return { source, indexedChunks: chunkRecords.length };
+}
+
+/**
+ * Import lorebook entries into database
+ * @param indexPath RAG index path
+ * @param input Lorebook input
+ * @returns Source record and chunk count
+ */
+export async function addLorebook(
+  indexPath: string,
+  input: AddLorebookInput
+): Promise<{ source: RagSource; indexedChunks: number }> {
+  const manifest = await loadManifest(indexPath, input.dbId);
+  if (!manifest) {
+    throw new Error('Database not found');
+  }
+
+  const { lorebook, characterName } = input;
+
+  // Extract entries from both V2 and V3 formats
+  const entries = lorebook.entries || [];
+  if (entries.length === 0) {
+    throw new Error('Lorebook has no entries to import');
+  }
+
+  const dbDir = join(indexPath, manifest.id);
+  await ensureDir(join(dbDir, SOURCES_DIR));
+
+  // Convert each lorebook entry to a structured text chunk
+  const entryTexts: string[] = entries.map((entry: any, idx: number) => {
+    const keys = Array.isArray(entry.keys) ? entry.keys.join(', ') : String(entry.keys || '');
+    const secondaryKeys = entry.secondary_keys ? ` | Secondary: ${entry.secondary_keys.join(', ')}` : '';
+    const content = entry.content || entry.value || '';
+
+    return `# ${characterName} - Lorebook Entry ${idx + 1}\n\nKeywords: ${keys}${secondaryKeys}\n\n${content}`;
+  });
+
+  const allText = entryTexts.join('\n\n---\n\n');
+  const chunkTexts = chunkText(allText);
+  const tokenEstimates = estimateTokensMany(chunkTexts);
+
+  // Generate embeddings for all chunks
+  const embeddings = await embedPassages(chunkTexts);
+
+  const sourceId = nanoid(12);
+  const now = new Date().toISOString();
+  const chunkRecords: RagChunk[] = chunkTexts.map((chunkContent, idx) => ({
+    id: `${sourceId}-${idx}`,
+    sourceId,
+    content: chunkContent,
+    tokenCount: tokenEstimates[idx] || 0,
+    embedding: Array.from(embeddings[idx]),
+  }));
+
+  const existingChunks = await loadChunks(indexPath, manifest.id);
+  const updatedChunks = [...existingChunks, ...chunkRecords];
+  await saveChunks(indexPath, manifest.id, updatedChunks);
+
+  const totalTokens = chunkRecords.reduce((sum, chunk) => sum + chunk.tokenCount, 0);
+
+  // Store the lorebook as JSON
+  const filename = `${characterName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_lorebook.json`;
+  const storedPath = join(SOURCES_DIR, sourceId, filename);
+  const relativePath = storedPath.replace(/\\/g, '/');
+  await ensureDir(join(dbDir, SOURCES_DIR, sourceId));
+  await writeJSON(join(dbDir, storedPath), lorebook);
+
+  const source: RagSource = {
+    id: sourceId,
+    databaseId: manifest.id,
+    title: `${characterName} - Lorebook (${entries.length} entries)`,
+    filename,
+    path: relativePath,
+    type: 'lorebook',
+    size: JSON.stringify(lorebook).length,
+    indexed: true,
+    indexedAt: now,
+    chunkCount: chunkRecords.length,
+    tokenCount: totalTokens,
+    tags: input.tags,
+  };
+
+  manifest.sources.push(source);
+  manifest.chunkCount += chunkRecords.length;
+  manifest.tokenCount += totalTokens;
+  manifest.updatedAt = now;
+
+  await saveManifest(indexPath, manifest);
+
+  return { source, indexedChunks: chunkRecords.length };
 }
