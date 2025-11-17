@@ -28,9 +28,10 @@ const TEXT_CHUNK_KEYS = {
 /**
  * Manually parse PNG text chunks from buffer
  * pngjs library doesn't reliably read text chunks, so we parse them ourselves
+ * Returns array of {keyword, text} to support multiple chunks with same keyword
  */
-function parseTextChunks(buffer: Buffer): Record<string, string> {
-  const textChunks: Record<string, string> = {};
+function parseTextChunks(buffer: Buffer): Array<{keyword: string, text: string}> {
+  const textChunks: Array<{keyword: string, text: string}> = [];
 
   // Verify PNG signature
   const signature = buffer.slice(0, 8);
@@ -67,7 +68,7 @@ function parseTextChunks(buffer: Buffer): Record<string, string> {
       if (nullIndex !== -1) {
         const keyword = data.slice(0, nullIndex).toString('latin1');
         const text = data.slice(nullIndex + 1).toString('utf8');
-        textChunks[keyword] = text;
+        textChunks.push({keyword, text});
         console.log(`[PNG Extract] Found tEXt chunk: "${keyword}" (${text.length} chars)`);
       }
     }
@@ -95,11 +96,11 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
 
       // Manually parse text chunks (pngjs doesn't read them reliably)
       const textChunks = parseTextChunks(buffer);
-      const availableKeys = Object.keys(textChunks);
+      const availableKeys = [...new Set(textChunks.map(c => c.keyword))];
 
       console.log('[PNG Extract] Available text chunks:', availableKeys);
 
-      if (availableKeys.length === 0) {
+      if (textChunks.length === 0) {
         console.error('[PNG Extract] PNG has no text chunks at all - this PNG was not exported with embedded character data');
         resolve(null);
         return;
@@ -121,17 +122,40 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
         }
       };
 
-      // Try all known keys
+      // Helper function to check if parsed data has lorebook
+      const hasLorebook = (json: any): boolean => {
+        if (json.data?.character_book?.entries?.length > 0) return true;
+        if (json.character_book?.entries?.length > 0) return true;
+        return false;
+      };
+
+      // Try all known keys, preferring chunks with lorebooks
+      let fallbackResult: { data: CCv2Data | CCv3Data; spec: 'v2' | 'v3' } | null = null;
+
       for (const key of TEXT_CHUNK_KEYS.all) {
-        if (textChunks[key]) {
+        // Find all chunks with this keyword
+        const matchingChunks = textChunks.filter(c => c.keyword === key);
+
+        for (const chunk of matchingChunks) {
           try {
-            const json = tryParseChunk(textChunks[key]);
+            const json = tryParseChunk(chunk.text);
             const spec = detectSpec(json);
-            console.log(`[PNG Extract] Found data in chunk '${key}', detected spec: ${spec}`);
+            console.log(`[PNG Extract] Found data in chunk '${key}' (${chunk.text.length} chars), detected spec: ${spec}, has lorebook: ${hasLorebook(json)}`);
 
             if (spec === 'v3' || spec === 'v2') {
-              resolve({ data: json, spec });
-              return;
+              const result = { data: json, spec };
+
+              // Prefer chunks with lorebooks
+              if (hasLorebook(json)) {
+                console.log(`[PNG Extract] Using chunk with lorebook`);
+                resolve(result);
+                return;
+              }
+
+              // Store as fallback if we don't find one with lorebook
+              if (!fallbackResult) {
+                fallbackResult = result;
+              }
             }
 
             // If detectSpec failed but we have JSON that looks like a card, try to infer
@@ -141,29 +165,48 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
               // Check if it's a wrapped v3 card
               if (json.spec === 'chara_card_v3' && json.data && json.data.name) {
                 console.log(`[PNG Extract] Inferred v3 from structure in chunk '${key}'`);
-                resolve({ data: json, spec: 'v3' });
-                return;
+                const result = { data: json, spec: 'v3' as const };
+                if (hasLorebook(json)) {
+                  resolve(result);
+                  return;
+                }
+                if (!fallbackResult) fallbackResult = result;
               }
 
               // Check if it's a wrapped v2 card
               if (json.spec === 'chara_card_v2' && json.data && json.data.name) {
                 console.log(`[PNG Extract] Inferred v2 from structure in chunk '${key}'`);
-                resolve({ data: json, spec: 'v2' });
-                return;
+                const result = { data: json, spec: 'v2' as const };
+                if (hasLorebook(json)) {
+                  resolve(result);
+                  return;
+                }
+                if (!fallbackResult) fallbackResult = result;
               }
 
               // Check if it's a legacy v2 card (direct fields)
               if (json.name && (json.description || json.personality || json.scenario)) {
                 console.log(`[PNG Extract] Inferred legacy v2 from structure in chunk '${key}'`);
-                resolve({ data: json, spec: 'v2' });
-                return;
+                const result = { data: json, spec: 'v2' as const };
+                if (hasLorebook(json)) {
+                  resolve(result);
+                  return;
+                }
+                if (!fallbackResult) fallbackResult = result;
               }
             }
           } catch (e) {
             console.error(`[PNG Extract] Failed to parse data in chunk '${key}':`, e);
-            // Continue to next key
+            // Continue to next chunk
           }
         }
+      }
+
+      // If we found a valid card but no lorebook, use the fallback
+      if (fallbackResult) {
+        console.log(`[PNG Extract] Using fallback result (no lorebook found in any chunk)`);
+        resolve(fallbackResult);
+        return;
       }
 
       console.error('[PNG Extract] No valid character card data found in any known text chunk.');
