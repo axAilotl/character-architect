@@ -211,6 +211,11 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     return data.name || 'Untitled Card';
   };
 
+  const getCreator = (card: Card) => {
+    const data = extractCardData(card);
+    return data.creator || null;
+  };
+
   const getCreatorNotes = (card: Card) => {
     const data = extractCardData(card);
     const notes = data.creator_notes || '';
@@ -476,9 +481,9 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                   </div>
 
                   {/* Creator */}
-                  {card.meta.creator && (
+                  {getCreator(card) && (
                     <p className="text-sm text-dark-muted mb-2">
-                      by {card.meta.creator}
+                      by {getCreator(card)}
                     </p>
                   )}
 
