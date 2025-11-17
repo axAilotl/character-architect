@@ -389,19 +389,6 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
   // Import multiple cards at once
   fastify.post('/import-multiple', async (request, reply) => {
-    const files = request.files();
-
-    // Convert AsyncIterableIterator to array
-    const fileList: any[] = [];
-    for await (const file of files) {
-      fileList.push(file);
-    }
-
-    if (fileList.length === 0) {
-      reply.code(400);
-      return { error: 'No files provided' };
-    }
-
     const results: Array<{
       filename: string;
       success: boolean;
@@ -410,7 +397,8 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       warnings?: string[];
     }> = [];
 
-    for (const file of fileList) {
+    // Process files as we iterate (don't collect into array first)
+    for await (const file of request.files()) {
       const filename = file.filename || 'unknown';
 
       try {
@@ -573,9 +561,27 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           storageData = cardData as (CCv2Data | CCv3Data);
         }
 
+        // Extract tags from card data
+        let tags: string[] = [];
+        try {
+          if (spec === 'v3' && 'data' in storageData && storageData.data && typeof storageData.data === 'object') {
+            const extracted = (storageData.data as any).tags;
+            tags = Array.isArray(extracted) ? extracted : [];
+          } else if (spec === 'v2' && 'data' in storageData && storageData.data && typeof storageData.data === 'object') {
+            const extracted = (storageData.data as any).tags;
+            tags = Array.isArray(extracted) ? extracted : [];
+          } else if (spec === 'v2' && 'tags' in storageData) {
+            const extracted = (storageData as any).tags;
+            tags = Array.isArray(extracted) ? extracted : [];
+          }
+        } catch (err) {
+          fastify.log.warn({ error: err, filename }, 'Failed to extract tags, using empty array');
+          tags = [];
+        }
+
         const card = cardRepo.create({
           data: storageData,
-          meta: { name, spec, tags: [] },
+          meta: { name, spec, tags },
         }, originalImage);
 
         results.push({
@@ -592,6 +598,11 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+
+    if (results.length === 0) {
+      reply.code(400);
+      return { error: 'No files provided' };
     }
 
     const successCount = results.filter(r => r.success).length;

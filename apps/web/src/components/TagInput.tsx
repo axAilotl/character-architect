@@ -32,8 +32,8 @@ export function TagInput({ tags, onChange, label = 'Tags', placeholder = 'Add ta
   };
 
   return (
-    <div className="input-group mb-4">
-      <label className="label">{label}</label>
+    <div className={label ? "input-group mb-4" : ""}>
+      {label && <label className="label">{label}</label>}
 
       <div className="flex flex-wrap gap-2 p-2 bg-dark-surface border border-dark-border rounded min-h-[42px]">
         {tags.map((tag) => (

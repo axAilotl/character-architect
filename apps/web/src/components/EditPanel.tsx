@@ -80,6 +80,10 @@ export function EditPanel() {
   const isV3 = currentCard.meta.spec === 'v3';
   const cardData = extractCardData(currentCard);
 
+  // Debug: Log tags
+  console.log('[EditPanel] currentCard.meta.tags:', currentCard.meta.tags);
+  console.log('[EditPanel] cardData.tags:', cardData.tags);
+
   const handleFieldChange = (field: string, value: string | string[] | Record<string, string>) => {
     // For wrapped cards (V3 and wrapped V2), update nested data object
     // For unwrapped V2, update directly
@@ -102,17 +106,21 @@ export function EditPanel() {
     // Update both meta.tags and data.tags for consistency
     updateCardMeta({ tags });
 
-    // Also update data.tags for V3 and wrapped V2
+    // Also update data.tags for ALL cards (V3, wrapped V2, and unwrapped V2)
     const v2Data = currentCard.data as any;
     const isWrappedV2 = !isV3 && v2Data.spec === 'chara_card_v2' && 'data' in v2Data;
 
     if (isV3 || isWrappedV2) {
+      // For V3 and wrapped V2, update data.tags in the nested data object
       updateCardData({
         data: {
           ...cardData,
           tags,
         },
       } as any);
+    } else {
+      // For unwrapped V2, update tags at the top level
+      updateCardData({ tags } as any);
     }
   };
 
@@ -366,7 +374,7 @@ export function EditPanel() {
             </div>
 
             {/* Tags - Show for both V2 and V3 */}
-            <div className="input-group">
+            <div>
               <div className="flex items-center gap-2 mb-2">
                 <label className="label">Tags</label>
                 {isV3 ? (
@@ -378,6 +386,7 @@ export function EditPanel() {
               <TagInput
                 tags={currentCard.meta.tags || []}
                 onChange={handleTagsChange}
+                label=""
               />
             </div>
 
