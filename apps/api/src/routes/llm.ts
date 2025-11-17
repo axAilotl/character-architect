@@ -8,7 +8,6 @@ import type {
   LLMInvokeRequest,
   LLMAssistRequest,
   LLMSettings,
-  ProviderConfig,
 } from '@card-architect/schemas';
 import { openaiResponses, openaiChat } from '../providers/openai.js';
 import { anthropicMessages } from '../providers/anthropic.js';
@@ -21,7 +20,7 @@ export async function llmRoutes(fastify: FastifyInstance) {
   /**
    * Get LLM settings
    */
-  fastify.get('/llm/settings', async (request, reply) => {
+  fastify.get('/llm/settings', async (_request, reply) => {
     try {
       const settings = await getSettings();
       // Redact API keys in response

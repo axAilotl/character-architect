@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
-import type { CCv3Data, CCv2Data, CCFieldName, FocusField, Template, Snippet, CardAssetWithDetails } from '@card-architect/schemas';
+import type { CCFieldName, FocusField, Template, Snippet, CardAssetWithDetails } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
 import { LLMAssistSidebar } from './LLMAssistSidebar';

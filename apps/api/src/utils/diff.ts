@@ -3,7 +3,7 @@
  * Uses a simple word-level diff algorithm
  */
 
-import type { DiffOperation, DiffOperationType } from '@card-architect/schemas';
+import type { DiffOperation } from '@card-architect/schemas';
 
 /**
  * Normalize text for diffing (remove extra whitespace)
@@ -28,7 +28,6 @@ export function computeDiff(original: string, revised: string): DiffOperation[] 
   const revisedLines = normalizedRevised.split('\n');
 
   const diff: DiffOperation[] = [];
-  const maxLines = Math.max(originalLines.length, revisedLines.length);
 
   // Simple line-by-line comparison
   let originalIdx = 0;
@@ -145,7 +144,7 @@ export function computeDiffStats(diff: DiffOperation[]): {
 /**
  * Apply diff to reconstruct revised text
  */
-export function applyDiff(original: string, diff: DiffOperation[]): string {
+export function applyDiff(_original: string, diff: DiffOperation[]): string {
   return diff
     .filter((op) => op.type !== 'remove')
     .map((op) => op.value)

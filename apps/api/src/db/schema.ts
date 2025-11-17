@@ -80,6 +80,20 @@ export function createTables(db: Database.Database): void {
     )
   `);
 
+  // User-defined LLM presets table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS llm_presets (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      instruction TEXT NOT NULL,
+      category TEXT CHECK (category IN ('rewrite', 'format', 'generate', 'custom')),
+      is_built_in INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_cards_name ON cards(name);
@@ -91,6 +105,8 @@ export function createTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_card_assets_asset_id ON card_assets(asset_id);
     CREATE INDEX IF NOT EXISTS idx_card_assets_type ON card_assets(type);
     CREATE INDEX IF NOT EXISTS idx_card_assets_is_main ON card_assets(is_main);
+    CREATE INDEX IF NOT EXISTS idx_llm_presets_category ON llm_presets(category);
+    CREATE INDEX IF NOT EXISTS idx_llm_presets_is_built_in ON llm_presets(is_built_in);
   `);
 
   // Migrations - add original_image column if it doesn't exist

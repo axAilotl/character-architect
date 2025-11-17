@@ -13,7 +13,7 @@ export async function promptSimulatorRoutes(fastify: FastifyInstance) {
    * GET /prompt-simulator/profiles
    * Get all available prompt profiles
    */
-  fastify.get('/prompt-simulator/profiles', async (request, reply) => {
+  fastify.get('/prompt-simulator/profiles', async (_request, _reply) => {
     const profiles = PromptSimulator.getProfiles();
     return { profiles };
   });
