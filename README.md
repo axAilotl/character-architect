@@ -64,6 +64,9 @@
 
 ### Recent Updates
 
+- ✅ **Searchable Model Selector** (v1.2) - Filterable dropdown with model caching and alphabetical sorting
+- ✅ **Card Thumbnails** (v1.2) - Efficient 96x96 avatar thumbnails with top-centered cropping
+- ✅ **Enhanced UI** (v1.2) - Improved textarea heights, streamlined LLM sidebar, collapsible custom instructions
 - ✅ **RAG Vector Embeddings** (v1.1) - Semantic search with FastEmbed
 - ✅ **Free Text Entry** (v1.1) - Direct paste into knowledge bases
 - ✅ **Lorebook Import** (v1.1) - Import lorebooks as searchable knowledge

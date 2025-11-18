@@ -527,6 +527,35 @@ CREATE TABLE llm_presets (
 - **Fix**: Changed to single-pass processing - files consumed during iteration with `for await (const file of request.files())`
 - **Location**: `apps/api/src/routes/import-export.ts:518-595`
 
+### UI and UX Improvements (2025-11-18)
+- **Searchable Model Selector**:
+  - Created reusable `SearchableSelect` component with text filtering
+  - LLM model caching in Zustand store with alphabetical sorting
+  - Location: `apps/web/src/components/SearchableSelect.tsx`, `apps/web/src/store/llm-store.ts`
+- **Card Thumbnail Endpoint**:
+  - Added `/cards/:id/thumbnail` endpoint for efficient avatar display
+  - Uses Sharp to generate 96x96 square thumbnails with top-centered cropping
+  - Replaces 4MB full images with ~10KB optimized PNGs
+  - Location: `apps/api/src/routes/import-export.ts:737-763`
+- **Logo Integration**:
+  - Added CA.png logo to favicon and page headers
+  - 96x96 display in CardGrid, 24x24 in editor header
+  - Location: `apps/web/public/logo.png`, `apps/web/index.html:5`, `apps/web/src/components/Header.tsx:69`
+- **Enhanced Textarea Heights**:
+  - Description: 20 rows (was 6)
+  - Personality/Scenario/First Message: 12 rows (was 6)
+  - Alternate Greetings: 5 rows (was 3)
+  - Location: `apps/web/src/components/EditPanel.tsx:273,286,299,434,483`
+- **LLM Assistant Sidebar Streamlining**:
+  - Removed redundant Model, Temperature, and Streaming fields
+  - Made Custom Instructions collapsible (starts collapsed)
+  - Increased presets height to 400px (was 200px)
+  - Location: `apps/web/src/components/LLMAssistSidebar.tsx`
+- **Single Card Import Tag Fix**:
+  - Fixed bug where single card import wasn't extracting tags from card data
+  - Added same tag extraction logic used in multi-import
+  - Location: `apps/api/src/routes/import-export.ts:364-380`
+
 ## Development Workflow
 
 ### Local Development Setup
