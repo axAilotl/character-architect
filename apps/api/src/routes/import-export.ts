@@ -11,6 +11,62 @@ import { CharxImportService } from '../services/charx-import.service.js';
 import { buildCharx, validateCharxBuild } from '../utils/charx-builder.js';
 
 /**
+ * Normalize card data to fix common issues before validation
+ * Handles spec values, missing required fields, and character_book normalization
+ */
+function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
+  if (!cardData || typeof cardData !== 'object') return;
+
+  const obj = cardData as Record<string, unknown>;
+
+  // Fix wrapped v2 cards with non-standard spec values
+  if (spec === 'v2' && 'spec' in obj && obj.spec !== 'chara_card_v2') {
+    obj.spec = 'chara_card_v2';
+    if (!obj.spec_version) {
+      obj.spec_version = '2.0';
+    }
+  }
+
+  // Fix wrapped v3 cards with non-standard spec values
+  if (spec === 'v3' && 'spec' in obj && obj.spec !== 'chara_card_v3') {
+    obj.spec = 'chara_card_v3';
+    if (!obj.spec_version || !String(obj.spec_version).startsWith('3')) {
+      obj.spec_version = '3.0';
+    }
+  }
+
+  // Handle character_book and add missing V3 required fields
+  if ('data' in obj && obj.data && typeof obj.data === 'object') {
+    const dataObj = obj.data as Record<string, unknown>;
+
+    if (dataObj.character_book === null) {
+      delete dataObj.character_book;
+    }
+    normalizeLorebookEntries(dataObj);
+
+    // Add missing required V3 fields with defaults
+    if (spec === 'v3') {
+      if (!('group_only_greetings' in dataObj)) {
+        dataObj.group_only_greetings = [];
+      }
+      if (!('creator' in dataObj) || !dataObj.creator) {
+        dataObj.creator = '';
+      }
+      if (!('character_version' in dataObj) || !dataObj.character_version) {
+        dataObj.character_version = '1.0';
+      }
+      if (!('tags' in dataObj) || !Array.isArray(dataObj.tags)) {
+        dataObj.tags = [];
+      }
+    }
+  } else if ('character_book' in obj && obj.character_book === null) {
+    delete obj.character_book;
+  } else if ('character_book' in obj) {
+    normalizeLorebookEntries(obj);
+  }
+}
+
+/**
  * Normalize lorebook entry fields to match schema expectations
  * Handles legacy position values (numeric), V3 fields in V2 cards, and other common issues
  */
@@ -88,11 +144,330 @@ function normalizeLorebookEntries(dataObj: Record<string, unknown>) {
   }
 }
 
+/**
+ * Download a file from a URL and determine its type
+ */
+async function downloadFromURL(url: string): Promise<{
+  buffer: Buffer;
+  mimetype: string;
+  filename: string;
+}> {
+  // Validate URL
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch (err) {
+    throw new Error('Invalid URL provided');
+  }
+
+  // Only allow http and https
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error('Only HTTP and HTTPS URLs are supported');
+  }
+
+  // Download the file
+  const response = await fetch(url, {
+    method: 'GET',
+    redirect: 'follow',
+    headers: {
+      'User-Agent': 'Card-Architect/1.0',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+  }
+
+  // Get content type
+  const contentType = response.headers.get('content-type') || 'application/octet-stream';
+
+  // Determine mimetype
+  let mimetype = contentType.split(';')[0].trim();
+
+  // Get filename from URL or Content-Disposition header
+  let filename = 'download';
+  const contentDisposition = response.headers.get('content-disposition');
+  if (contentDisposition) {
+    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1].replace(/['"]/g, '');
+    }
+  } else {
+    // Extract from URL
+    const urlPath = parsedUrl.pathname;
+    const urlFilename = urlPath.split('/').pop();
+    if (urlFilename && urlFilename.includes('.')) {
+      filename = urlFilename;
+    }
+  }
+
+  // If mimetype is generic, try to determine from file extension
+  if (mimetype === 'application/octet-stream' || mimetype === 'binary/octet-stream') {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (ext === 'png') {
+      mimetype = 'image/png';
+    } else if (ext === 'json') {
+      mimetype = 'application/json';
+    } else if (ext === 'charx') {
+      mimetype = 'application/zip';
+    }
+  }
+
+  // Download buffer
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  return { buffer, mimetype, filename };
+}
+
 export async function importExportRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
   const assetRepo = new AssetRepository(fastify.db);
   const cardAssetRepo = new CardAssetRepository(fastify.db);
   const charxImportService = new CharxImportService(cardRepo, assetRepo, cardAssetRepo);
+
+  // Import from URL (JSON, PNG, or CHARX)
+  fastify.post<{ Body: { url: string } }>('/import-url', async (request, reply) => {
+    const { url } = request.body;
+
+    if (!url || typeof url !== 'string') {
+      reply.code(400);
+      return { error: 'URL is required' };
+    }
+
+    let downloadedFile: { buffer: Buffer; mimetype: string; filename: string };
+
+    try {
+      downloadedFile = await downloadFromURL(url);
+      fastify.log.info({
+        url,
+        mimetype: downloadedFile.mimetype,
+        filename: downloadedFile.filename,
+        size: downloadedFile.buffer.length,
+      }, 'Downloaded file from URL');
+    } catch (err) {
+      fastify.log.error({ error: err, url }, 'Failed to download file from URL');
+      reply.code(400);
+      return {
+        error: `Failed to download file: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+
+    const { buffer, mimetype, filename } = downloadedFile;
+    const warnings: string[] = [];
+
+    // Check for CHARX format (ZIP magic bytes: PK\x03\x04 or .charx extension)
+    const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+    const isCharxExt = filename.endsWith('.charx');
+
+    if (isZip || isCharxExt) {
+      // Handle CHARX import
+      try {
+        // Write buffer to temp file (yauzl requires file path)
+        const tempPath = join(tmpdir(), `charx-${Date.now()}-${filename}`);
+        await fs.writeFile(tempPath, buffer);
+
+        try {
+          // Import CHARX
+          const result = await charxImportService.importFromFile(tempPath, {
+            storagePath: config.storagePath,
+            preserveTimestamps: true,
+            setAsOriginalImage: true,
+          });
+
+          warnings.push(...result.warnings);
+
+          fastify.log.info({
+            url,
+            cardId: result.card.meta.id,
+            assetsImported: result.assetsImported,
+            warnings: result.warnings,
+          }, 'Successfully imported CHARX from URL');
+
+          return {
+            success: true,
+            card: result.card,
+            assetsImported: result.assetsImported,
+            warnings,
+          };
+        } finally {
+          // Clean up temp file
+          await fs.unlink(tempPath).catch(() => {});
+        }
+      } catch (err) {
+        fastify.log.error({ error: err, url }, 'Failed to import CHARX from URL');
+        reply.code(400);
+        return {
+          error: `Failed to import CHARX: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+
+    let cardData: unknown;
+    let spec: 'v2' | 'v3';
+    let originalImage: Buffer | undefined;
+
+    // Detect format
+    if (mimetype === 'application/json' || mimetype === 'text/json') {
+      try {
+        cardData = JSON.parse(buffer.toString('utf-8'));
+        const detectedSpec = detectSpec(cardData);
+        if (!detectedSpec) {
+          const obj = cardData as Record<string, unknown>;
+          fastify.log.error({
+            url,
+            keys: Object.keys(obj).slice(0, 10),
+            hasSpec: 'spec' in obj,
+            specValue: obj.spec,
+          }, 'Failed to detect spec for JSON card from URL');
+          reply.code(400);
+          return {
+            error: 'Invalid card format: unable to detect v2 or v3 spec. The JSON structure does not match expected character card formats.',
+            details: 'Expected either: (1) v3 format with "spec":"chara_card_v3" and "data" object, (2) v2 format with "spec":"chara_card_v2" and "data" object, or (3) legacy v2 with direct "name" field.'
+          };
+        }
+        spec = detectedSpec;
+      } catch (err) {
+        fastify.log.error({ error: err, url }, 'Failed to parse JSON from URL');
+        reply.code(400);
+        return { error: `Invalid JSON: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    } else if (mimetype === 'image/png') {
+      // Validate PNG size
+      const sizeCheck = validatePNGSize(buffer, {
+        max: config.limits.maxPngSizeMB,
+        warn: config.limits.warnPngSizeMB,
+      });
+
+      if (!sizeCheck.valid) {
+        fastify.log.warn({ warnings: sizeCheck.warnings, url }, 'PNG size validation failed');
+        reply.code(400);
+        return { error: 'PNG too large', warnings: sizeCheck.warnings };
+      }
+
+      warnings.push(...sizeCheck.warnings);
+
+      try {
+        const extracted = await extractFromPNG(buffer);
+        if (!extracted) {
+          fastify.log.error({ url }, 'No character card data found in PNG from URL');
+          reply.code(400);
+          return {
+            error: 'No character card data found in PNG',
+            details: 'This PNG does not contain embedded character card data in its text chunks. Make sure the PNG was exported from a character card editor that embeds the card data.'
+          };
+        }
+        cardData = extracted.data;
+        spec = extracted.spec;
+        originalImage = buffer; // Store the original PNG
+        fastify.log.info({ spec, url }, 'Successfully extracted card from PNG');
+      } catch (err) {
+        fastify.log.error({ error: err, url }, 'Failed to extract card from PNG');
+        reply.code(400);
+        return { error: `Failed to extract card from PNG: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    } else {
+      fastify.log.warn({ mimetype, url }, 'Unsupported file type from URL');
+      reply.code(400);
+      return { error: `Unsupported file type: ${mimetype}. Only JSON, PNG, and CHARX files are supported.` };
+    }
+
+    // Normalize spec values and data BEFORE validation
+    normalizeCardData(cardData, spec);
+
+    // Validate card data
+    const validation = spec === 'v3' ? validateV3(cardData) : validateV2(cardData);
+    if (!validation.valid) {
+      fastify.log.error({
+        spec,
+        url,
+        errors: validation.errors,
+        keys: Object.keys(cardData as Record<string, unknown>).slice(0, 10),
+      }, 'Card validation failed for URL import');
+      reply.code(400);
+      return { error: 'Card validation failed', errors: validation.errors };
+    }
+
+    warnings.push(...validation.errors.filter((e) => e.severity !== 'error').map((e) => e.message));
+
+    // Extract name and prepare card data for storage
+    let name = 'Untitled';
+    let storageData: CCv2Data | CCv3Data;
+
+    if (cardData && typeof cardData === 'object') {
+      // Handle wrapped v2 cards (CharacterHub format)
+      if (spec === 'v2' && 'data' in cardData && typeof cardData.data === 'object' && cardData.data) {
+        const wrappedData = cardData.data as CCv2Data;
+        name = wrappedData.name || 'Untitled';
+        storageData = cardData as any;
+      }
+      // Handle legacy v2 cards (direct fields)
+      else if (spec === 'v2' && 'name' in cardData && typeof cardData.name === 'string') {
+        name = cardData.name;
+        const v2Data = cardData as CCv2Data;
+        storageData = {
+          spec: 'chara_card_v2',
+          spec_version: '2.0',
+          data: v2Data,
+        } as any;
+      }
+      // Handle v3 cards (always wrapped)
+      else if (spec === 'v3' && 'data' in cardData && typeof cardData.data === 'object' && cardData.data) {
+        const v3Data = cardData as CCv3Data;
+        name = v3Data.data.name || 'Untitled';
+        storageData = v3Data;
+      }
+      else {
+        // Fallback
+        if ('name' in cardData && typeof cardData.name === 'string') {
+          name = cardData.name;
+        } else if ('data' in cardData && typeof cardData.data === 'object' && cardData.data && 'name' in cardData.data) {
+          name = (cardData.data as { name: string }).name;
+        }
+        storageData = cardData as (CCv2Data | CCv3Data);
+      }
+    } else {
+      storageData = cardData as (CCv2Data | CCv3Data);
+    }
+
+    // Extract tags from card data
+    let tags: string[] = [];
+    try {
+      if (spec === 'v3' && 'data' in storageData && storageData.data && typeof storageData.data === 'object') {
+        const extracted = (storageData.data as any).tags;
+        tags = Array.isArray(extracted) ? extracted : [];
+      } else if (spec === 'v2' && 'data' in storageData && storageData.data && typeof storageData.data === 'object') {
+        const extracted = (storageData.data as any).tags;
+        tags = Array.isArray(extracted) ? extracted : [];
+      } else if (spec === 'v2' && 'tags' in storageData) {
+        const extracted = (storageData as any).tags;
+        tags = Array.isArray(extracted) ? extracted : [];
+      }
+    } catch (err) {
+      fastify.log.warn({ error: err, url }, 'Failed to extract tags, using empty array');
+      tags = [];
+    }
+
+    // Create card
+    const card = cardRepo.create({
+      data: storageData,
+      meta: {
+        name,
+        spec,
+        tags,
+      },
+    }, originalImage);
+
+    fastify.log.info({
+      url,
+      cardId: card.meta.id,
+      name: card.meta.name,
+      spec: card.meta.spec,
+    }, 'Successfully imported card from URL');
+
+    reply.code(201);
+    return { card, warnings, source: url };
+  });
 
   // Import from JSON, PNG, or CHARX
   fastify.post('/import', async (request, reply) => {
@@ -226,40 +601,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
     }
 
     // Normalize spec values and data BEFORE validation
-    if (cardData && typeof cardData === 'object') {
-      const obj = cardData as Record<string, unknown>;
-
-      // Fix wrapped v2 cards with non-standard spec values
-      if (spec === 'v2' && 'spec' in obj && obj.spec !== 'chara_card_v2') {
-        obj.spec = 'chara_card_v2';
-        if (!obj.spec_version) {
-          obj.spec_version = '2.0';
-        }
-      }
-
-      // Fix wrapped v3 cards with non-standard spec values
-      if (spec === 'v3' && 'spec' in obj && obj.spec !== 'chara_card_v3') {
-        obj.spec = 'chara_card_v3';
-        if (!obj.spec_version || !String(obj.spec_version).startsWith('3')) {
-          obj.spec_version = '3.0';
-        }
-      }
-
-      // Handle character_book being null - should be undefined or an object
-      if ('data' in obj && obj.data && typeof obj.data === 'object') {
-        const dataObj = obj.data as Record<string, unknown>;
-        if (dataObj.character_book === null) {
-          delete dataObj.character_book;
-        }
-        // Normalize lorebook entries
-        normalizeLorebookEntries(dataObj);
-      } else if ('character_book' in obj && obj.character_book === null) {
-        delete obj.character_book;
-      } else if ('character_book' in obj) {
-        // Normalize lorebook entries in legacy format
-        normalizeLorebookEntries(obj);
-      }
-    }
+    normalizeCardData(cardData, spec);
 
     // Validate card data
     const validation = spec === 'v3' ? validateV3(cardData) : validateV2(cardData);
@@ -508,30 +850,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         }
 
         // Normalize and validate
-        if (cardData && typeof cardData === 'object') {
-          const obj = cardData as Record<string, unknown>;
-
-          if (spec === 'v2' && 'spec' in obj && obj.spec !== 'chara_card_v2') {
-            obj.spec = 'chara_card_v2';
-            if (!obj.spec_version) obj.spec_version = '2.0';
-          }
-
-          if (spec === 'v3' && 'spec' in obj && obj.spec !== 'chara_card_v3') {
-            obj.spec = 'chara_card_v3';
-            if (!obj.spec_version || !String(obj.spec_version).startsWith('3')) {
-              obj.spec_version = '3.0';
-            }
-          }
-
-          if ('data' in obj && obj.data && typeof obj.data === 'object') {
-            const dataObj = obj.data as Record<string, unknown>;
-            if (dataObj.character_book === null) delete dataObj.character_book;
-            normalizeLorebookEntries(dataObj);
-          } else if ('character_book' in obj) {
-            if (obj.character_book === null) delete obj.character_book;
-            else normalizeLorebookEntries(obj);
-          }
-        }
+        normalizeCardData(cardData, spec);
 
         const validation = spec === 'v3' ? validateV3(cardData) : validateV2(cardData);
         if (!validation.valid) {

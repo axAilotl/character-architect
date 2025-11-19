@@ -327,8 +327,8 @@ export class CardAssetRepository {
     const now = new Date().toISOString();
 
     const stmt = this.db.prepare(`
-      INSERT INTO card_assets (id, card_id, asset_id, type, name, ext, order_index, is_main, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO card_assets (id, card_id, asset_id, type, name, ext, order_index, is_main, tags, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -340,6 +340,7 @@ export class CardAssetRepository {
       cardAsset.ext,
       cardAsset.order,
       cardAsset.isMain ? 1 : 0,
+      cardAsset.tags ? JSON.stringify(cardAsset.tags) : null,
       now,
       now
     );
@@ -448,7 +449,7 @@ export class CardAssetRepository {
 
     const stmt = this.db.prepare(`
       UPDATE card_assets
-      SET type = ?, name = ?, ext = ?, order_index = ?, is_main = ?, updated_at = ?
+      SET type = ?, name = ?, ext = ?, order_index = ?, is_main = ?, tags = ?, updated_at = ?
       WHERE id = ?
     `);
 
@@ -458,6 +459,7 @@ export class CardAssetRepository {
       merged.ext,
       merged.order,
       merged.isMain ? 1 : 0,
+      merged.tags ? JSON.stringify(merged.tags) : null,
       merged.updatedAt,
       id
     );
@@ -505,6 +507,7 @@ export class CardAssetRepository {
       ext: string;
       order_index: number;
       is_main: number;
+      tags: string | null;
       created_at: string;
       updated_at: string;
     };
@@ -518,6 +521,7 @@ export class CardAssetRepository {
       ext: r.ext,
       order: r.order_index,
       isMain: r.is_main === 1,
+      tags: r.tags ? JSON.parse(r.tags) : undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };
@@ -536,6 +540,7 @@ export class CardAssetRepository {
       ext: string;
       order_index: number;
       is_main: number;
+      tags: string | null;
       created_at: string;
       updated_at: string;
       filename: string;
@@ -567,6 +572,7 @@ export class CardAssetRepository {
       ext: r.ext,
       order: r.order_index,
       isMain: r.is_main === 1,
+      tags: r.tags ? JSON.parse(r.tags) : undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       asset,

@@ -293,11 +293,12 @@ export interface CardAsset {
   id: UUID;
   cardId: UUID;
   assetId: UUID; // Reference to Asset table
-  type: 'icon' | 'background' | 'user_icon' | 'emotion' | string;
+  type: 'icon' | 'background' | 'user_icon' | 'emotion' | 'sound' | 'custom' | string;
   name: string; // Display name
   ext: string; // File extension without dot
   order: number; // Display order
   isMain: boolean; // Is this the main asset for its type?
+  tags?: string[]; // Asset tags (JSON array)
   createdAt: ISO8601;
   updatedAt: ISO8601;
 }
