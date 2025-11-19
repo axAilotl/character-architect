@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
-import type { CCFieldName, FocusField, Template, Snippet, CardAssetWithDetails } from '@card-architect/schemas';
+import type { CCFieldName, FocusField, Template, Snippet } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
 import { LLMAssistSidebar } from './LLMAssistSidebar';
 import { TagInput } from './TagInput';
 import { TemplateSnippetPanel } from './TemplateSnippetPanel';
-import { api } from '../lib/api';
 
 type EditTab = 'basic' | 'greetings' | 'advanced' | 'lorebook';
 
@@ -23,57 +22,6 @@ export function EditPanel() {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templatesField, setTemplatesField] = useState<FocusField>('description');
   const [templatesValue, setTemplatesValue] = useState('');
-
-  const [cardAssets, setCardAssets] = useState<CardAssetWithDetails[]>([]);
-  const [assetsLoading, setAssetsLoading] = useState(false);
-  const [previewAsset, setPreviewAsset] = useState<CardAssetWithDetails | null>(null);
-
-  // Fetch card assets when card changes
-  useEffect(() => {
-    if (currentCard?.meta.id) {
-      loadAssets();
-    }
-  }, [currentCard?.meta.id]);
-
-  const loadAssets = () => {
-    if (!currentCard?.meta.id) return;
-
-    setAssetsLoading(true);
-    api.getCardAssets(currentCard.meta.id).then(({ data, error }) => {
-      if (data) {
-        console.log(`[Assets] Fetched ${data.length} assets for card ${currentCard.meta.id}`, data);
-        setCardAssets(data);
-      } else if (error) {
-        console.error('Failed to fetch card assets:', error);
-      }
-      setAssetsLoading(false);
-    });
-  };
-
-  const handleSetAsMain = async (assetId: string) => {
-    if (!currentCard?.meta.id) return;
-
-    const { error } = await api.setAssetAsMain(currentCard.meta.id, assetId);
-    if (error) {
-      alert('Failed to set as main: ' + error);
-    } else {
-      // Reload assets to reflect the change
-      loadAssets();
-    }
-  };
-
-  const handleDeleteAsset = async (assetId: string, assetName: string) => {
-    if (!currentCard?.meta.id) return;
-    if (!confirm(`Are you sure you want to delete "${assetName}"?`)) return;
-
-    const { error } = await api.deleteCardAsset(currentCard.meta.id, assetId);
-    if (error) {
-      alert('Failed to delete asset: ' + error);
-    } else {
-      // Reload assets to reflect the change
-      loadAssets();
-    }
-  };
 
   if (!currentCard) return null;
 
@@ -746,130 +694,6 @@ export function EditPanel() {
                   </div>
                 </div>
 
-                {/* Card Assets */}
-                <div className="input-group">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <label className="label">Card Assets</label>
-                      <span className="text-xs px-2 py-0.5 rounded bg-purple-600 text-white">V3 Only</span>
-                    </div>
-                    <label htmlFor="asset-upload" className="btn-secondary cursor-pointer text-sm">
-                      + Upload Asset
-                      <input
-                        id="asset-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-
-                          console.log('[Assets] Uploading:', file.name);
-                          const { data, error } = await api.uploadAsset(file);
-                          if (error) {
-                            alert('Failed to upload asset: ' + error);
-                          } else if (data) {
-                            console.log('[Assets] Upload successful:', data);
-                            // TODO: Link asset to card
-                            alert('Asset uploaded! Linking assets to cards will be implemented in next phase.');
-                            loadAssets();
-                          }
-                          e.target.value = '';
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <p className="text-sm text-dark-muted mb-3">
-                    Assets embedded in this card (icons, backgrounds, etc.). These are imported from CHARX files.
-                  </p>
-
-                  {assetsLoading ? (
-                    <div className="text-center text-dark-muted py-4">Loading assets...</div>
-                  ) : cardAssets.length === 0 ? (
-                    <div className="text-center text-dark-muted py-8 bg-dark-surface rounded border border-dark-border">
-                      No assets found. Import a CHARX file to add assets to this card.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {cardAssets.map((cardAsset) => (
-                        <div
-                          key={cardAsset.id}
-                          className="bg-dark-surface rounded border border-dark-border overflow-hidden hover:border-blue-500 transition-colors"
-                        >
-                          {/* Asset Preview */}
-                          <div
-                            className="w-full aspect-square bg-dark-bg flex items-center justify-center relative cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => {
-                              if (cardAsset.asset.mimetype.startsWith('image/')) {
-                                setPreviewAsset(cardAsset);
-                              }
-                            }}
-                          >
-                            {cardAsset.asset.mimetype.startsWith('image/') ? (
-                              <img
-                                src={cardAsset.asset.url}
-                                alt={cardAsset.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  const parent = e.currentTarget.parentElement;
-                                  if (parent) {
-                                    parent.innerHTML = '<div class="text-dark-muted text-xs">Failed to load</div>';
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <div className="text-dark-muted text-xs text-center px-2">
-                                {cardAsset.asset.mimetype}
-                              </div>
-                            )}
-                            {cardAsset.isMain && (
-                              <div className="absolute top-1 right-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded">
-                                Main
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Asset Info */}
-                          <div className="p-2">
-                            <div className="text-xs font-semibold truncate" title={cardAsset.name}>
-                              {cardAsset.name}
-                            </div>
-                            <div className="text-xs text-dark-muted truncate" title={cardAsset.type}>
-                              {cardAsset.type}
-                            </div>
-                            <div className="text-xs text-dark-muted mb-2">
-                              {(cardAsset.asset.size / 1024).toFixed(1)} KB
-                              {cardAsset.asset.width && cardAsset.asset.height && (
-                                <> · {cardAsset.asset.width}×{cardAsset.asset.height}</>
-                              )}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-1">
-                              {!cardAsset.isMain && (
-                                <button
-                                  onClick={() => handleSetAsMain(cardAsset.id)}
-                                  className="flex-1 px-2 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded text-xs transition-colors"
-                                  title="Set as main"
-                                >
-                                  Set Main
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleDeleteAsset(cardAsset.id, cardAsset.name)}
-                                className="flex-1 px-2 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded text-xs transition-colors"
-                                title="Delete"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </>
             )}
           </div>
@@ -901,37 +725,6 @@ export function EditPanel() {
         onInsertSnippet={handleInsertSnippet}
         currentField={templatesField}
       />
-
-      {/* Asset Preview Modal */}
-      {previewAsset && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setPreviewAsset(null)}
-        >
-          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setPreviewAsset(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-xl font-bold"
-            >
-              ✕ Close
-            </button>
-            <img
-              src={previewAsset.asset.url}
-              alt={previewAsset.name}
-              className="max-w-full max-h-[90vh] object-contain rounded"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-3 rounded-b">
-              <div className="font-semibold">{previewAsset.name}</div>
-              <div className="text-sm text-gray-300">
-                {previewAsset.type} · {(previewAsset.asset.size / 1024).toFixed(1)} KB
-                {previewAsset.asset.width && previewAsset.asset.height && (
-                  <> · {previewAsset.asset.width}×{previewAsset.asset.height}</>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -43,7 +43,7 @@ interface CardStore {
   tokenizerModel: string;
 
   // UI state
-  activeTab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused';
+  activeTab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused' | 'assets';
   showAdvanced: boolean;
   specMode: 'v2' | 'v3'; // Current spec mode for editing and export
   showV3Fields: boolean; // Whether to show v3-only fields in the UI
@@ -67,7 +67,7 @@ interface CardStore {
 
   // UI
   setActiveTab: (
-    tab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused'
+    tab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused' | 'assets'
   ) => void;
   setShowAdvanced: (show: boolean) => void;
   setSpecMode: (mode: 'v2' | 'v3') => void;
