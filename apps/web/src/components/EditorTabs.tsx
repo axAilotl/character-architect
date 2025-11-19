@@ -9,6 +9,7 @@ export function EditorTabs() {
 
   const tabs = [
     { id: 'edit', label: 'Edit' },
+    { id: 'assets', label: 'Assets' },
     { id: 'focused', label: 'Focused' },
     { id: 'preview', label: 'Preview' },
     { id: 'diff', label: 'Diff' },

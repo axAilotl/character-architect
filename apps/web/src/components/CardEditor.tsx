@@ -3,6 +3,7 @@ import { EditorTabs } from './EditorTabs';
 import { EditPanel } from './EditPanel';
 import { PreviewPanel } from './PreviewPanel';
 import { DiffPanel } from './DiffPanel';
+import { AssetsPanel } from './AssetsPanel';
 // import { RedundancyPanel } from './RedundancyPanel'; // Disabled
 // import { LoreTriggerPanel } from './LoreTriggerPanel'; // Disabled
 import { FocusedEditor } from './FocusedEditor';
@@ -16,6 +17,7 @@ export function CardEditor() {
 
       <div className="flex-1 overflow-auto relative">
         {activeTab === 'edit' && <EditPanel />}
+        {activeTab === 'assets' && <AssetsPanel />}
         {activeTab === 'focused' && <FocusedEditor />}
         {activeTab === 'preview' && <PreviewPanel />}
         {activeTab === 'diff' && <DiffPanel />}
