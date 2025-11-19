@@ -73,6 +73,7 @@ export function createTables(db: Database.Database): void {
       ext TEXT NOT NULL,
       order_index INTEGER NOT NULL DEFAULT 0,
       is_main INTEGER NOT NULL DEFAULT 0,
+      tags TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
@@ -112,6 +113,13 @@ export function createTables(db: Database.Database): void {
   // Migrations - add original_image column if it doesn't exist
   try {
     db.exec(`ALTER TABLE cards ADD COLUMN original_image BLOB`);
+  } catch (err) {
+    // Column already exists, ignore error
+  }
+
+  // Migration - add tags column to card_assets if it doesn't exist
+  try {
+    db.exec(`ALTER TABLE card_assets ADD COLUMN tags TEXT`);
   } catch (err) {
     // Column already exists, ignore error
   }
