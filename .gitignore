@@ -55,6 +55,9 @@ temp/
 # Assets storage (during development)
 apps/api/storage/
 
+# Model cache
+apps/api/local_cache/
+
 # Build artifacts
 *.tgz
 
