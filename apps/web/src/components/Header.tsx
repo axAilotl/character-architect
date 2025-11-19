@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
 import { SettingsModal } from './SettingsModal';
+import { api } from '../lib/api';
 
 interface HeaderProps {
   onBack: () => void;
@@ -13,6 +14,7 @@ export function Header({ onBack }: HeaderProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const [pushStatus, setPushStatus] = useState<{type: 'success' | 'error'; message: string} | null>(null);
 
   // Calculate permanent tokens (name + description + personality + scenario)
   const getPermanentTokens = () => {
@@ -65,6 +67,35 @@ export function Header({ onBack }: HeaderProps) {
   const handleExport = async (format: 'json' | 'png' | 'charx') => {
     setShowExportMenu(false);
     await useCardStore.getState().exportCard(format);
+  };
+
+  const handlePushToSillyTavern = async () => {
+    if (!currentCard?.meta?.id) return;
+
+    setPushStatus(null);
+    try {
+      const result = await api.pushToSillyTavern(currentCard.meta.id);
+
+      if (result.data?.success) {
+        setPushStatus({
+          type: 'success',
+          message: `Successfully pushed ${getCharacterName()} to SillyTavern!`
+        });
+        setTimeout(() => setPushStatus(null), 5000);
+      } else {
+        setPushStatus({
+          type: 'error',
+          message: result.error || result.data?.error || 'Failed to push to SillyTavern'
+        });
+        setTimeout(() => setPushStatus(null), 8000);
+      }
+    } catch (error: any) {
+      setPushStatus({
+        type: 'error',
+        message: error?.message || 'Failed to push to SillyTavern'
+      });
+      setTimeout(() => setPushStatus(null), 8000);
+    }
   };
 
   return (
@@ -190,7 +221,29 @@ export function Header({ onBack }: HeaderProps) {
             )}
           </div>
         )}
+
+        {currentCard && (
+          <button
+            onClick={handlePushToSillyTavern}
+            className="btn-primary"
+            title="Push to SillyTavern (PNG)"
+          >
+            → SillyTavern
+          </button>
+        )}
       </div>
+
+      {pushStatus && (
+        <div
+          className={`fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+            pushStatus.type === 'success'
+              ? 'bg-green-600 text-white'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          {pushStatus.message}
+        </div>
+      )}
 
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </header>

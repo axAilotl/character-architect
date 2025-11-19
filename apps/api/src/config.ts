@@ -18,4 +18,11 @@ export const config = {
     warnPngSizeMB: parseInt(process.env.WARN_PNG_SIZE_MB || '10', 10),
     warnCardSizeMB: parseInt(process.env.WARN_CARD_SIZE_MB || '5', 10),
   },
+  sillyTavern: {
+    enabled: process.env.SILLY_TAVERN_ENABLED === 'true',
+    baseUrl: process.env.SILLY_TAVERN_BASE_URL || '',
+    importEndpoint: process.env.SILLY_TAVERN_IMPORT_ENDPOINT || '/api/characters/import',
+    sessionCookie: process.env.SILLY_TAVERN_SESSION_COOKIE || '',
+    csrfToken: process.env.SILLY_TAVERN_CSRF_TOKEN || '',
+  },
 };

@@ -440,6 +440,14 @@ class ApiClient {
     });
   }
 
+  // SillyTavern integration
+  async pushToSillyTavern(cardId: string) {
+    return this.request<{ success: boolean; status?: number; imported?: any; fileName?: string; error?: string }>(
+      `/cards/${cardId}/push-to-sillytavern`,
+      { method: 'POST' }
+    );
+  }
+
   // LLM streaming version
   async llmAssistStream(
     req: LLMAssistRequest,

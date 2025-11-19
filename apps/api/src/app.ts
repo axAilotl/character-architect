@@ -14,6 +14,7 @@ import { loreTriggerRoutes } from './routes/lore-trigger.js';
 import { llmRoutes } from './routes/llm.js';
 import { ragRoutes } from './routes/rag.js';
 import { presetRoutes } from './routes/presets.js';
+import { sillyTavernRoutes } from './routes/sillytavern.js';
 import type Database from 'better-sqlite3';
 
 // Extend Fastify instance type
@@ -67,6 +68,7 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(promptSimulatorRoutes, apiPrefix);
   await fastify.register(redundancyRoutes, apiPrefix);
   await fastify.register(loreTriggerRoutes, apiPrefix);
+  await fastify.register(sillyTavernRoutes, apiPrefix);
 
   // Add hook to close database when server closes
   fastify.addHook('onClose', async () => {
