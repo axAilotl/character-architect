@@ -7,7 +7,8 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { nanoid } from 'nanoid';
 import sharp from 'sharp';
-import type { CharxData, Card, CardMeta } from '@card-architect/schemas';
+import type { CharxData, Card, CardMeta, AssetTag } from '@card-architect/schemas';
+import { detectAnimatedAsset } from '@card-architect/schemas';
 import { AssetRepository, CardAssetRepository, CardRepository } from '../db/repository.js';
 import { getMimeTypeFromExt } from '../utils/uri-utils.js';
 
@@ -29,6 +30,51 @@ export class CharxImportService {
     private assetRepo: AssetRepository,
     private cardAssetRepo: CardAssetRepository
   ) {}
+
+  /**
+   * Extract tags from asset descriptor and buffer
+   */
+  private extractTags(descriptor: any, buffer: Buffer | undefined, mimetype: string): AssetTag[] {
+    const tags: AssetTag[] = [];
+
+    // Extract tags from descriptor if present (CharX extended format)
+    if (descriptor.tags && Array.isArray(descriptor.tags)) {
+      descriptor.tags.forEach((tag: string) => {
+        // Actor tags
+        if (tag.startsWith('actor-')) {
+          tags.push(tag as AssetTag);
+        }
+        // Other special tags
+        if (['portrait-override', 'expression', 'main-background', 'animated'].includes(tag)) {
+          tags.push(tag as AssetTag);
+        }
+      });
+    }
+
+    // Auto-detect portrait override for main icons
+    if (descriptor.name === 'main' && descriptor.type === 'icon') {
+      if (!tags.includes('portrait-override')) {
+        tags.push('portrait-override');
+      }
+    }
+
+    // Auto-detect main background
+    if (descriptor.name === 'main' && descriptor.type === 'background') {
+      if (!tags.includes('main-background')) {
+        tags.push('main-background');
+      }
+    }
+
+    // Detect animated assets from buffer
+    if (buffer && !tags.includes('animated')) {
+      const isAnimated = detectAnimatedAsset(buffer, mimetype);
+      if (isAnimated) {
+        tags.push('animated');
+      }
+    }
+
+    return tags;
+  }
 
   /**
    * Import a CHARX file into the database
@@ -140,6 +186,10 @@ export class CharxImportService {
           }
         }
 
+        // Extract tags from descriptor and buffer
+        const tags = this.extractTags(assetInfo.descriptor, assetInfo.buffer, mimetype);
+        console.log(`[CHARX Import] Extracted tags for ${assetInfo.descriptor.name}: ${tags.join(', ')}`);
+
         // Write file to storage
         await fs.writeFile(assetPath, assetInfo.buffer);
         console.log(`[CHARX Import] Wrote asset to disk: ${assetPath}`);
@@ -166,6 +216,7 @@ export class CharxImportService {
           ext: assetInfo.descriptor.ext,
           order,
           isMain,
+          tags: tags as string[],
         });
 
         assetsImported++;
