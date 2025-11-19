@@ -21,14 +21,14 @@ const DEFAULT_OPTIONS: Required<CharxExtractionOptions> = {
   allowedAssetTypes: [
     'image/png',
     'image/jpeg',
-    'image/webp',
+    'image/webp',  // Static and animated WebP
     'image/gif',
     'image/avif',
     'audio/mpeg',
     'audio/wav',
     'audio/ogg',
     'video/mp4',
-    'video/webm',
+    'video/webm',  // WebM video
   ],
 };
 
