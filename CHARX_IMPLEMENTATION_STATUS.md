@@ -228,6 +228,33 @@ if (exportValidation.fixes.length > 0) {
    - Integration into export endpoint
    - Auto-fix capabilities for duplicate names and order
 
+4. **feat: add comprehensive asset management API endpoints**
+   - 8 card-specific asset management endpoints
+   - Asset graph query with validation
+   - Upload with tag auto-detection
+   - Tag management and actor binding
+   - Asset reordering via graph operations
+
+### Phase 6: API Enhancement ✅
+
+**Implementation** (`apps/api/src/routes/assets.ts`)
+- ✅ `GET /api/cards/:id/asset-graph` - Query asset graph with validation summary
+- ✅ `POST /api/cards/:id/assets/upload` - Upload assets with auto-detection
+- ✅ `PATCH /api/cards/:id/assets/:assetId` - Update name, tags, order, isMain
+- ✅ `POST /api/cards/:id/assets/reorder` - Reorder via graph operations
+- ✅ `POST /api/cards/:id/assets/:assetId/set-portrait-override` - Set main portrait
+- ✅ `POST /api/cards/:id/assets/:assetId/set-main-background` - Set main background
+- ✅ `POST /api/cards/:id/assets/:assetId/bind-actor` - Bind to actor-N
+- ✅ `POST /api/cards/:id/assets/:assetId/unbind-actor` - Remove actor binding
+
+**Features**:
+- Asset graph returns validation status, main portrait, main background, actors, animated count
+- Upload auto-detects animated tag via `detectAnimatedAsset()`
+- Tag management ensures exclusive tags (portrait-override, main-background)
+- Actor binding with automatic actor-N tag management
+- Reordering via asset graph with transactional updates
+- Comprehensive error handling and card validation
+
 ## Next Steps (Not Yet Implemented)
 
 ### Phase 5: UI Integration (Planned)
@@ -238,14 +265,6 @@ if (exportValidation.fixes.length > 0) {
 - Asset reordering (drag-and-drop)
 - Animated asset preview
 - Batch operations (delete, retag, reorder)
-
-### Phase 6: API Enhancement (Planned)
-- Upload endpoint: `POST /cards/:id/assets`
-- Update endpoint: `PATCH /cards/:id/assets/:assetId`
-- Delete endpoint: `DELETE /cards/:id/assets/:assetId`
-- Reorder endpoint: `POST /cards/:id/assets/reorder`
-- Tag management: `POST /cards/:id/assets/:assetId/tags`
-- Asset graph: `GET /cards/:id/asset-graph`
 
 ## Technical Decisions
 
