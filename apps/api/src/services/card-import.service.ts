@@ -343,7 +343,15 @@ export class CardImportService {
                 `chara-ext-asset_:${assetId}`   // "chara-ext-asset_:0" (implied by user comment about :90)
             ];
 
-            const chunk = extraChunks.find(c => candidates.includes(c.keyword));
+            const chunk = extraChunks.find(c => candidates.includes(c.keyword)) || 
+                          extraChunks.find(c => {
+                              // Fallback: Check for chara-ext-asset_ prefix matching
+                              if (c.keyword.startsWith('chara-ext-asset_')) {
+                                  const suffix = c.keyword.replace('chara-ext-asset_', '');
+                                  return suffix === assetId || suffix === `:${assetId}` || suffix === descriptor.uri;
+                              }
+                              return false;
+                          });
             
             if (chunk) {
                 console.log(`[Card Import] Found embedded asset chunk for ${descriptor.uri} (key: ${chunk.keyword})`);
