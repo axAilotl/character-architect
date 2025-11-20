@@ -1303,8 +1303,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <li>Enable the integration and configure your SillyTavern base URL above</li>
                   <li>Click "Save Settings" to apply the configuration</li>
                   <li>Open a character card in the editor</li>
-                  <li>Export the card as PNG first (using the Export menu)</li>
-                  <li>Click the "→ SillyTavern" button in the header to push the card</li>
+                  <li>Click the "→ SillyTavern" button in the header - the card will be automatically converted to PNG and pushed</li>
                 </ol>
               </div>
             </div>
