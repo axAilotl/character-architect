@@ -349,9 +349,10 @@ export class CardImportService {
                     warnings.push(`Failed to decode embedded asset chunk ${assetId}: ${e}`);
                 }
             } else {
-                console.warn(`[Card Import] Referenced asset chunk not found: ${descriptor.uri}`);
-                // Try looking for numeric match if ID is a number
-                // e.g. if key is "0"
+                console.warn(`[Card Import] Referenced asset chunk not found: ${descriptor.uri} (looked for key: "${assetId}")`);
+                if (extraChunks) {
+                    console.warn(`[Card Import] Available chunk keys: ${extraChunks.map(c => `"${c.keyword}"`).join(', ')}`);
+                }
             }
         }
         else {

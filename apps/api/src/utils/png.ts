@@ -1,6 +1,7 @@
 import { PNG } from 'pngjs';
 import { detectSpec } from '@card-architect/schemas';
 import type { Card, CCv2Data, CCv3Data } from '@card-architect/schemas';
+import { inflateSync } from 'zlib';
 
 /**
  * PNG text chunk keys used for character cards
@@ -70,6 +71,26 @@ function parseTextChunks(buffer: Buffer): Array<{keyword: string, text: string}>
         const text = data.slice(nullIndex + 1).toString('utf8');
         textChunks.push({keyword, text});
         console.log(`[PNG Extract] Found tEXt chunk: "${keyword}" (${text.length} chars)`);
+      }
+    }
+
+    // Parse zTXt chunks (compressed)
+    if (type === 'zTXt') {
+      const nullIndex = data.indexOf(0);
+      if (nullIndex !== -1) {
+        const keyword = data.slice(0, nullIndex).toString('latin1');
+        const compressionMethod = data[nullIndex + 1];
+        
+        if (compressionMethod === 0) { // 0 = deflate/inflate
+          try {
+            const compressedData = data.slice(nullIndex + 2);
+            const text = inflateSync(compressedData).toString('utf8');
+            textChunks.push({keyword, text});
+            console.log(`[PNG Extract] Found zTXt chunk: "${keyword}" (${text.length} chars decompressed)`);
+          } catch (e) {
+            console.warn(`[PNG Extract] Failed to decompress zTXt chunk "${keyword}":`, e);
+          }
+        }
       }
     }
 
