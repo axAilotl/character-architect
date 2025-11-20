@@ -125,7 +125,7 @@ export class VoxtaImportService {
         const book = fullPackage.books.find(b => b.id === bookId);
         if (book && book.data.Items) {
           // Convert Voxta Items -> V3 Entries
-          const bookEntries = book.data.Items.map((item, idx) => ({
+          const bookEntries = book.data.Items.map((item: any) => ({
             keys: item.Keywords,
             content: item.Text,
             enabled: !item.Deleted,
@@ -215,7 +215,7 @@ export class VoxtaImportService {
         
       } else if (asset.path.includes('/VoiceSamples/')) {
         assetType = 'sound';
-        tags.push('voice');
+        tags.push('voice' as AssetTag);
       } else {
         assetType = 'custom';
       }

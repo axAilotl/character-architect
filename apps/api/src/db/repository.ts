@@ -91,6 +91,13 @@ export class CardRepository {
   }
 
   /**
+   * Alias for updateOriginalImage to maintain compatibility with services
+   */
+  updateImage(id: string, image: Buffer): boolean {
+    return this.updateOriginalImage(id, image);
+  }
+
+  /**
    * Update a card
    */
   update(id: string, updates: Partial<Card>): Card | null {

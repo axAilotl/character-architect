@@ -9,8 +9,7 @@ import type {
   CardAssetWithDetails, 
   VoxtaPackage, 
   VoxtaCharacter,
-  VoxtaExtensionData,
-  AssetTag 
+  VoxtaExtensionData
 } from '@card-architect/schemas';
 import { promises as fs } from 'fs';
 import { join } from 'path';
@@ -35,9 +34,10 @@ export async function buildVoxtaPackage(
   options: VoxtaBuildOptions
 ): Promise<VoxtaBuildResult> {
   const zipfile = new yazl.ZipFile();
+  const cardData = card.data;
   
   // Get or Generate IDs
-  const voxtaExt = card.extensions?.voxta as VoxtaExtensionData | undefined;
+  const voxtaExt = cardData.extensions?.voxta as VoxtaExtensionData | undefined;
   const packageId = voxtaExt?.packageId || uuidv4();
   const characterId = voxtaExt?.id || uuidv4();
   const dateNow = new Date().toISOString();
@@ -46,10 +46,10 @@ export async function buildVoxtaPackage(
   const packageMeta: VoxtaPackage = {
     $type: 'package',
     Id: packageId,
-    Name: card.name,
-    Version: card.character_version || '1.0.0',
-    Description: card.description,
-    Creator: card.creator,
+    Name: cardData.name,
+    Version: cardData.character_version || '1.0.0',
+    Description: cardData.description,
+    Creator: cardData.creator,
     ExplicitContent: true, // Default to true for safety or check tags?
     EntryResource: {
       Kind: 1, // Character
@@ -70,21 +70,21 @@ export async function buildVoxtaPackage(
     $type: 'character',
     Id: characterId,
     PackageId: packageId,
-    Name: card.name,
-    Version: card.character_version,
+    Name: cardData.name,
+    Version: cardData.character_version,
     
     // Core Info
     Description: voxtaExt?.appearance || '', // Physical description from extension
-    Personality: card.personality,
-    Profile: card.description, // Profile/Backstory from description field
-    Scenario: card.scenario,
-    FirstMessage: card.first_mes,
-    MessageExamples: card.mes_example,
+    Personality: cardData.personality,
+    Profile: cardData.description, // Profile/Backstory from description field
+    Scenario: cardData.scenario,
+    FirstMessage: cardData.first_mes,
+    MessageExamples: cardData.mes_example,
     
     // Metadata
-    Creator: card.creator,
-    CreatorNotes: card.creator_notes,
-    Tags: card.tags,
+    Creator: cardData.creator,
+    CreatorNotes: cardData.creator_notes,
+    Tags: cardData.tags,
     
     // Voxta specifics from extension
     TextToSpeech: voxtaExt?.textToSpeech,
@@ -127,13 +127,13 @@ export async function buildVoxtaPackage(
         
         // Determine Voxta Path
         let voxtaPath = '';
+        const tags = cardAsset.tags || [];
         
-        if (cardAsset.type === 'sound' || cardAsset.tags.includes('voice')) {
+        if (cardAsset.type === 'sound' || tags.includes('voice')) {
            // Voice Sample
            voxtaPath = `Characters/${characterId}/Assets/VoiceSamples/${cardAsset.name}`;
         } else if (cardAsset.type === 'icon') {
            // Avatar
-           const tags = cardAsset.tags || [];
            
            // Check if this is the thumbnail candidate
            if (tags.includes('portrait-override')) {

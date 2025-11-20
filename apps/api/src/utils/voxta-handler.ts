@@ -207,21 +207,21 @@ export async function extractVoxtaPackage(
         // Assemble final results
         
         // Filter incomplete characters (must have data)
-        for (const [id, char] of charMap) {
+        for (const [, char] of charMap) {
           if (char.data) {
             result.characters.push(char as ExtractedVoxtaCharacter);
           }
         }
 
         // Filter incomplete scenarios
-        for (const [id, scenario] of scenarioMap) {
+        for (const [, scenario] of scenarioMap) {
           if (scenario.data) {
             result.scenarios.push(scenario as ExtractedVoxtaScenario);
           }
         }
 
         // Filter incomplete books
-        for (const [id, book] of bookMap) {
+        for (const [, book] of bookMap) {
           if (book.data) {
             result.books.push(book as ExtractedVoxtaBook);
           }

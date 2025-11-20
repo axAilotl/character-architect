@@ -1,30 +1,30 @@
 /**
- * CHARX Import Service
- * Handles importing CHARX files into the database
+ * Card Import Service
+ * Handles importing Cards (CharX, JSON, PNG) and extracting assets
  */
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { nanoid } from 'nanoid';
 import sharp from 'sharp';
-import type { CharxData, Card, CardMeta, AssetTag } from '@card-architect/schemas';
+import type { CharxData, Card, CardMeta, AssetTag, CCv3Data } from '@card-architect/schemas';
 import { detectAnimatedAsset } from '@card-architect/schemas';
 import { AssetRepository, CardAssetRepository, CardRepository } from '../db/repository.js';
 import { getMimeTypeFromExt } from '../utils/uri-utils.js';
 
-export interface CharxImportOptions {
+export interface ImportOptions {
   storagePath: string; // Base path for asset storage
   preserveTimestamps?: boolean; // Whether to preserve creation/modification timestamps
   setAsOriginalImage?: boolean; // Set main icon as original_image
 }
 
-export interface CharxImportResult {
+export interface ImportResult {
   card: Card;
   assetsImported: number;
   warnings: string[];
 }
 
-export class CharxImportService {
+export class CardImportService {
   constructor(
     private cardRepo: CardRepository,
     private assetRepo: AssetRepository,
@@ -79,14 +79,14 @@ export class CharxImportService {
   /**
    * Import a CHARX file into the database
    */
-  async import(data: CharxData, options: CharxImportOptions): Promise<CharxImportResult> {
+  async importCharx(data: CharxData, options: ImportOptions): Promise<ImportResult> {
     const warnings: string[] = [];
     let assetsImported = 0;
 
-    console.log('[CHARX Import] Starting CHARX import...');
-    console.log(`[CHARX Import] Card spec: ${data.card.spec}`);
-    console.log(`[CHARX Import] Card name: ${data.card.data.name || 'Untitled'}`);
-    console.log(`[CHARX Import] Assets to import: ${data.assets.length}`);
+    console.log('[Card Import] Starting CHARX import...');
+    console.log(`[Card Import] Card spec: ${data.card.spec}`);
+    console.log(`[Card Import] Card name: ${data.card.data.name || 'Untitled'}`);
+    console.log(`[Card Import] Assets to import: ${data.assets.length}`);
 
     // Ensure storage directory exists
     await fs.mkdir(options.storagePath, { recursive: true });
@@ -155,13 +155,13 @@ export class CharxImportService {
       try {
         // Skip assets without buffers (remote URLs, ccdefault, etc.)
         if (!assetInfo.buffer) {
-          console.log(`[CHARX Import] Skipping remote/default asset: ${assetInfo.descriptor.name} (${assetInfo.descriptor.uri})`);
+          console.log(`[Card Import] Skipping remote/default asset: ${assetInfo.descriptor.name} (${assetInfo.descriptor.uri})`);
           // Store the descriptor but don't create physical asset
           // We'll handle remote/default assets differently
           continue;
         }
 
-        console.log(`[CHARX Import] Importing asset: ${assetInfo.descriptor.type}/${assetInfo.descriptor.name} (${assetInfo.buffer.length} bytes)`);
+        console.log(`[Card Import] Importing asset: ${assetInfo.descriptor.type}/${assetInfo.descriptor.name} (${assetInfo.buffer.length} bytes)`);
 
         // Generate asset ID
         const assetId = nanoid();
@@ -188,11 +188,11 @@ export class CharxImportService {
 
         // Extract tags from descriptor and buffer
         const tags = this.extractTags(assetInfo.descriptor, assetInfo.buffer, mimetype);
-        console.log(`[CHARX Import] Extracted tags for ${assetInfo.descriptor.name}: ${tags.join(', ')}`);
+        console.log(`[Card Import] Extracted tags for ${assetInfo.descriptor.name}: ${tags.join(', ')}`);
 
         // Write file to storage
         await fs.writeFile(assetPath, assetInfo.buffer);
-        console.log(`[CHARX Import] Wrote asset to disk: ${assetPath}`);
+        console.log(`[Card Import] Wrote asset to disk: ${assetPath}`);
 
         // Create asset record
         const assetUrl = `/storage/${filename}`;
@@ -204,7 +204,7 @@ export class CharxImportService {
           height,
           url: assetUrl,
         });
-        console.log(`[CHARX Import] Created asset record with URL: ${assetUrl}`);
+        console.log(`[Card Import] Created asset record with URL: ${assetUrl}`);
 
         // Create card_asset association
         const isMain = assetInfo.descriptor.name === 'main';
@@ -254,11 +254,11 @@ export class CharxImportService {
       });
     }
 
-    console.log(`[CHARX Import] Import completed successfully`);
-    console.log(`[CHARX Import] Card ID: ${card.meta.id}`);
-    console.log(`[CHARX Import] Assets imported: ${assetsImported}/${data.assets.length}`);
+    console.log(`[Card Import] Import completed successfully`);
+    console.log(`[Card Import] Card ID: ${card.meta.id}`);
+    console.log(`[Card Import] Assets imported: ${assetsImported}/${data.assets.length}`);
     if (warnings.length > 0) {
-      console.warn(`[CHARX Import] Warnings (${warnings.length}):`, warnings);
+      console.warn(`[Card Import] Warnings (${warnings.length}):`, warnings);
     }
 
     return {
@@ -271,9 +271,144 @@ export class CharxImportService {
   /**
    * Import CHARX from file path
    */
-  async importFromFile(filePath: string, options: CharxImportOptions): Promise<CharxImportResult> {
+  async importCharxFromFile(filePath: string, options: ImportOptions): Promise<ImportResult> {
     const { extractCharx } = await import('../utils/charx-handler.js');
     const data = await extractCharx(filePath);
-    return this.import(data, options);
+    return this.importCharx(data, options);
+  }
+
+  /**
+   * Extract assets from Data URIs in card data
+   */
+  async extractAssetsFromDataURIs(
+    data: CCv3Data,
+    options: ImportOptions
+  ): Promise<{ data: CCv3Data; assetsImported: number; warnings: string[] }> {
+    const warnings: string[] = [];
+    let assetsImported = 0;
+    const cardData = { ...data.data };
+
+    if (!cardData.assets || !Array.isArray(cardData.assets)) {
+      return { data, assetsImported, warnings };
+    }
+
+    // Ensure storage directory exists
+    await fs.mkdir(options.storagePath, { recursive: true });
+
+    // Process assets
+    cardData.assets = await Promise.all(
+      cardData.assets.map(async (descriptor) => {
+        if (!descriptor.uri || !descriptor.uri.startsWith('data:')) {
+          return descriptor;
+        }
+
+        try {
+          // Parse Data URI
+          const matches = descriptor.uri.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+          if (!matches || matches.length !== 3) {
+            warnings.push(`Invalid Data URI for asset ${descriptor.name}`);
+            return descriptor;
+          }
+
+          const mimetype = matches[1];
+          const buffer = Buffer.from(matches[2], 'base64');
+
+          // Validate extension
+          const ext = descriptor.ext || mimetype.split('/')[1];
+          if (!ext) {
+            warnings.push(`Could not determine extension for asset ${descriptor.name}`);
+            return descriptor;
+          }
+
+          console.log(`[Card Import] Extracting Data URI asset: ${descriptor.name} (${buffer.length} bytes)`);
+
+          // Generate asset ID and save file
+          const assetId = nanoid();
+          const filename = `${assetId}.${ext}`;
+          const assetPath = join(options.storagePath, filename);
+
+          // Get image dimensions
+          let width: number | undefined;
+          let height: number | undefined;
+
+          if (mimetype.startsWith('image/')) {
+            try {
+              const metadata = await sharp(buffer).metadata();
+              width = metadata.width;
+              height = metadata.height;
+            } catch (err) {
+              warnings.push(`Failed to read image metadata for ${descriptor.name}: ${err}`);
+            }
+          }
+
+          // Extract tags
+          const tags = this.extractTags(descriptor, buffer, mimetype);
+
+          // Write file
+          await fs.writeFile(assetPath, buffer);
+
+          // Create asset record
+          const assetUrl = `/storage/${filename}`;
+          const asset = this.assetRepo.create({
+            filename,
+            mimetype,
+            size: buffer.length,
+            width,
+            height,
+            url: assetUrl,
+          });
+
+          assetsImported++;
+
+          // Return descriptor with updated URI and temporary fields for linking
+          return {
+            ...descriptor,
+            uri: assetUrl,
+            _assetId: asset.id, // Temporary field to help linking
+            _tags: tags,
+          };
+        } catch (err) {
+          warnings.push(`Failed to extract asset ${descriptor.name}: ${err}`);
+          return descriptor;
+        }
+      })
+    );
+
+    return {
+      data: { ...data, data: cardData },
+      assetsImported,
+      warnings,
+    };
+  }
+
+  /**
+   * Link extracted assets to the created card
+   */
+  async linkAssetsToCard(cardId: string, cardData: CCv3Data['data']): Promise<void> {
+    if (!cardData.assets) return;
+
+    let order = 0;
+    for (const asset of cardData.assets) {
+      const internalAsset = asset as any;
+      if (internalAsset._assetId) {
+        const isMain = asset.name === 'main';
+        
+        this.cardAssetRepo.create({
+          cardId,
+          assetId: internalAsset._assetId,
+          type: asset.type,
+          name: asset.name,
+          ext: asset.ext,
+          order,
+          isMain,
+          tags: internalAsset._tags || [],
+        });
+        
+        // Clean up temporary fields
+        delete internalAsset._assetId;
+        delete internalAsset._tags;
+      }
+      order++;
+    }
   }
 }
