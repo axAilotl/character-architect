@@ -175,7 +175,15 @@ card_doctor/
 - **Export**:
   - JSON (spec-specific based on current mode)
   - PNG (embedded metadata in tEXt chunks)
+    - **Critical PNG Fix (2025-11-20)**: Removes old tEXt chunks before embedding new data
+    - Prevents duplicate/stale data when re-exporting edited cards
+    - Ensures exports always contain latest edits
   - CHARX (with assets)
+- **SillyTavern Push Integration**:
+  - Push button in header to send PNG directly to SillyTavern
+  - Settings modal for configuring SillyTavern URL and session cookie
+  - Auto-save before push to ensure latest edits included
+  - Generates PNG on-the-fly (no manual export needed)
 - **Click-based dropdown menus** (not hover)
 
 ### 9. Character Avatar
@@ -241,6 +249,13 @@ POST   /api/import-multiple           # Import multiple files at once
 POST   /api/convert                   # Convert v2 ↔ v3
 GET    /api/tokenizers                # List available tokenizer models
 POST   /api/tokenize                  # Tokenize fields
+```
+
+### SillyTavern Integration
+```
+GET    /api/settings/sillytavern              # Get SillyTavern settings
+PATCH  /api/settings/sillytavern              # Update SillyTavern settings
+POST   /api/cards/:id/push-to-sillytavern     # Push PNG to SillyTavern
 ```
 
 #### Import from URL Endpoint Details
@@ -687,6 +702,42 @@ CREATE TABLE llm_presets (
   - Fixed bug where single card import wasn't extracting tags from card data
   - Added same tag extraction logic used in multi-import
   - Location: `apps/api/src/routes/import-export.ts:364-380`
+
+### SillyTavern Push Integration (2025-11-20)
+- **Feature**: Direct push to SillyTavern from Card Architect
+  - Push button in editor header sends PNG directly to SillyTavern
+  - No manual export step required
+  - Generates PNG on-the-fly with embedded card data
+- **Settings UI**:
+  - Settings modal with SillyTavern configuration tab
+  - Fields: Base URL, Import Endpoint, Session Cookie
+  - Test connection button
+  - No .env editing needed
+- **Implementation**:
+  - Backend: `apps/api/src/routes/sillytavern.ts`, `apps/api/src/routes/settings.ts`
+  - Frontend: `apps/web/src/components/SettingsModal.tsx`, `apps/web/src/components/Header.tsx`
+  - Auto-save before push to ensure latest edits included
+  - CSRF token handling and cookie management
+  - Full error reporting with status notifications
+
+### Critical PNG Export Fix (2025-11-20)
+- **Issue**: PNG exports and SillyTavern pushes contained old data instead of latest edits
+  - Root cause: Original PNG images already contained embedded card data in tEXt chunks
+  - Adding new data created duplicate chunks
+  - SillyTavern reads the first chunk found (old data), ignoring subsequent chunks
+- **Solution**: Strip all existing tEXt chunks before embedding new data
+  - Function: `removeAllTextChunks()` in `apps/api/src/utils/png.ts:252-294`
+  - Called automatically in `embedIntoPNG()` function
+  - Ensures only fresh, current data is embedded
+  - Applies to both PNG export and SillyTavern push
+- **Impact**:
+  - ✅ JSON export always worked (direct DB read)
+  - ✅ PNG export now contains latest edits
+  - ✅ SillyTavern push now contains latest edits
+- **Locations**:
+  - PNG utilities: `apps/api/src/utils/png.ts:248-371`
+  - Export endpoint: `apps/api/src/routes/import-export.ts:1057-1090`
+  - SillyTavern push: `apps/api/src/routes/sillytavern.ts:80-101`
 
 ## Development Workflow
 

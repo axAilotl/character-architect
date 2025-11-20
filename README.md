@@ -13,6 +13,10 @@
 - ✅ **Always-Saving** - Autosave to IndexedDB with background sync to SQLite
 - ✅ **Version History** - Manual snapshots with restore capability
 - ✅ **Import/Export** - JSON, PNG (tEXt embed), and CHARX support with automatic format normalization
+- ✅ **SillyTavern Integration** - Direct push to SillyTavern with one click
+  - Settings UI for configuration (no .env editing)
+  - Auto-save before push ensures latest edits included
+  - Generates PNG on-the-fly with embedded card data
 - ✅ **Multiple Import** - Import multiple cards at once (JSON, PNG, or CHARX)
 - ✅ **Bulk Operations** - Select and delete multiple cards with toggle-able selection mode
 - ✅ **Smart Sorting** - Sort cards by Added, Newest, Oldest, or Name
@@ -64,6 +68,8 @@
 
 ### Recent Updates
 
+- ✅ **SillyTavern Push** (v1.3) - Direct push integration with Settings UI
+- ✅ **Critical PNG Fix** (v1.3) - Strip old tEXt chunks to ensure exports contain latest edits
 - ✅ **Searchable Model Selector** (v1.2) - Filterable dropdown with model caching and alphabetical sorting
 - ✅ **Card Thumbnails** (v1.2) - Efficient 96x96 avatar thumbnails with top-centered cropping
 - ✅ **Enhanced UI** (v1.2) - Improved textarea heights, streamlined LLM sidebar, collapsible custom instructions
