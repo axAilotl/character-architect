@@ -588,6 +588,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
     const buffer = await data.toBuffer();
     const warnings: string[] = [];
+    let extraChunks: Array<{keyword: string, text: string}> | undefined;
 
     // Check for CHARX format (ZIP magic bytes: PK\x03\x04 or .charx extension)
     const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
@@ -697,6 +698,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         cardData = extracted.data;
         spec = extracted.spec;
         originalImage = buffer; // Store the original PNG
+        if (extracted.extraChunks) {
+            extraChunks = extracted.extraChunks;
+        }
         fastify.log.info({ spec }, 'Successfully extracted card from PNG');
       } catch (err) {
         fastify.log.error({ error: err }, 'Failed to extract card from PNG');
@@ -819,7 +823,8 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       try {
         const extractionResult = await cardImportService.extractAssetsFromDataURIs(
           storageData as CCv3Data,
-          { storagePath: config.storagePath }
+          { storagePath: config.storagePath },
+          extraChunks // Pass local variable
         );
         storageData = extractionResult.data;
         assetsImported = extractionResult.assetsImported;
@@ -827,7 +832,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           warnings.push(...extractionResult.warnings);
         }
         if (assetsImported > 0) {
-          fastify.log.info({ assetsImported }, 'Extracted assets from Data URIs');
+          fastify.log.info({ assetsImported }, 'Extracted assets from Data URIs/Chunks');
         }
       } catch (err) {
         fastify.log.error({ error: err }, 'Failed to extract assets from Data URIs');
