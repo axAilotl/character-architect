@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
+import { useTokenStore } from '../store/token-store';
 import { SettingsModal } from './SettingsModal';
 import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +13,7 @@ interface HeaderProps {
 export function Header({ onBack }: HeaderProps) {
   const navigate = useNavigate();
   const { currentCard, isSaving, createNewCard } = useCardStore();
-  const tokenCounts = useCardStore((state) => state.tokenCounts);
+  const tokenCounts = useTokenStore((state) => state.tokenCounts);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);

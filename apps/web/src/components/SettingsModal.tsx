@@ -416,7 +416,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
 
     // Extract card data
-    const cardData = cardStore.extractCardData(currentCard);
+    const extractCardData = (await import('../lib/card-utils')).extractCardData;
+    const cardData = extractCardData(currentCard);
     const lorebook = (cardData as any).character_book;
 
     if (!lorebook || !lorebook.entries || lorebook.entries.length === 0) {

@@ -1,4 +1,4 @@
-import { useCardStore } from '../store/card-store';
+import { useUIStore } from '../store/ui-store';
 import { EditorTabs } from './EditorTabs';
 import { EditPanel } from './EditPanel';
 import { PreviewPanel } from './PreviewPanel';
@@ -9,7 +9,7 @@ import { AssetsPanel } from './AssetsPanel';
 import { FocusedEditor } from './FocusedEditor';
 
 export function CardEditor() {
-  const activeTab = useCardStore((state) => state.activeTab);
+  const activeTab = useUIStore((state) => state.activeTab);
 
   return (
     <div className="h-full flex flex-col">

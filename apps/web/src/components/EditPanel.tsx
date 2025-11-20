@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
+import { useUIStore } from '../store/ui-store';
+import { useTokenStore } from '../store/token-store';
 import type { CCFieldName, FocusField, Template, Snippet } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
@@ -10,8 +12,9 @@ import { TemplateSnippetPanel } from './TemplateSnippetPanel';
 type EditTab = 'basic' | 'greetings' | 'advanced' | 'lorebook';
 
 export function EditPanel() {
-  const { currentCard, updateCardData, updateCardMeta, specMode, showV3Fields, setSpecMode, toggleV3Fields } = useCardStore();
-  const tokenCounts = useCardStore((state) => state.tokenCounts);
+  const { currentCard, updateCardData, updateCardMeta, convertSpec } = useCardStore();
+  const { specMode, showV3Fields, setSpecMode, toggleV3Fields } = useUIStore();
+  const tokenCounts = useTokenStore((state) => state.tokenCounts);
 
   const [activeTab, setActiveTab] = useState<EditTab>('basic');
 
@@ -167,7 +170,10 @@ export function EditPanel() {
             {/* Spec Mode Switcher */}
             <div className="flex items-center gap-2 bg-dark-bg rounded-lg p-1">
               <button
-                onClick={() => setSpecMode('v2')}
+                onClick={() => {
+                  setSpecMode('v2');
+                  convertSpec('v2');
+                }}
                 className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
                   specMode === 'v2'
                     ? 'bg-blue-600 text-white'
@@ -177,7 +183,10 @@ export function EditPanel() {
                 V2
               </button>
               <button
-                onClick={() => setSpecMode('v3')}
+                onClick={() => {
+                  setSpecMode('v3');
+                  convertSpec('v3');
+                }}
                 className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
                   specMode === 'v3'
                     ? 'bg-blue-600 text-white'
