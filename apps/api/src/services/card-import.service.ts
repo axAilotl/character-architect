@@ -295,10 +295,19 @@ export class CardImportService {
     // Ensure storage directory exists
     await fs.mkdir(options.storagePath, { recursive: true });
 
+    console.log(`[Card Import] Processing Data URI extraction for ${cardData.assets.length} assets`);
+    console.log(`[Card Import] First asset:`, JSON.stringify(cardData.assets[0]).substring(0, 200));
+
     // Process assets
     cardData.assets = await Promise.all(
       cardData.assets.map(async (descriptor) => {
-        if (!descriptor.uri || !descriptor.uri.startsWith('data:')) {
+        if (!descriptor.uri) {
+            console.log(`[Card Import] Asset ${descriptor.name} has no URI`);
+            return descriptor;
+        }
+        
+        if (!descriptor.uri.startsWith('data:')) {
+          console.log(`[Card Import] Asset ${descriptor.name} URI is not data: (starts with ${descriptor.uri.substring(0, 20)}...)`);
           return descriptor;
         }
 
@@ -307,6 +316,7 @@ export class CardImportService {
           const matches = descriptor.uri.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
           if (!matches || matches.length !== 3) {
             warnings.push(`Invalid Data URI for asset ${descriptor.name}`);
+            console.warn(`[Card Import] Invalid Data URI for asset ${descriptor.name}`);
             return descriptor;
           }
 
@@ -357,6 +367,8 @@ export class CardImportService {
             height,
             url: assetUrl,
           });
+          
+          console.log(`[Card Import] Created asset record ${asset.id} for ${descriptor.name}`);
 
           assetsImported++;
 
@@ -368,6 +380,7 @@ export class CardImportService {
             _tags: tags,
           };
         } catch (err) {
+          console.error(`[Card Import] Failed to extract asset ${descriptor.name}:`, err);
           warnings.push(`Failed to extract asset ${descriptor.name}: ${err}`);
           return descriptor;
         }
@@ -385,12 +398,17 @@ export class CardImportService {
    * Link extracted assets to the created card
    */
   async linkAssetsToCard(cardId: string, cardData: CCv3Data['data']): Promise<void> {
-    if (!cardData.assets) return;
+    console.log(`[Card Import] Linking assets to card ${cardId}`);
+    if (!cardData.assets) {
+        console.log('[Card Import] No assets to link');
+        return;
+    }
 
     let order = 0;
     for (const asset of cardData.assets) {
       const internalAsset = asset as any;
       if (internalAsset._assetId) {
+        console.log(`[Card Import] Linking asset ${internalAsset._assetId} (${asset.name}) to card`);
         const isMain = asset.name === 'main';
         
         this.cardAssetRepo.create({
@@ -407,6 +425,8 @@ export class CardImportService {
         // Clean up temporary fields
         delete internalAsset._assetId;
         delete internalAsset._tags;
+      } else {
+          console.log(`[Card Import] Asset ${asset.name} has no _assetId, skipping link`);
       }
       order++;
     }
