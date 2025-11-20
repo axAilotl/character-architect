@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository } from '../db/repository.js';
 import { config } from '../config.js';
-import { join, dirname } from 'path';
-import { existsSync, createReadStream, readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { existsSync, readFileSync } from 'fs';
 import FormData from 'form-data';
 import axios from 'axios';
 import { fileURLToPath } from 'url';
+import { createCardPNG } from '../utils/png.js';
+import sharp from 'sharp';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -75,17 +77,28 @@ export async function sillyTavernRoutes(fastify: FastifyInstance) {
           return { success: false, error: 'Card not found' };
         }
 
-        // Check if card has a main portrait asset or exported PNG
-        const pngPath = join(config.storagePath, 'exports', `${cardId}.png`);
+        // Generate PNG on-the-fly (same logic as export endpoint)
+        fastify.log.info({ cardId }, 'Generating PNG for SillyTavern push');
 
-        if (!existsSync(pngPath)) {
-          reply.code(404);
-          return {
-            success: false,
-            error:
-              'Card PNG not found. Please export the card as PNG first.',
-          };
+        let baseImage = cardRepo.getOriginalImage(cardId);
+
+        // Fall back to creating a placeholder if no original image exists
+        if (!baseImage) {
+          fastify.log.info({ cardId }, 'No original image found, creating placeholder for push');
+          baseImage = await sharp({
+            create: {
+              width: 400,
+              height: 600,
+              channels: 4,
+              background: { r: 100, g: 120, b: 150, alpha: 1 }
+            }
+          })
+          .png()
+          .toBuffer();
         }
+
+        // Embed card data into the PNG
+        const pngBuffer = await createCardPNG(baseImage, card);
 
         const baseUrl = settings.baseUrl.replace(/\/$/, '');
         const baseHeaders = buildSillyTavernHeaders(settings);
@@ -166,7 +179,7 @@ export async function sillyTavernRoutes(fastify: FastifyInstance) {
 
         // Step 3: Upload card
         const form = new FormData();
-        form.append('avatar', createReadStream(pngPath), {
+        form.append('avatar', pngBuffer, {
           filename: `${cardId}.png`,
           contentType: 'image/png',
         });
