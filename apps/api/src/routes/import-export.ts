@@ -442,6 +442,12 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         cardData = extracted.data;
         spec = extracted.spec;
         originalImage = buffer; // Store the original PNG
+        
+        // Capture extra chunks for asset extraction
+        if (extracted.extraChunks) {
+            (request as any).extraChunks = extracted.extraChunks;
+        }
+        
         fastify.log.info({ spec, url }, 'Successfully extracted card from PNG');
       } catch (err) {
         fastify.log.error({ error: err, url }, 'Failed to extract card from PNG');
@@ -517,9 +523,11 @@ export async function importExportRoutes(fastify: FastifyInstance) {
     let assetsImported = 0;
     if (spec === 'v3') {
       try {
+        const extraChunks = (request as any).extraChunks;
         const extractionResult = await cardImportService.extractAssetsFromDataURIs(
           storageData as CCv3Data,
-          { storagePath: config.storagePath }
+          { storagePath: config.storagePath },
+          extraChunks
         );
         storageData = extractionResult.data;
         assetsImported = extractionResult.assetsImported;
@@ -527,7 +535,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           warnings.push(...extractionResult.warnings);
         }
         if (assetsImported > 0) {
-          fastify.log.info({ assetsImported }, 'Extracted assets from Data URIs');
+          fastify.log.info({ assetsImported }, 'Extracted assets from Data URIs/Chunks');
         }
       } catch (err) {
         fastify.log.error({ error: err }, 'Failed to extract assets from Data URIs');
@@ -974,6 +982,10 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           cardData = extracted.data;
           spec = extracted.spec;
           originalImage = buffer;
+          
+          if (extracted.extraChunks) {
+              (request as any).extraChunks = extracted.extraChunks;
+          }
         } else {
           results.push({
             filename,
@@ -1036,9 +1048,11 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         let assetsImported = 0;
         if (spec === 'v3') {
           try {
+            const extraChunks = (request as any).extraChunks;
             const extractionResult = await cardImportService.extractAssetsFromDataURIs(
               storageData as CCv3Data,
-              { storagePath: config.storagePath }
+              { storagePath: config.storagePath },
+              extraChunks
             );
             storageData = extractionResult.data;
             assetsImported = extractionResult.assetsImported;

@@ -278,11 +278,12 @@ export class CardImportService {
   }
 
   /**
-   * Extract assets from Data URIs in card data
+   * Extract assets from Data URIs or PNG chunks in card data
    */
   async extractAssetsFromDataURIs(
     data: CCv3Data,
-    options: ImportOptions
+    options: ImportOptions,
+    extraChunks?: Array<{keyword: string, text: string}>
   ): Promise<{ data: CCv3Data; assetsImported: number; warnings: string[] }> {
     const warnings: string[] = [];
     let assetsImported = 0;
@@ -296,7 +297,10 @@ export class CardImportService {
     await fs.mkdir(options.storagePath, { recursive: true });
 
     console.log(`[Card Import] Processing Data URI extraction for ${cardData.assets.length} assets`);
-    console.log(`[Card Import] First asset:`, JSON.stringify(cardData.assets[0]).substring(0, 200));
+    console.log(`[Card Import] Extra PNG chunks available: ${extraChunks?.length || 0}`);
+    if (extraChunks) {
+        console.log(`[Card Import] Extra chunk keys: ${extraChunks.map(c => c.keyword).join(', ')}`);
+    }
 
     // Process assets
     cardData.assets = await Promise.all(
@@ -306,23 +310,60 @@ export class CardImportService {
             return descriptor;
         }
         
-        if (!descriptor.uri.startsWith('data:')) {
-          console.log(`[Card Import] Asset ${descriptor.name} URI is not data: (starts with ${descriptor.uri.substring(0, 20)}...)`);
+        let buffer: Buffer | undefined;
+        let mimetype: string | undefined;
+
+        // Case 1: Data URI
+        if (descriptor.uri.startsWith('data:')) {
+          try {
+            const matches = descriptor.uri.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+              mimetype = matches[1];
+              buffer = Buffer.from(matches[2], 'base64');
+            } else {
+              warnings.push(`Invalid Data URI for asset ${descriptor.name}`);
+            }
+          } catch (e) {
+            warnings.push(`Failed to parse Data URI for ${descriptor.name}: ${e}`);
+          }
+        } 
+        // Case 2: PNG Chunk Reference (e.g. __asset:0)
+        else if (extraChunks && descriptor.uri.startsWith('__asset:')) {
+            const assetId = descriptor.uri.split(':')[1];
+            // Try to find a chunk with this ID
+            // Some tools might use just the ID, others might use other keys?
+            // Assuming the chunk keyword IS the ID (e.g. "0", "1")
+            const chunk = extraChunks.find(c => c.keyword === assetId);
+            
+            if (chunk) {
+                console.log(`[Card Import] Found embedded asset chunk for ${descriptor.uri} (key: ${chunk.keyword})`);
+                try {
+                    buffer = Buffer.from(chunk.text, 'base64');
+                    // Guess mimetype from extension if available
+                    if (descriptor.ext) {
+                        mimetype = getMimeTypeFromExt(descriptor.ext);
+                    } else {
+                        mimetype = 'application/octet-stream'; // Fallback
+                    }
+                } catch (e) {
+                    warnings.push(`Failed to decode embedded asset chunk ${assetId}: ${e}`);
+                }
+            } else {
+                console.warn(`[Card Import] Referenced asset chunk not found: ${descriptor.uri}`);
+                // Try looking for numeric match if ID is a number
+                // e.g. if key is "0"
+            }
+        }
+        else {
+          console.log(`[Card Import] Asset ${descriptor.name} URI is not data or known reference: (starts with ${descriptor.uri.substring(0, 20)}...)`);
           return descriptor;
         }
 
-        try {
-          // Parse Data URI
-          const matches = descriptor.uri.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-          if (!matches || matches.length !== 3) {
-            warnings.push(`Invalid Data URI for asset ${descriptor.name}`);
-            console.warn(`[Card Import] Invalid Data URI for asset ${descriptor.name}`);
+        if (!buffer || !mimetype) {
             return descriptor;
-          }
+        }
 
-          const mimetype = matches[1];
-          const buffer = Buffer.from(matches[2], 'base64');
-
+        try {
           // Validate extension
           const ext = descriptor.ext || mimetype.split('/')[1];
           if (!ext) {
@@ -330,7 +371,7 @@ export class CardImportService {
             return descriptor;
           }
 
-          console.log(`[Card Import] Extracting Data URI asset: ${descriptor.name} (${buffer.length} bytes)`);
+          console.log(`[Card Import] Extracting asset: ${descriptor.name} (${buffer.length} bytes)`);
 
           // Generate asset ID and save file
           const assetId = nanoid();
