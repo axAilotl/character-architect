@@ -370,6 +370,8 @@ export const useCardStore = create<CardStore>((set, get) => ({
     if (isDirty) {
       console.log('Saving pending edits before export...');
       await get().saveCard();
+      // Small delay to ensure database write completes
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     const { data, error } = await api.exportCard(currentCard.meta.id, format);

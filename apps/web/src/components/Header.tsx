@@ -80,6 +80,8 @@ export function Header({ onBack }: HeaderProps) {
       console.log('Saving pending edits before push...');
       try {
         await store.saveCard();
+        // Small delay to ensure database write completes
+        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error: any) {
         setPushStatus({
           type: 'error',
