@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCardStore, extractCardData } from '../store/card-store';
 import { SettingsModal } from './SettingsModal';
 import { api } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   onBack: () => void;
@@ -9,6 +10,7 @@ interface HeaderProps {
 
 
 export function Header({ onBack }: HeaderProps) {
+  const navigate = useNavigate();
   const { currentCard, isSaving, createNewCard } = useCardStore();
   const tokenCounts = useCardStore((state) => state.tokenCounts);
   const [showSettings, setShowSettings] = useState(false);
@@ -46,11 +48,20 @@ export function Header({ onBack }: HeaderProps) {
     setShowImportMenu(false);
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json,.png,.charx';
+    input.accept = '.json,.png,.charx,.voxpkg';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        await useCardStore.getState().importCard(file);
+        let id = null;
+        if (file.name.endsWith('.voxpkg')) {
+          id = await useCardStore.getState().importVoxtaPackage(file);
+        } else {
+          id = await useCardStore.getState().importCard(file);
+        }
+        
+        if (id) {
+          navigate(`/cards/${id}`);
+        }
       }
     };
     input.click();
@@ -60,11 +71,14 @@ export function Header({ onBack }: HeaderProps) {
     setShowImportMenu(false);
     const url = prompt('Enter the URL to the character card (PNG, JSON, or CHARX file):');
     if (url && url.trim()) {
-      await useCardStore.getState().importCardFromURL(url.trim());
+      const id = await useCardStore.getState().importCardFromURL(url.trim());
+      if (id) {
+        navigate(`/cards/${id}`);
+      }
     }
   };
 
-  const handleExport = async (format: 'json' | 'png' | 'charx') => {
+  const handleExport = async (format: 'json' | 'png' | 'charx' | 'voxta') => {
     setShowExportMenu(false);
     await useCardStore.getState().exportCard(format);
   };
@@ -117,6 +131,14 @@ export function Header({ onBack }: HeaderProps) {
     }
   };
 
+  const handleCreateNew = async () => {
+    await createNewCard();
+    const newCard = useCardStore.getState().currentCard;
+    if (newCard?.meta?.id) {
+      navigate(`/cards/${newCard.meta.id}`);
+    }
+  };
+
   return (
     <header className="bg-dark-surface border-b border-dark-border px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -164,7 +186,7 @@ export function Header({ onBack }: HeaderProps) {
           ⚙️
         </button>
 
-        <button onClick={createNewCard} className="btn-secondary">
+        <button onClick={handleCreateNew} className="btn-secondary">
           New
         </button>
 
@@ -230,10 +252,17 @@ export function Header({ onBack }: HeaderProps) {
                   </button>
                   <button
                     onClick={() => handleExport('charx')}
-                    className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-b"
+                    className="block w-full px-4 py-2 text-left hover:bg-slate-700"
                     title="Export as CHARX (with assets)"
                   >
                     CHARX
+                  </button>
+                  <button
+                    onClick={() => handleExport('voxta')}
+                    className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-b"
+                    title="Export as Voxta Package (with assets and scenarios)"
+                  >
+                    Voxta
                   </button>
                 </div>
               </>

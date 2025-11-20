@@ -1033,6 +1033,31 @@ Card Architect solves these problems with professional tooling for character car
 - CCv2 Spec: https://github.com/malfoyslastname/character-card-spec-v2
 - CCv3 Spec: https://github.com/kwaroran/character-card-spec-v3
 
+## Recent Implementation: Voxta Support (2025-11-20)
+
+### Overview
+Implemented native support for **Voxta Packages (`.voxpkg`)**, a ZIP-based format containing multi-character data, rich assets, and scripting. This feature allows Card Architect to serve as a bridge between Voxta's high-fidelity ecosystem and standard CCv3 character cards.
+
+**Key Features:**
+- **Import**: Extract characters, assets, and metadata from `.voxpkg` files.
+- **Asset Preservation**: Automatically ingests character avatars and voice samples into the Asset Graph.
+- **Data Mapping**:
+    - Maps Voxta `Profile` -> CCv3 `description`.
+    - Maps Voxta `Description` (Visuals) -> `extensions.voxta.appearance`.
+    - Maps Voxta `MemoryBooks` -> CCv3 `character_book`.
+- **Export**: Reconstructs functional `.voxpkg` files from CCv3 cards, including all associated assets.
+
+**Backend Implementation:**
+- **Handler**: `apps/api/src/utils/voxta-handler.ts` uses `yauzl` to parse the ZIP structure.
+- **Service**: `apps/api/src/services/voxta-import.service.ts` orchestrates the conversion and DB insertion.
+- **Builder**: `apps/api/src/utils/voxta-builder.ts` generates the package structure for export.
+- **Schema**: Defined `VoxtaExtensionData` in schemas to strictly type preserved metadata.
+
+**UI Integration:**
+- **Import/Export**: Added menu options for "Import Voxta Package" and "Export as Voxta".
+- **Voxta Mode**: The editor automatically detects `extensions.voxta` and displays a dedicated "Appearance (Voxta Description)" field in the Advanced tab, labeled with a "VOXTA" badge.
+- **Asset Tags**: Assets are automatically tagged with `emotion:{e}`, `state:{s}`, and `variant:{v}` derived from the Voxta directory structure.
+
 ## Recent Implementation: User-Defined LLM Presets (2025-11-16)
 
 ### Overview

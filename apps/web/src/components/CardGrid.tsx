@@ -143,8 +143,18 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     try {
       // Single file import - use existing store method
       if (files.length === 1) {
-        await importCard(files[0]);
+        const file = files[0];
+        let id = null;
+        if (file.name.endsWith('.voxpkg')) {
+          id = await useCardStore.getState().importVoxtaPackage(file);
+        } else {
+          id = await importCard(file);
+        }
+        
         await loadCards();
+        if (id) {
+          onCardClick(id);
+        }
         e.target.value = '';
         return;
       }
@@ -191,8 +201,11 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     setShowImportMenu(false);
     const url = prompt('Enter the URL to the character card (PNG, JSON, or CHARX file):');
     if (url && url.trim()) {
-      await importCardFromURL(url.trim());
+      const id = await importCardFromURL(url.trim());
       await loadCards();
+      if (id) {
+        onCardClick(id);
+      }
     }
   };
 

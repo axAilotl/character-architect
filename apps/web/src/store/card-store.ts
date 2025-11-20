@@ -57,9 +57,10 @@ interface CardStore {
   createSnapshot: (message?: string) => Promise<void>;
   loadCard: (id: string) => Promise<void>;
   createNewCard: () => Promise<void>;
-  importCard: (file: File) => Promise<void>;
-  importCardFromURL: (url: string) => Promise<void>;
-  exportCard: (format: 'json' | 'png' | 'charx') => Promise<void>;
+  importCard: (file: File) => Promise<string | null>;
+  importVoxtaPackage: (file: File) => Promise<string | null>;
+  importCardFromURL: (url: string) => Promise<string | null>;
+  exportCard: (format: 'json' | 'png' | 'charx' | 'voxta') => Promise<void>;
 
   // Token counting
   updateTokenCounts: () => Promise<void>;
@@ -325,7 +326,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data, error } = await api.importCard(file);
     if (error) {
       console.error('[Import] Failed to import card:', error);
-      return;
+      return null;
     }
 
     if (data && data.card) {
@@ -345,6 +346,36 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
       set({ currentCard: data.card, isDirty: false });
       get().updateTokenCounts();
+      return data.card.meta.id;
+    }
+    return null;
+  },
+
+  // Import Voxta package
+  importVoxtaPackage: async (file) => {
+    console.log(`[Import] Starting Voxta import of ${file.name}...`);
+    const { data, error } = await api.importVoxtaPackage(file);
+    if (error) {
+      console.error('[Import] Failed to import Voxta package:', error);
+      alert(`Failed to import Voxta package: ${error}`);
+      return null;
+    }
+
+    if (data && data.cards && data.cards.length > 0) {
+      const firstCard = data.cards[0];
+      console.log(`[Import] Successfully imported ${data.cards.length} cards from Voxta package.`);
+      
+      // Set the first card as active
+      set({ currentCard: firstCard, isDirty: false });
+      get().updateTokenCounts();
+      
+      if (data.cards.length > 1) {
+        alert(`Imported ${data.cards.length} characters from Voxta package. "${firstCard.meta.name}" is now active.`);
+      }
+      return firstCard.meta.id;
+    } else {
+      alert('Voxta package imported but no characters were found.');
+      return null;
     }
   },
 
@@ -354,7 +385,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     if (error) {
       console.error('[Import] Failed to import card from URL:', error);
       alert(`Failed to import card: ${error}`);
-      return;
+      return null;
     }
 
     if (data && data.card) {
@@ -371,7 +402,9 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
       set({ currentCard: data.card, isDirty: false });
       get().updateTokenCounts();
+      return data.card.meta.id;
     }
+    return null;
   },
 
   // Export card

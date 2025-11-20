@@ -241,6 +241,24 @@ class ApiClient {
     return { data };
   }
 
+  async importVoxtaPackage(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/import-voxta`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Import failed' }));
+      return { error: error.error };
+    }
+
+    const data = await response.json();
+    return { data };
+  }
+
   async importCardFromURL(url: string) {
     return this.request<{ card: Card; warnings?: string[]; source: string }>('/import-url', {
       method: 'POST',
@@ -248,7 +266,7 @@ class ApiClient {
     });
   }
 
-  async exportCard(cardId: string, format: 'json' | 'png' | 'charx') {
+  async exportCard(cardId: string, format: 'json' | 'png' | 'charx' | 'voxta') {
     const response = await fetch(`${API_BASE}/cards/${cardId}/export?format=${format}`);
 
     if (!response.ok) {
