@@ -221,12 +221,18 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { currentCard } = get();
     if (!currentCard) return;
 
+    console.log('[saveCard] Starting save...', { isDirty: get().isDirty, cardId: currentCard.meta.id });
     set({ isSaving: true });
 
     try {
       if (currentCard.meta.id) {
         // Update existing card
-        await api.updateCard(currentCard.meta.id, currentCard);
+        console.log('[saveCard] Calling API updateCard...');
+        const result = await api.updateCard(currentCard.meta.id, currentCard);
+        console.log('[saveCard] API updateCard result:', { error: result.error, hasData: !!result.data });
+        if (result.error) {
+          throw new Error(result.error);
+        }
       } else {
         // Create new card
         const { data, error } = await api.createCard(currentCard);
@@ -234,6 +240,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
         if (data) set({ currentCard: data });
       }
 
+      console.log('[saveCard] Save successful, setting isDirty=false');
       set({ isDirty: false });
 
       // Clear draft from IndexedDB
@@ -241,7 +248,8 @@ export const useCardStore = create<CardStore>((set, get) => ({
         await localDB.deleteDraft(currentCard.meta.id);
       }
     } catch (err) {
-      console.error('Failed to save card:', err);
+      console.error('[saveCard] FAILED to save card:', err);
+      throw err; // Re-throw so caller knows it failed
     } finally {
       set({ isSaving: false });
     }
