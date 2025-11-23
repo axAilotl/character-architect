@@ -21,6 +21,7 @@ import { join } from 'path';
 import { writeFile } from 'fs/promises';
 import { config } from '../config.js';
 import { detectAnimatedAsset } from '@card-architect/schemas';
+import { getMimeTypeFromExt } from '../utils/uri-utils.js';
 
 export class VoxtaImportService {
   constructor(
@@ -226,7 +227,7 @@ export class VoxtaImportService {
       }
 
       // Determine Animation Status (for WebP/GIF)
-      const mimetype = this.getMimeType(ext);
+      const mimetype = getMimeTypeFromExt(ext);
       if (!tags.includes('animated')) {
          if (detectAnimatedAsset(asset.buffer, mimetype)) {
              tags.push('animated');
@@ -271,17 +272,5 @@ export class VoxtaImportService {
     }
 
     return descriptors;
-  }
-
-  private getMimeType(ext: string): string {
-    switch (ext) {
-      case 'png': return 'image/png';
-      case 'jpg': case 'jpeg': return 'image/jpeg';
-      case 'webp': return 'image/webp';
-      case 'gif': return 'image/gif';
-      case 'wav': return 'audio/wav';
-      case 'mp3': return 'audio/mpeg';
-      default: return 'application/octet-stream';
-    }
   }
 }

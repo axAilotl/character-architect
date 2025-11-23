@@ -109,10 +109,13 @@ export class CardImportService {
     }
 
     // Create card metadata
+    const tags = new Set(cardData.tags || []);
+    tags.add('charx');
+
     const cardMeta: Omit<CardMeta, 'id' | 'createdAt' | 'updatedAt'> = {
       name: cardData.name,
       spec: 'v3',
-      tags: cardData.tags || [],
+      tags: Array.from(tags),
       creator: cardData.creator,
       characterVersion: cardData.character_version,
     };

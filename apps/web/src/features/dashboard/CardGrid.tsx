@@ -520,16 +520,30 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                     <h3 className="text-lg font-semibold truncate flex-1">
                       {getCardName(card)}
                     </h3>
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${
-                        card.meta.spec === 'v3'
-                          ? 'bg-emerald-600/20 text-emerald-300'
-                          : 'bg-amber-600/20 text-amber-300'
-                      }`}
-                      title={`Character Card ${card.meta.spec.toUpperCase()} Format`}
-                    >
-                      {card.meta.spec.toUpperCase()}
-                    </span>
+                    <div className="flex gap-1 flex-shrink-0">
+                      {/* Voxta Badge */}
+                      {card.meta.tags?.includes('voxta') && (
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-600/20 text-indigo-300" title="Imported from Voxta Package">
+                          VOXTA
+                        </span>
+                      )}
+                      {/* CharX Badge */}
+                      {(card.meta.tags?.includes('charx') || hasAssets(card)) && (
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-cyan-600/20 text-cyan-300" title="Imported from CHARX">
+                          CHARX
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                          card.meta.spec === 'v3'
+                            ? 'bg-emerald-600/20 text-emerald-300'
+                            : 'bg-amber-600/20 text-amber-300'
+                        }`}
+                        title={`Character Card ${card.meta.spec.toUpperCase()} Format`}
+                      >
+                        {card.meta.spec.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Creator */}
