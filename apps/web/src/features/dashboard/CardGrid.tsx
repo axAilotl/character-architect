@@ -528,7 +528,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                         </span>
                       )}
                       {/* CharX Badge */}
-                      {(card.meta.tags?.includes('charx') || hasAssets(card)) && (
+                      {(card.meta.tags?.includes('charx') || (hasAssets(card) && !card.meta.tags?.includes('voxta'))) && (
                         <span className="px-2 py-0.5 rounded text-xs font-semibold bg-cyan-600/20 text-cyan-300" title="Imported from CHARX">
                           CHARX
                         </span>

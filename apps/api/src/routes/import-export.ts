@@ -590,11 +590,11 @@ export async function importExportRoutes(fastify: FastifyInstance) {
     const warnings: string[] = [];
     let extraChunks: Array<{keyword: string, text: string}> | undefined;
 
-    // Check for CHARX format (ZIP magic bytes: PK\x03\x04 or .charx extension)
+    // Check for CHARX format (ZIP magic bytes: PK\x03\x04)
+    // We strictly enforce ZIP signature to prevent crashing on renamed PNGs
     const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
-    const isCharxExt = data.filename?.endsWith('.charx');
-
-    if (isZip || isCharxExt) {
+    
+    if (isZip) {
       // Handle CHARX import
       try {
         // Write buffer to temp file (yauzl requires file path)
@@ -914,9 +914,8 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
         // Check for CHARX format
         const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
-        const isCharxExt = filename.endsWith('.charx');
 
-        if (isZip || isCharxExt) {
+        if (isZip) {
           // Handle CHARX import
           const tempPath = join(tmpdir(), `charx-${Date.now()}-${filename}`);
           await fs.writeFile(tempPath, buffer);
