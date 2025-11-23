@@ -81,7 +81,11 @@ export class VoxtaImportService {
 
     // Import Assets
     if (char.assets && char.assets.length > 0) {
-      await this.importAssets(card.meta.id, char.assets);
+      const assetDescriptors = await this.importAssets(card.meta.id, char.assets);
+      
+      // Update card with assets list so frontend sees them in the JSON blob
+      ccv3Data.data.assets = assetDescriptors;
+      this.cardRepo.update(card.meta.id, { data: ccv3Data });
     }
 
     return card.meta.id;
@@ -176,8 +180,9 @@ export class VoxtaImportService {
   /**
    * Import Assets for a card
    */
-  private async importAssets(cardId: string, assets: ExtractedVoxtaAsset[]) {
+  private async importAssets(cardId: string, assets: ExtractedVoxtaAsset[]): Promise<any[]> {
     let orderCounter = 0;
+    const descriptors: any[] = [];
 
     for (const asset of assets) {
       const tags: AssetTag[] = [];
@@ -256,7 +261,16 @@ export class VoxtaImportService {
         isMain: false, // Voxta doesn't strictly define a "main" in the file list usually
         tags: tags as string[]
       });
+
+      descriptors.push({
+        type: assetType,
+        uri: assetRecord.url,
+        name: filename,
+        ext: ext
+      });
     }
+
+    return descriptors;
   }
 
   private getMimeType(ext: string): string {

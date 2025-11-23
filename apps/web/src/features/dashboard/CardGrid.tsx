@@ -360,21 +360,20 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                     onClick={() => setShowImportMenu(false)}
                   />
                   <div className="absolute right-0 mt-1 bg-dark-surface border border-dark-border rounded shadow-lg z-50 min-w-[150px]">
-                    <label
-                      htmlFor="import-card-file"
-                      className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-t cursor-pointer"
-                      title="Import from local file (JSON, PNG, or CHARX)"
-                    >
-                      From File
-                      <input
+                                          <label
+                                          htmlFor="import-card-file"
+                                          className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-t cursor-pointer"
+                                          title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
+                                        >
+                                          From File                      <input
                         id="import-card-file"
                         name="import-card-file"
                         type="file"
-                        accept=".json,.png,.charx"
+                        accept=".json,.png,.charx,.voxpkg"
                         multiple
                         onChange={handleImportFile}
                         className="hidden"
-                        title="Import JSON, PNG, or CHARX files (select multiple)"
+                        title="Import JSON, PNG, CHARX, or VOXPKG files (select multiple)"
                       />
                     </label>
                     <button

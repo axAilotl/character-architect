@@ -208,7 +208,7 @@ export function Header({ onBack }: HeaderProps) {
                 <button
                   onClick={handleImportFile}
                   className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-t"
-                  title="Import from local file (JSON, PNG, or CHARX)"
+                  title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
                 >
                   From File
                 </button>
