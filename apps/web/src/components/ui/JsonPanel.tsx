@@ -1,4 +1,4 @@
-import { useCardStore } from '../store/card-store';
+import { useCardStore } from '../../store/card-store';
 import { useState } from 'react';
 
 export function JsonPanel() {

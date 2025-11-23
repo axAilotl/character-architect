@@ -1,6 +1,6 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { useCardStore, extractCardData } from '../store/card-store';
+import { useCardStore, extractCardData } from '../../../store/card-store';
 import { useState, useEffect, useRef } from 'react';
 
 // Custom marked extension to support image sizing syntax: ![alt](url =widthxheight)

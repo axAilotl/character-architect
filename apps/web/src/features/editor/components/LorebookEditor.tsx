@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCardStore, extractCardData } from '../store/card-store';
+import { useCardStore, extractCardData } from '../../../store/card-store';
 import type {
   CCv3LorebookEntry,
 } from '@card-architect/schemas';

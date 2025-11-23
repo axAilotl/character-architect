@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useCardStore, extractCardData } from '../store/card-store';
-import { api } from '../lib/api';
+import { useCardStore, extractCardData } from '../../store/card-store';
+import { api } from '../../lib/api';
 import type { Card, CCv3Data } from '@card-architect/schemas';
-import { SettingsModal } from './SettingsModal';
+import { SettingsModal } from '../../components/shared/SettingsModal';
 
 interface CardGridProps {
   onCardClick: (cardId: string) => void;
@@ -143,8 +143,18 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     try {
       // Single file import - use existing store method
       if (files.length === 1) {
-        await importCard(files[0]);
+        const file = files[0];
+        let id = null;
+        if (file.name.endsWith('.voxpkg')) {
+          id = await useCardStore.getState().importVoxtaPackage(file);
+        } else {
+          id = await importCard(file);
+        }
+        
         await loadCards();
+        if (id) {
+          onCardClick(id);
+        }
         e.target.value = '';
         return;
       }
@@ -191,8 +201,11 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     setShowImportMenu(false);
     const url = prompt('Enter the URL to the character card (PNG, JSON, or CHARX file):');
     if (url && url.trim()) {
-      await importCardFromURL(url.trim());
+      const id = await importCardFromURL(url.trim());
       await loadCards();
+      if (id) {
+        onCardClick(id);
+      }
     }
   };
 
@@ -347,21 +360,20 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                     onClick={() => setShowImportMenu(false)}
                   />
                   <div className="absolute right-0 mt-1 bg-dark-surface border border-dark-border rounded shadow-lg z-50 min-w-[150px]">
-                    <label
-                      htmlFor="import-card-file"
-                      className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-t cursor-pointer"
-                      title="Import from local file (JSON, PNG, or CHARX)"
-                    >
-                      From File
-                      <input
+                                          <label
+                                          htmlFor="import-card-file"
+                                          className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-t cursor-pointer"
+                                          title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
+                                        >
+                                          From File                      <input
                         id="import-card-file"
                         name="import-card-file"
                         type="file"
-                        accept=".json,.png,.charx"
+                        accept=".json,.png,.charx,.voxpkg"
                         multiple
                         onChange={handleImportFile}
                         className="hidden"
-                        title="Import JSON, PNG, or CHARX files (select multiple)"
+                        title="Import JSON, PNG, CHARX, or VOXPKG files (select multiple)"
                       />
                     </label>
                     <button
@@ -508,16 +520,30 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                     <h3 className="text-lg font-semibold truncate flex-1">
                       {getCardName(card)}
                     </h3>
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${
-                        card.meta.spec === 'v3'
-                          ? 'bg-emerald-600/20 text-emerald-300'
-                          : 'bg-amber-600/20 text-amber-300'
-                      }`}
-                      title={`Character Card ${card.meta.spec.toUpperCase()} Format`}
-                    >
-                      {card.meta.spec.toUpperCase()}
-                    </span>
+                    <div className="flex gap-1 flex-shrink-0">
+                      {/* Voxta Badge */}
+                      {card.meta.tags?.includes('voxta') && (
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-600/20 text-indigo-300" title="Imported from Voxta Package">
+                          VOXTA
+                        </span>
+                      )}
+                      {/* CharX Badge */}
+                      {(card.meta.tags?.includes('charx') || (hasAssets(card) && !card.meta.tags?.includes('voxta'))) && (
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-cyan-600/20 text-cyan-300" title="Imported from CHARX">
+                          CHARX
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                          card.meta.spec === 'v3'
+                            ? 'bg-emerald-600/20 text-emerald-300'
+                            : 'bg-amber-600/20 text-amber-300'
+                        }`}
+                        title={`Character Card ${card.meta.spec.toUpperCase()} Format`}
+                      >
+                        {card.meta.spec.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Creator */}

@@ -3,11 +3,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useLLMStore } from '../store/llm-store';
+import { useLLMStore } from '../../store/llm-store';
 import type { ProviderConfig, ProviderKind, OpenAIMode, UserPreset, CreatePresetRequest } from '@card-architect/schemas';
-import { TemplateSnippetPanel } from './TemplateSnippetPanel';
-import { api } from '../lib/api';
-import { SearchableSelect } from './SearchableSelect';
+import { TemplateSnippetPanel } from '../../features/editor/components/TemplateSnippetPanel';
+import { api } from '../../lib/api';
+import { SearchableSelect } from '../ui/SearchableSelect';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -407,7 +407,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
 
     // Get current card from card store
-    const cardStore = await import('../store/card-store');
+    const cardStore = await import('../../store/card-store');
     const currentCard = cardStore.useCardStore.getState().currentCard;
 
     if (!currentCard) {
@@ -416,7 +416,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
 
     // Extract card data
-    const cardData = cardStore.extractCardData(currentCard);
+    const extractCardData = (await import('../../lib/card-utils')).extractCardData;
+    const cardData = extractCardData(currentCard);
     const lorebook = (cardData as any).character_book;
 
     if (!lorebook || !lorebook.entries || lorebook.entries.length === 0) {

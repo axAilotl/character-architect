@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCardStore, extractCardData } from '../store/card-store';
+import { useCardStore, extractCardData } from '../../../store/card-store';
 import type { CCv2Data, CCv3Data, Template, Snippet, CCFieldName, FocusField } from '@card-architect/schemas';
 import { MilkdownProvider } from '@milkdown/react';
 import { Crepe } from '@milkdown/crepe';

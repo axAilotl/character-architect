@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore } from '../../store/card-store';
 
 export function SnapshotButton() {
   const { currentCard, createSnapshot } = useCardStore();

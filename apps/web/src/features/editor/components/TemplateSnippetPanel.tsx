@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTemplateStore } from '../store/template-store';
+import { useTemplateStore } from '../../../store/template-store';
 import type { Template, Snippet, TemplateCategory, SnippetCategory, FocusField } from '@card-architect/schemas';
 import { TemplateEditor } from './TemplateEditor';
 import { SnippetEditor } from './SnippetEditor';

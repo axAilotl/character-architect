@@ -13,10 +13,10 @@ export const config = {
   databasePath: process.env.DATABASE_PATH || join(__dirname, '../data/cards.db'),
   storagePath: process.env.STORAGE_PATH || join(__dirname, '../storage'),
   limits: {
-    maxCardSizeMB: parseInt(process.env.MAX_CARD_SIZE_MB || '20', 10),
-    maxPngSizeMB: parseInt(process.env.MAX_PNG_SIZE_MB || '50', 10),
-    warnPngSizeMB: parseInt(process.env.WARN_PNG_SIZE_MB || '10', 10),
-    warnCardSizeMB: parseInt(process.env.WARN_CARD_SIZE_MB || '5', 10),
+    maxCardSizeMB: parseInt(process.env.MAX_CARD_SIZE_MB || '300', 10),
+    maxPngSizeMB: parseInt(process.env.MAX_PNG_SIZE_MB || '300', 10),
+    warnPngSizeMB: parseInt(process.env.WARN_PNG_SIZE_MB || '100', 10),
+    warnCardSizeMB: parseInt(process.env.WARN_CARD_SIZE_MB || '50', 10),
   },
   sillyTavern: {
     enabled: process.env.SILLY_TAVERN_ENABLED === 'true',

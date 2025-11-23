@@ -1,6 +1,7 @@
 import { PNG } from 'pngjs';
 import { detectSpec } from '@card-architect/schemas';
 import type { Card, CCv2Data, CCv3Data } from '@card-architect/schemas';
+import { inflateSync } from 'zlib';
 
 /**
  * PNG text chunk keys used for character cards
@@ -73,6 +74,26 @@ function parseTextChunks(buffer: Buffer): Array<{keyword: string, text: string}>
       }
     }
 
+    // Parse zTXt chunks (compressed)
+    if (type === 'zTXt') {
+      const nullIndex = data.indexOf(0);
+      if (nullIndex !== -1) {
+        const keyword = data.slice(0, nullIndex).toString('latin1');
+        const compressionMethod = data[nullIndex + 1];
+        
+        if (compressionMethod === 0) { // 0 = deflate/inflate
+          try {
+            const compressedData = data.slice(nullIndex + 2);
+            const text = inflateSync(compressedData).toString('utf8');
+            textChunks.push({keyword, text});
+            console.log(`[PNG Extract] Found zTXt chunk: "${keyword}" (${text.length} chars decompressed)`);
+          } catch (e) {
+            console.warn(`[PNG Extract] Failed to decompress zTXt chunk "${keyword}":`, e);
+          }
+        }
+      }
+    }
+
     // Stop after IEND chunk
     if (type === 'IEND') break;
   }
@@ -82,8 +103,13 @@ function parseTextChunks(buffer: Buffer): Array<{keyword: string, text: string}>
 
 /**
  * Extract character card JSON from PNG tEXt chunks
+ * Also returns any extra text chunks that might contain embedded assets (e.g. for "CharX in PNG")
  */
-export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data | CCv3Data; spec: 'v2' | 'v3' } | null> {
+export async function extractFromPNG(buffer: Buffer): Promise<{ 
+  data: CCv2Data | CCv3Data; 
+  spec: 'v2' | 'v3'; 
+  extraChunks: Array<{keyword: string, text: string}> 
+} | null> {
   return new Promise((resolve, reject) => {
     // Validate PNG format using pngjs
     const png = new PNG();
@@ -130,7 +156,11 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
       };
 
       // Try all known keys, preferring chunks with lorebooks
-      let fallbackResult: { data: CCv2Data | CCv3Data; spec: 'v2' | 'v3' } | null = null;
+      let fallbackResult: { 
+        data: CCv2Data | CCv3Data; 
+        spec: 'v2' | 'v3'; 
+        extraChunks: Array<{keyword: string, text: string}> 
+      } | null = null;
 
       for (const key of TEXT_CHUNK_KEYS.all) {
         // Find all chunks with this keyword
@@ -143,7 +173,11 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
             console.log(`[PNG Extract] Found data in chunk '${key}' (${chunk.text.length} chars), detected spec: ${spec}, has lorebook: ${hasLorebook(json)}`);
 
             if (spec === 'v3' || spec === 'v2') {
-              const result = { data: json, spec };
+              const result = { 
+                data: json, 
+                spec, 
+                extraChunks: textChunks.filter(c => c.keyword !== key) // Return all other chunks
+              };
 
               // Prefer chunks with lorebooks
               if (hasLorebook(json)) {
@@ -160,39 +194,34 @@ export async function extractFromPNG(buffer: Buffer): Promise<{ data: CCv2Data |
 
             // If detectSpec failed but we have JSON that looks like a card, try to infer
             if (!spec && json && typeof json === 'object') {
-              console.log(`[PNG Extract] Spec detection failed, attempting to infer from structure...`);
+              // ... (inference logic unchanged) ...
+              // For simplicity, omitting full inference block update here as the main logic is the `extraChunks` return.
+              // But I should preserve it if I'm overwriting.
+              // Re-adding inference logic:
+              
+              let result: { data: CCv2Data | CCv3Data; spec: 'v2' | 'v3' } | null = null;
 
-              // Check if it's a wrapped v3 card
               if (json.spec === 'chara_card_v3' && json.data && json.data.name) {
                 console.log(`[PNG Extract] Inferred v3 from structure in chunk '${key}'`);
-                const result = { data: json, spec: 'v3' as const };
-                if (hasLorebook(json)) {
-                  resolve(result);
-                  return;
-                }
-                if (!fallbackResult) fallbackResult = result;
-              }
-
-              // Check if it's a wrapped v2 card
-              if (json.spec === 'chara_card_v2' && json.data && json.data.name) {
+                result = { data: json, spec: 'v3' };
+              } else if (json.spec === 'chara_card_v2' && json.data && json.data.name) {
                 console.log(`[PNG Extract] Inferred v2 from structure in chunk '${key}'`);
-                const result = { data: json, spec: 'v2' as const };
-                if (hasLorebook(json)) {
-                  resolve(result);
-                  return;
-                }
-                if (!fallbackResult) fallbackResult = result;
+                result = { data: json, spec: 'v2' };
+              } else if (json.name && (json.description || json.personality || json.scenario)) {
+                console.log(`[PNG Extract] Inferred legacy v2 from structure in chunk '${key}'`);
+                result = { data: json, spec: 'v2' };
               }
 
-              // Check if it's a legacy v2 card (direct fields)
-              if (json.name && (json.description || json.personality || json.scenario)) {
-                console.log(`[PNG Extract] Inferred legacy v2 from structure in chunk '${key}'`);
-                const result = { data: json, spec: 'v2' as const };
-                if (hasLorebook(json)) {
-                  resolve(result);
-                  return;
-                }
-                if (!fallbackResult) fallbackResult = result;
+              if (result) {
+                 const fullResult = { 
+                   ...result, 
+                   extraChunks: textChunks.filter(c => c.keyword !== key) 
+                 };
+                 if (hasLorebook(json)) {
+                   resolve(fullResult);
+                   return;
+                 }
+                 if (!fallbackResult) fallbackResult = fullResult;
               }
             }
           } catch (e) {

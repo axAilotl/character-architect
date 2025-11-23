@@ -244,6 +244,7 @@ export function getExtensionFromURI(uri: string): string {
  */
 export function getMimeTypeFromExt(ext: string): string {
   const extToMime: Record<string, string> = {
+    // Images
     'png': 'image/png',
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
@@ -252,11 +253,22 @@ export function getMimeTypeFromExt(ext: string): string {
     'avif': 'image/avif',
     'svg': 'image/svg+xml',
     'bmp': 'image/bmp',
+    'ico': 'image/x-icon',
+    
+    // Audio
     'mp3': 'audio/mpeg',
     'wav': 'audio/wav',
     'ogg': 'audio/ogg',
+    'flac': 'audio/flac',
+    'm4a': 'audio/mp4',
+    'aac': 'audio/aac',
+    
+    // Video
     'mp4': 'video/mp4',
     'webm': 'video/webm',
+    'avi': 'video/x-msvideo',
+    'mov': 'video/quicktime',
+    'mkv': 'video/x-matroska',
   };
 
   return extToMime[ext.toLowerCase()] || 'application/octet-stream';

@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore } from '../../../store/card-store';
+import { useUIStore } from '../../../store/ui-store';
 
 export function EditorTabs() {
-  const { activeTab, setActiveTab, currentCard, createSnapshot } = useCardStore();
+  const { currentCard, createSnapshot } = useCardStore();
+  const { activeTab, setActiveTab } = useUIStore();
   const [isCreating, setIsCreating] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [message, setMessage] = useState('');

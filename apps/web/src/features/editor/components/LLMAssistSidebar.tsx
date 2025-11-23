@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useLLMStore } from '../store/llm-store';
-import { api } from '../lib/api';
+import { useLLMStore } from '../../../store/llm-store';
+import { api } from '../../../lib/api';
 import type {
   FieldContext,
   CCFieldName,
@@ -14,7 +14,7 @@ import type {
   RagSnippet,
   UserPreset,
 } from '@card-architect/schemas';
-import { DiffViewer } from './DiffViewer';
+import { DiffViewer } from '../../../components/ui/DiffViewer';
 
 interface LLMAssistSidebarProps {
   isOpen: boolean;

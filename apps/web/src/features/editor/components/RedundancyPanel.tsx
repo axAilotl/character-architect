@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore } from '../../../store/card-store';
 
 type RedundancyType = 'exact-duplicate' | 'semantic-overlap' | 'repeated-phrase';
 type Severity = 'high' | 'medium' | 'low';

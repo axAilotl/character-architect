@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useCardStore } from '../store/card-store';
+import { useCardStore } from '../../../store/card-store';
 
 type PromptProfile = 'generic-ccv3' | 'strict-ccv3' | 'ccv2-compat';
 type DropPolicy = 'oldest-first' | 'lowest-priority' | 'truncate-end';

@@ -2,34 +2,10 @@ import { create } from 'zustand';
 import type { Card, CCv2Data, CCv3Data, CardMeta } from '@card-architect/schemas';
 import { api } from '../lib/api';
 import { localDB } from '../lib/db';
+import { extractCardData } from '../lib/card-utils';
+import { useTokenStore } from './token-store';
 
-/**
- * Extract actual card data fields from card.data, handling both wrapped and unwrapped formats
- * V2 can be: { spec, spec_version, data: {...} } or just {...}
- * V3 is always: { spec, spec_version, data: {...} }
- */
-export function extractCardData(card: Card): CCv2Data | CCv3Data['data'] {
-  const isV3 = card.meta.spec === 'v3';
-
-  if (isV3) {
-    return (card.data as CCv3Data).data;
-  }
-
-  // V2 can be wrapped or unwrapped
-  const data = card.data as any;
-  if (data.spec === 'chara_card_v2' && 'data' in data) {
-    // Wrapped V2
-    return data.data as CCv2Data;
-  }
-
-  // Unwrapped/legacy V2
-  return data as CCv2Data;
-}
-
-interface TokenCounts {
-  [field: string]: number;
-  total: number;
-}
+export { extractCardData };
 
 interface CardStore {
   // Current card
@@ -37,16 +13,6 @@ interface CardStore {
   isDirty: boolean;
   isSaving: boolean;
   autoSaveTimeout: NodeJS.Timeout | null;
-
-  // Token counts
-  tokenCounts: TokenCounts;
-  tokenizerModel: string;
-
-  // UI state
-  activeTab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused' | 'assets';
-  showAdvanced: boolean;
-  specMode: 'v2' | 'v3'; // Current spec mode for editing and export
-  showV3Fields: boolean; // Whether to show v3-only fields in the UI
 
   // Actions
   setCurrentCard: (card: Card | null) => void;
@@ -57,21 +23,13 @@ interface CardStore {
   createSnapshot: (message?: string) => Promise<void>;
   loadCard: (id: string) => Promise<void>;
   createNewCard: () => Promise<void>;
-  importCard: (file: File) => Promise<void>;
-  importCardFromURL: (url: string) => Promise<void>;
-  exportCard: (format: 'json' | 'png' | 'charx') => Promise<void>;
-
-  // Token counting
-  updateTokenCounts: () => Promise<void>;
-  setTokenizerModel: (model: string) => void;
-
-  // UI
-  setActiveTab: (
-    tab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused' | 'assets'
-  ) => void;
-  setShowAdvanced: (show: boolean) => void;
-  setSpecMode: (mode: 'v2' | 'v3') => void;
-  toggleV3Fields: () => void;
+  importCard: (file: File) => Promise<string | null>;
+  importVoxtaPackage: (file: File) => Promise<string | null>;
+  importCardFromURL: (url: string) => Promise<string | null>;
+  exportCard: (format: 'json' | 'png' | 'charx' | 'voxta') => Promise<void>;
+  
+  // Data mutations
+  convertSpec: (mode: 'v2' | 'v3') => void;
 }
 
 export const useCardStore = create<CardStore>((set, get) => ({
@@ -80,20 +38,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
   isDirty: false,
   isSaving: false,
   autoSaveTimeout: null,
-  tokenCounts: { total: 0 },
-  tokenizerModel: 'gpt2-bpe-approx',
-  activeTab: 'edit',
-  showAdvanced: false,
-  specMode: 'v3',
-  showV3Fields: true,
 
   // Set current card
   setCurrentCard: (card) => {
-    const specMode = card?.meta.spec || 'v3';
-    const showV3Fields = specMode === 'v3';
-    set({ currentCard: card, isDirty: false, specMode, showV3Fields });
+    set({ currentCard: card, isDirty: false });
     if (card) {
-      get().updateTokenCounts();
+      useTokenStore.getState().updateTokenCounts(card);
     }
   },
 
@@ -152,7 +102,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
 
     // Update token counts
-    get().updateTokenCounts();
+    useTokenStore.getState().updateTokenCounts(newCard);
 
     // Auto-save to server (debounced)
     if (currentCard.meta.id) {
@@ -218,23 +168,17 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
   // Save card to API
   saveCard: async () => {
-    console.log('[saveCard] ENTRY - function called');
     const { currentCard } = get();
-    console.log('[saveCard] currentCard exists?', !!currentCard, 'id:', currentCard?.meta?.id);
     if (!currentCard) {
-      console.error('[saveCard] EARLY RETURN - currentCard is null!');
       return;
     }
 
-    console.log('[saveCard] Starting save...', { isDirty: get().isDirty, cardId: currentCard.meta.id });
     set({ isSaving: true });
 
     try {
       if (currentCard.meta.id) {
         // Update existing card
-        console.log('[saveCard] Calling API updateCard...');
         const result = await api.updateCard(currentCard.meta.id, currentCard);
-        console.log('[saveCard] API updateCard result:', { error: result.error, hasData: !!result.data });
         if (result.error) {
           throw new Error(result.error);
         }
@@ -245,7 +189,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
         if (data) set({ currentCard: data });
       }
 
-      console.log('[saveCard] Save successful, setting isDirty=false');
       set({ isDirty: false });
 
       // Clear draft from IndexedDB
@@ -270,12 +213,11 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
     if (data) {
       set({ currentCard: data, isDirty: false });
-      get().updateTokenCounts();
+      useTokenStore.getState().updateTokenCounts(data);
 
       // Check for draft in IndexedDB
       const draft = await localDB.getDraft(id);
       if (draft && draft.lastSaved > data.meta.updatedAt) {
-        // Draft is newer, prompt user?
         console.log('Found newer draft in IndexedDB');
       }
     }
@@ -325,7 +267,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data, error } = await api.importCard(file);
     if (error) {
       console.error('[Import] Failed to import card:', error);
-      return;
+      return null;
     }
 
     if (data && data.card) {
@@ -344,7 +286,37 @@ export const useCardStore = create<CardStore>((set, get) => ({
       }
 
       set({ currentCard: data.card, isDirty: false });
-      get().updateTokenCounts();
+      useTokenStore.getState().updateTokenCounts(data.card);
+      return data.card.meta.id;
+    }
+    return null;
+  },
+
+  // Import Voxta package
+  importVoxtaPackage: async (file) => {
+    console.log(`[Import] Starting Voxta import of ${file.name}...`);
+    const { data, error } = await api.importVoxtaPackage(file);
+    if (error) {
+      console.error('[Import] Failed to import Voxta package:', error);
+      alert(`Failed to import Voxta package: ${error}`);
+      return null;
+    }
+
+    if (data && data.cards && data.cards.length > 0) {
+      const firstCard = data.cards[0];
+      console.log(`[Import] Successfully imported ${data.cards.length} cards from Voxta package.`);
+      
+      // Set the first card as active
+      set({ currentCard: firstCard, isDirty: false });
+      useTokenStore.getState().updateTokenCounts(firstCard);
+      
+      if (data.cards.length > 1) {
+        alert(`Imported ${data.cards.length} characters from Voxta package. "${firstCard.meta.name}" is now active.`);
+      }
+      return firstCard.meta.id;
+    } else {
+      alert('Voxta package imported but no characters were found.');
+      return null;
     }
   },
 
@@ -354,7 +326,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     if (error) {
       console.error('[Import] Failed to import card from URL:', error);
       alert(`Failed to import card: ${error}`);
-      return;
+      return null;
     }
 
     if (data && data.card) {
@@ -370,8 +342,10 @@ export const useCardStore = create<CardStore>((set, get) => ({
       }
 
       set({ currentCard: data.card, isDirty: false });
-      get().updateTokenCounts();
+      useTokenStore.getState().updateTokenCounts(data.card);
+      return data.card.meta.id;
     }
+    return null;
   },
 
   // Export card
@@ -409,53 +383,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
   },
 
-  // Update token counts
-  updateTokenCounts: async () => {
-    const { currentCard, tokenizerModel } = get();
-    if (!currentCard) return;
-
-    const payload: Record<string, string> = {};
-
-    // Extract card data (handles both wrapped and unwrapped formats)
-    const cardData = extractCardData(currentCard);
-
-    payload.name = cardData.name || '';
-    payload.description = cardData.description || '';
-    payload.personality = cardData.personality || '';
-    payload.scenario = cardData.scenario || '';
-    payload.first_mes = cardData.first_mes || '';
-    payload.mes_example = cardData.mes_example || '';
-    payload.system_prompt = cardData.system_prompt || '';
-    payload.post_history_instructions = cardData.post_history_instructions || '';
-
-    if (cardData.alternate_greetings) {
-      payload.alternate_greetings = cardData.alternate_greetings.join('\n');
-    }
-
-    if (cardData.character_book?.entries) {
-      payload.lorebook = cardData.character_book.entries.map((e) => e.content).join('\n');
-    }
-
-    const { data, error } = await api.tokenize({ model: tokenizerModel, payload });
-    if (error) {
-      console.error('Failed to tokenize:', error);
-      return;
-    }
-
-    if (data) {
-      set({ tokenCounts: { ...data.fields, total: data.total } });
-    }
-  },
-
-  setTokenizerModel: (model) => {
-    set({ tokenizerModel: model });
-    get().updateTokenCounts();
-  },
-
-  setActiveTab: (tab) => set({ activeTab: tab }),
-  setShowAdvanced: (show) => set({ showAdvanced: show }),
-
-  setSpecMode: (mode) => {
+  convertSpec: (mode) => {
     const { currentCard } = get();
     if (!currentCard) return;
 
@@ -490,15 +418,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
       } as CCv2Data;
     }
 
-    set({
-      currentCard: updatedCard,
-      specMode: mode,
-      showV3Fields: mode === 'v3',
-      isDirty: true
-    });
-  },
-
-  toggleV3Fields: () => {
-    set((state) => ({ showV3Fields: !state.showV3Fields }));
+    set({ currentCard: updatedCard, isDirty: true });
   },
 }));

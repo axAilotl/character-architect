@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useCardStore } from '../store/card-store';
-import { api } from '../lib/api';
-import { DiffViewer } from './DiffViewer';
+import { useCardStore } from '../../../store/card-store';
+import { api } from '../../../lib/api';
+import { DiffViewer } from '../../../components/ui/DiffViewer';
 import type { CardVersion, DiffOperation } from '@card-architect/schemas';
 
 // Simple diff computation on the client

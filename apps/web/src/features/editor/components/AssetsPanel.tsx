@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useCardStore } from '../store/card-store';
-import { api } from '../lib/api';
+import { useCardStore } from '../../../store/card-store';
+import { api } from '../../../lib/api';
 import type { CardAssetWithDetails } from '@card-architect/schemas';
 
 interface AssetGraph {
@@ -388,6 +388,12 @@ export function AssetsPanel() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
+                      ) : asset.asset.mimetype.startsWith('audio/') ? (
+                        <div className="w-full h-full flex items-center justify-center bg-green-900/20">
+                          <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                          </svg>
+                        </div>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-dark-bg">
                           <svg className="w-6 h-6 text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -402,11 +408,18 @@ export function AssetsPanel() {
                       <div className="font-medium truncate">{asset.name}</div>
                       <div className="text-xs text-dark-muted mt-1 flex flex-wrap gap-1">
                         <span className="px-1.5 py-0.5 bg-dark-bg rounded">{asset.type}</span>
-                        {asset.tags?.map(tag => (
-                          <span key={tag} className="px-1.5 py-0.5 bg-blue-900/30 text-blue-400 rounded">
-                            {tag}
-                          </span>
-                        ))}
+                        {asset.tags?.map(tag => {
+                          let bgColor = 'bg-blue-900/30 text-blue-400';
+                          if (tag.startsWith('emotion:')) bgColor = 'bg-purple-900/30 text-purple-400';
+                          if (tag.startsWith('state:')) bgColor = 'bg-orange-900/30 text-orange-400';
+                          if (tag.startsWith('variant:')) bgColor = 'bg-green-900/30 text-green-400';
+                          
+                          return (
+                            <span key={tag} className={`px-1.5 py-0.5 rounded ${bgColor}`}>
+                              {tag}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -441,6 +454,15 @@ export function AssetsPanel() {
                     className="max-w-full max-h-96 rounded"
                     onError={() => {
                       console.error('Failed to load video preview:', selectedAssetData.asset.url);
+                    }}
+                  />
+                ) : selectedAssetData.asset.mimetype.startsWith('audio/') ? (
+                  <audio
+                    src={selectedAssetData.asset.url}
+                    controls
+                    className="w-full"
+                    onError={() => {
+                      console.error('Failed to load audio preview:', selectedAssetData.asset.url);
                     }}
                   />
                 ) : (
@@ -557,11 +579,18 @@ export function AssetsPanel() {
             <div>
               <h3 className="text-sm font-semibold mb-3">Tags</h3>
               <div className="flex flex-wrap gap-2">
-                {selectedAssetData.tags?.map(tag => (
-                  <span key={tag} className="px-3 py-1.5 bg-blue-900/30 text-blue-400 rounded-lg text-sm">
-                    {tag}
-                  </span>
-                ))}
+                {selectedAssetData.tags?.map(tag => {
+                  let bgColor = 'bg-blue-900/30 text-blue-400';
+                  if (tag.startsWith('emotion:')) bgColor = 'bg-purple-900/30 text-purple-400';
+                  if (tag.startsWith('state:')) bgColor = 'bg-orange-900/30 text-orange-400';
+                  if (tag.startsWith('variant:')) bgColor = 'bg-green-900/30 text-green-400';
+
+                  return (
+                    <span key={tag} className={`px-3 py-1.5 rounded-lg text-sm ${bgColor}`}>
+                      {tag}
+                    </span>
+                  );
+                })}
                 {!selectedAssetData.tags || selectedAssetData.tags.length === 0 && (
                   <p className="text-sm text-dark-muted">No tags</p>
                 )}

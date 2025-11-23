@@ -18,6 +18,7 @@ This tool helps creators build, edit, and maintain AI character cards with advan
 **Frontend (apps/web):**
 - **React 18** + **TypeScript** - UI framework
 - **Vite** - Build tool and dev server
+- **React Router** - Client-side routing
 - **Tailwind CSS** - Utility-first styling (custom dark theme)
 - **Zustand** - Lightweight state management
 - **IndexedDB** (idb) - Local persistence with background sync
@@ -175,7 +176,15 @@ card_doctor/
 - **Export**:
   - JSON (spec-specific based on current mode)
   - PNG (embedded metadata in tEXt chunks)
+    - **Critical PNG Fix (2025-11-20)**: Removes old tEXt chunks before embedding new data
+    - Prevents duplicate/stale data when re-exporting edited cards
+    - Ensures exports always contain latest edits
   - CHARX (with assets)
+- **SillyTavern Push Integration**:
+  - Push button in header to send PNG directly to SillyTavern
+  - Settings modal for configuring SillyTavern URL and session cookie
+  - Auto-save before push to ensure latest edits included
+  - Generates PNG on-the-fly (no manual export needed)
 - **Click-based dropdown menus** (not hover)
 
 ### 9. Character Avatar
@@ -241,6 +250,13 @@ POST   /api/import-multiple           # Import multiple files at once
 POST   /api/convert                   # Convert v2 ↔ v3
 GET    /api/tokenizers                # List available tokenizer models
 POST   /api/tokenize                  # Tokenize fields
+```
+
+### SillyTavern Integration
+```
+GET    /api/settings/sillytavern              # Get SillyTavern settings
+PATCH  /api/settings/sillytavern              # Update SillyTavern settings
+POST   /api/cards/:id/push-to-sillytavern     # Push PNG to SillyTavern
 ```
 
 #### Import from URL Endpoint Details
@@ -473,25 +489,27 @@ CREATE TABLE llm_presets (
 
 ## File Locations Reference
 
-### Key Frontend Components (apps/web/src/components/)
-- `App.tsx` - Main application container
-- `Header.tsx` - Top navigation bar
-- `CardGrid.tsx` - Card list view with bulk operations
-- `CardEditor.tsx` - Main editor container
-- `EditorTabs.tsx` - Tab navigation + snapshot button
-- `EditPanel.tsx` - Standard edit mode with V2/V3 switcher
-- `FocusedEditor.tsx` - Focused mode with Milkdown + CodeMirror
-- `PreviewPanel.tsx` - Markdown preview with extended syntax
-- `DiffPanel.tsx` - Version history and diff view
-- `DiffViewer.tsx` - Live diff visualization component
-- `LorebookEditor.tsx` - Lorebook management (two-column)
-- `FieldEditor.tsx` - Reusable field component
-- `LLMAssistSidebar.tsx` - AI assistant with streaming
-- `TemplateSnippetPanel.tsx` - Templates/snippets management
-- `SettingsModal.tsx` - Settings UI (Providers + RAG)
-- `PromptSimulatorPanel.tsx` - Prompt simulation UI
-- `RedundancyPanel.tsx` - Redundancy detection UI (disabled)
-- `LoreTriggerPanel.tsx` - Lore trigger testing UI (disabled)
+### Key Frontend Components (apps/web/src/)
+
+**Features:**
+- `features/dashboard/CardGrid.tsx` - Card list view with bulk operations
+- `features/editor/CardEditor.tsx` - Main editor container
+- `features/editor/components/` - Editor sub-components:
+  - `EditPanel.tsx`, `FocusedEditor.tsx`
+  - `PreviewPanel.tsx`, `DiffPanel.tsx`
+  - `LorebookEditor.tsx`, `AssetsPanel.tsx`
+  - `EditorTabs.tsx`, `FieldEditor.tsx`
+  - `LLMAssistSidebar.tsx`, `TemplateSnippetPanel.tsx`
+
+**Shared Components:**
+- `components/shared/Header.tsx` - Top navigation bar
+- `components/shared/SettingsModal.tsx` - Settings UI (Providers + RAG)
+- `components/ui/` - Reusable UI elements:
+  - `SearchableSelect.tsx`, `SnapshotButton.tsx`
+  - `DiffViewer.tsx`
+
+**Core:**
+- `App.tsx` - Main application container with Routes
 
 ### Key Backend Files (apps/api/src/)
 
@@ -687,6 +705,42 @@ CREATE TABLE llm_presets (
   - Fixed bug where single card import wasn't extracting tags from card data
   - Added same tag extraction logic used in multi-import
   - Location: `apps/api/src/routes/import-export.ts:364-380`
+
+### SillyTavern Push Integration (2025-11-20)
+- **Feature**: Direct push to SillyTavern from Card Architect
+  - Push button in editor header sends PNG directly to SillyTavern
+  - No manual export step required
+  - Generates PNG on-the-fly with embedded card data
+- **Settings UI**:
+  - Settings modal with SillyTavern configuration tab
+  - Fields: Base URL, Import Endpoint, Session Cookie
+  - Test connection button
+  - No .env editing needed
+- **Implementation**:
+  - Backend: `apps/api/src/routes/sillytavern.ts`, `apps/api/src/routes/settings.ts`
+  - Frontend: `apps/web/src/components/SettingsModal.tsx`, `apps/web/src/components/Header.tsx`
+  - Auto-save before push to ensure latest edits included
+  - CSRF token handling and cookie management
+  - Full error reporting with status notifications
+
+### Critical PNG Export Fix (2025-11-20)
+- **Issue**: PNG exports and SillyTavern pushes contained old data instead of latest edits
+  - Root cause: Original PNG images already contained embedded card data in tEXt chunks
+  - Adding new data created duplicate chunks
+  - SillyTavern reads the first chunk found (old data), ignoring subsequent chunks
+- **Solution**: Strip all existing tEXt chunks before embedding new data
+  - Function: `removeAllTextChunks()` in `apps/api/src/utils/png.ts:252-294`
+  - Called automatically in `embedIntoPNG()` function
+  - Ensures only fresh, current data is embedded
+  - Applies to both PNG export and SillyTavern push
+- **Impact**:
+  - ✅ JSON export always worked (direct DB read)
+  - ✅ PNG export now contains latest edits
+  - ✅ SillyTavern push now contains latest edits
+- **Locations**:
+  - PNG utilities: `apps/api/src/utils/png.ts:248-371`
+  - Export endpoint: `apps/api/src/routes/import-export.ts:1057-1090`
+  - SillyTavern push: `apps/api/src/routes/sillytavern.ts:80-101`
 
 ## Development Workflow
 
@@ -981,6 +1035,76 @@ Card Architect solves these problems with professional tooling for character car
 
 - CCv2 Spec: https://github.com/malfoyslastname/character-card-spec-v2
 - CCv3 Spec: https://github.com/kwaroran/character-card-spec-v3
+
+## Recent Implementation: Frontend Architecture Refactor (2025-11-20)
+
+### Overview
+Refactored the frontend application to improve maintainability, scalability, and navigation.
+
+**Key Changes:**
+- **React Router Integration**: Replaced manual state-based view switching with `react-router-dom`.
+  - Routes: `/` (Dashboard), `/cards/:id` (Editor).
+  - Enables deep linking, browser history navigation, and URL sharing.
+- **Store Decomposition**: Broke down the monolithic `card-store.ts` into domain-specific stores.
+  - `ui-store.ts`: Manages ephemeral UI state (tabs, visibility toggles).
+  - `token-store.ts`: Handles token counting logic.
+  - `card-store.ts`: Focused on data persistence and CRUD operations.
+- **Feature Isolation**: Restructured `apps/web/src/components` into feature-based directories.
+  - `features/dashboard/`: Card grid and management.
+  - `features/editor/`: Card editor and sub-panels.
+  - `components/shared/`: Common components (Header, Settings).
+  - `components/ui/`: Generic UI elements.
+
+## Recent Implementation: Embedded Asset Extraction (CharX-in-PNG) (2025-11-20)
+
+### Overview
+Implemented support for extracting assets embedded within PNG text chunks, a format often referred to as "CharX-in-PNG" used by some character card tools.
+
+**Problem:**
+Standard PNG cards store metadata in a single `chara` or `ccv3` chunk. Advanced cards with assets (alternate expressions) may store them as base64-encoded strings within additional `tEXt` or `zTXt` chunks, often with keys like `__asset:0` or `chara-ext-asset_filename.png`. Previous importers ignored these, resulting in missing assets.
+
+**Solution:**
+- **Enhanced PNG Parser**: Updated `extractFromPNG` to capture *all* text chunks, including those not matching standard metadata keys.
+- **Smart Chunk Matching**: Implemented logic to match asset URIs (e.g., `__asset:0`) to PNG chunks using various key strategies:
+  - Exact ID match (`0`)
+  - Namespaced match (`asset:0`, `__asset:0`)
+  - Prefix stripping (`chara-ext-asset_0` matches ID `0`)
+- **Automatic Extraction**: When importing a single card, the system now:
+  1. Extracts the main metadata.
+  2. Scans for asset references (`data:` URIs or `__asset:` references).
+  3. Extracts and decodes the corresponding data (handling base64 and zlib compression).
+  4. Saves assets to disk and creates database records.
+  5. Links assets to the card, making them immediately available in the editor.
+
+**Files:**
+- `apps/api/src/utils/png.ts`: Added `zTXt` support and extra chunk capture.
+- `apps/api/src/services/card-import.service.ts`: Added extraction and linking logic.
+- `apps/api/src/routes/import-export.ts`: Integrated extraction into import flow.
+
+## Recent Implementation: Voxta Support (2025-11-20)
+
+### Overview
+Implemented native support for **Voxta Packages (`.voxpkg`)**, a ZIP-based format containing multi-character data, rich assets, and scripting. This feature allows Card Architect to serve as a bridge between Voxta's high-fidelity ecosystem and standard CCv3 character cards.
+
+**Key Features:**
+- **Import**: Extract characters, assets, and metadata from `.voxpkg` files.
+- **Asset Preservation**: Automatically ingests character avatars and voice samples into the Asset Graph.
+- **Data Mapping**:
+    - Maps Voxta `Profile` -> CCv3 `description`.
+    - Maps Voxta `Description` (Visuals) -> `extensions.voxta.appearance`.
+    - Maps Voxta `MemoryBooks` -> CCv3 `character_book`.
+- **Export**: Reconstructs functional `.voxpkg` files from CCv3 cards, including all associated assets.
+
+**Backend Implementation:**
+- **Handler**: `apps/api/src/utils/voxta-handler.ts` uses `yauzl` to parse the ZIP structure.
+- **Service**: `apps/api/src/services/voxta-import.service.ts` orchestrates the conversion and DB insertion.
+- **Builder**: `apps/api/src/utils/voxta-builder.ts` generates the package structure for export.
+- **Schema**: Defined `VoxtaExtensionData` in schemas to strictly type preserved metadata.
+
+**UI Integration:**
+- **Import/Export**: Added menu options for "Import Voxta Package" and "Export as Voxta".
+- **Voxta Mode**: The editor automatically detects `extensions.voxta` and displays a dedicated "Appearance (Voxta Description)" field in the Advanced tab, labeled with a "VOXTA" badge.
+- **Asset Tags**: Assets are automatically tagged with `emotion:{e}`, `state:{s}`, and `variant:{v}` derived from the Voxta directory structure.
 
 ## Recent Implementation: User-Defined LLM Presets (2025-11-16)
 

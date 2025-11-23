@@ -1,3 +1,6 @@
+# Documentation Archive
+docs/archive/
+
 # Dependencies
 node_modules/
 .pnp/
@@ -63,3 +66,14 @@ apps/api/local_cache/
 
 # Project-specific
 savvy.json
+
+# Local Testing / Debugging
+voxpkg/
+debug-*.ts
+inspect-*.ts
+*.voxpkg
+*.charx
+db_dump.json
+profile_raw.txt
+apps/api/debug-*.ts
+
