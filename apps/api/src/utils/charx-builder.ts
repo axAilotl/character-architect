@@ -58,7 +58,13 @@ export async function buildCharx(
         // Organize assets by type following CHARX convention
         // Format: assets/{type}/{subtype}/{name}.{ext}
         const subtype = cardAsset.asset.mimetype.split('/')[1] || 'bin';
-        const safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        let safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        
+        // Strip extension if present in name to avoid double extension (e.g. image.png.png)
+        if (safeName.toLowerCase().endsWith(`.${cardAsset.ext.toLowerCase()}`)) {
+            safeName = safeName.substring(0, safeName.length - (cardAsset.ext.length + 1));
+        }
+
         const assetZipPath = `assets/${cardAsset.type}/${subtype}/${safeName}.${cardAsset.ext}`;
 
         zipfile.addBuffer(buffer, assetZipPath);
@@ -133,7 +139,13 @@ function transformAssetUris(card: CCv3Data, assets: CardAssetWithDetails[]): CCv
         // Convert to embeded:// format
         // Format: embeded://assets/{type}/{subtype}/{name}.{ext}
         const subtype = cardAsset.asset.mimetype.split('/')[1] || 'bin';
-        const safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        let safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        
+        // Strip extension if present in name
+        if (safeName.toLowerCase().endsWith(`.${cardAsset.ext.toLowerCase()}`)) {
+            safeName = safeName.substring(0, safeName.length - (cardAsset.ext.length + 1));
+        }
+
         const embedUri = `embeded://assets/${cardAsset.type}/${subtype}/${safeName}.${cardAsset.ext}`;
 
         return {
