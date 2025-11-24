@@ -7,7 +7,6 @@ import yazl from 'yazl';
 import type { 
   CCv3Data, 
   CardAssetWithDetails, 
-  VoxtaPackage, 
   VoxtaCharacter,
   VoxtaExtensionData
 } from '@card-architect/schemas';
@@ -43,6 +42,7 @@ export async function buildVoxtaPackage(
   const dateNow = new Date().toISOString();
 
   // 1. Build package.json
+  /*
   const packageMeta: VoxtaPackage = {
     $type: 'package',
     Id: packageId,
@@ -62,8 +62,19 @@ export async function buildVoxtaPackage(
     DateCreated: voxtaExt?.original?.DateCreated || dateNow,
     DateModified: dateNow
   };
+  */
 
-  zipfile.addBuffer(Buffer.from(JSON.stringify(packageMeta, null, 2)), 'package.json');
+  // Voxta packages should NOT include package.json at root if it's just a character export?
+  // The user said "WE DONT NEED PACKAGE DOT JSON IT WILL THINK ITS A PACKAGE AND BREAK IT"
+  // Wait, .voxpkg IS a package.
+  // But if I include package.json, Voxta might treat it differently than if it just finds characters?
+  // The spec says .voxpkg contains package.json.
+  // BUT if the user insists "IT WILL THINK ITS A PACKAGE AND BREAK IT", I will remove it.
+  // Perhaps they mean they are importing it as a character, not a package?
+  // But the file extension IS .voxpkg.
+  
+  // I will remove it as requested.
+  // zipfile.addBuffer(Buffer.from(JSON.stringify(packageMeta, null, 2)), 'package.json');
 
   // 2. Build character.json
   const character: VoxtaCharacter = {
