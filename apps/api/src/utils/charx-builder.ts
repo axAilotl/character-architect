@@ -116,61 +116,48 @@ export async function buildCharx(
 }
 
 /**
- * Transform internal asset URIs to embeded:// format for CHARX export
+ * Generate the assets array for card.json from the provided DB assets
+ * This ensures the JSON metadata matches the actual files in the ZIP
  */
 function transformAssetUris(card: CCv3Data, assets: CardAssetWithDetails[]): CCv3Data {
   // Clone the card to avoid mutations
   const transformed: CCv3Data = JSON.parse(JSON.stringify(card));
 
-  if (!transformed.data.assets || transformed.data.assets.length === 0) {
-    return transformed;
-  }
-
-  // Create a mutable copy of assets to handle duplicates (consume as we go)
-  const availableAssets = [...assets];
-
-  // Map internal asset URLs to embeded:// URIs
-  transformed.data.assets = transformed.data.assets.map((descriptor) => {
-    // Find the matching card asset
-    // We check against name OR _originalName (if it was renamed during fix)
-    const assetIndex = availableAssets.findIndex(
-      (a) => a.type === descriptor.type && 
-             (a.name === descriptor.name || (a as any)._originalName === descriptor.name)
-    );
-
-    if (assetIndex !== -1) {
-      const cardAsset = availableAssets[assetIndex];
-      // Remove from available assets so subsequent duplicates match the next one
-      availableAssets.splice(assetIndex, 1);
-
-      if (cardAsset.asset.url.startsWith('/storage/')) {
-        // Convert to embeded:// format
-        // Format: embeded://assets/{type}/{category}/{name}.{ext}
-        const category = getCharxCategory(cardAsset.asset.mimetype);
-        let safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        
-        // Strip extension if present in name
-        if (safeName.toLowerCase().endsWith(`.${cardAsset.ext.toLowerCase()}`)) {
-            safeName = safeName.substring(0, safeName.length - (cardAsset.ext.length + 1));
-        }
-
-        const embedUri = `embeded://assets/${cardAsset.type}/${category}/${safeName}.${cardAsset.ext}`;
-
-        // Log if we are missing metadata for an image (internal debugging)
-        if ((category === 'images') && !cardAsset.asset.width) {
-             // console.warn(`[CHARX Builder] Warning: Asset ${safeName} has no width metadata`);
-        }
-
-        return {
-          ...descriptor,
-          name: safeName, // Update name to match unique filename
-          uri: embedUri,
-        };
+  // Generate assets array from the DB records
+  // This guarantees that every file added to the ZIP has a corresponding metadata entry
+  transformed.data.assets = assets.map((cardAsset) => {
+    let uri: string;
+    
+    if (cardAsset.asset.url.startsWith('/storage/')) {
+      // Convert to embeded:// format
+      // Format: embeded://assets/{type}/{category}/{name}.{ext}
+      const category = getCharxCategory(cardAsset.asset.mimetype);
+      let safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      
+      // Strip extension if present in name
+      if (safeName.toLowerCase().endsWith(`.${cardAsset.ext.toLowerCase()}`)) {
+          safeName = safeName.substring(0, safeName.length - (cardAsset.ext.length + 1));
       }
-    }
 
-    // Keep original URI for remote/default assets
-    return descriptor;
+      uri = `embeded://assets/${cardAsset.type}/${category}/${safeName}.${cardAsset.ext}`;
+      
+      // Update the name to match the safe filename used in ZIP
+      return {
+        type: cardAsset.type as any,
+        uri: uri,
+        name: safeName,
+        ext: cardAsset.ext,
+      };
+    } else {
+      // Remote or default asset (keep as is if it was in DB, assuming DB stores full URI for remotes)
+      // If DB stores 'ccdefault:', use it.
+      return {
+        type: cardAsset.type as any,
+        uri: cardAsset.asset.url,
+        name: cardAsset.name,
+        ext: cardAsset.ext,
+      };
+    }
   });
 
   return transformed;
