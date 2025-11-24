@@ -66,12 +66,15 @@ export async function buildCharx(
         // Organize assets by type following CHARX convention
         // Format: assets/{type}/{category}/{name}.{ext}
         const category = getCharxCategory(cardAsset.asset.mimetype);
-        let safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         
-        // Strip extension if present in name to avoid double extension (e.g. image.png.png)
+        // Normalize filename: strip ext, replace _/. with -, sanitize
+        let safeName = cardAsset.name;
         if (safeName.toLowerCase().endsWith(`.${cardAsset.ext.toLowerCase()}`)) {
             safeName = safeName.substring(0, safeName.length - (cardAsset.ext.length + 1));
         }
+        // Replace dots and underscores with hyphens, remove other special chars, collapse dashes
+        safeName = safeName.replace(/[._]/g, '-').replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        if (!safeName) safeName = 'asset';
 
         const assetZipPath = `assets/${cardAsset.type}/${category}/${safeName}.${cardAsset.ext}`;
 
@@ -132,12 +135,15 @@ function transformAssetUris(card: CCv3Data, assets: CardAssetWithDetails[]): CCv
       // Convert to embeded:// format
       // Format: embeded://assets/{type}/{category}/{name}.{ext}
       const category = getCharxCategory(cardAsset.asset.mimetype);
-      let safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       
-      // Strip extension if present in name
+      // Normalize filename: strip ext, replace _/. with -, sanitize
+      let safeName = cardAsset.name;
       if (safeName.toLowerCase().endsWith(`.${cardAsset.ext.toLowerCase()}`)) {
           safeName = safeName.substring(0, safeName.length - (cardAsset.ext.length + 1));
       }
+      // Replace dots and underscores with hyphens, remove other special chars, collapse dashes
+      safeName = safeName.replace(/[._]/g, '-').replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+      if (!safeName) safeName = 'asset';
 
       uri = `embeded://assets/${cardAsset.type}/${category}/${safeName}.${cardAsset.ext}`;
       

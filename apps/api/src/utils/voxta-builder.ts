@@ -140,11 +140,15 @@ export async function buildVoxtaPackage(
         let voxtaPath = '';
         const tags = cardAsset.tags || [];
         
-        // Handle double extension issue
+        // Handle double extension issue and normalize filename
         let safeName = cardAsset.name;
         if (safeName.toLowerCase().endsWith(`.${cardAsset.ext.toLowerCase()}`)) {
             safeName = safeName.substring(0, safeName.length - (cardAsset.ext.length + 1));
         }
+        // Replace dots and underscores with hyphens, remove other special chars, collapse dashes
+        safeName = safeName.replace(/[._]/g, '-').replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        if (!safeName) safeName = 'asset';
+        
         const finalFilename = `${safeName}.${cardAsset.ext}`;
         
         if (cardAsset.type === 'sound' || tags.includes('voice')) {
