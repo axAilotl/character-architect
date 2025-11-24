@@ -71,16 +71,21 @@ export function AssetsPanel() {
 
     setIsUploading(true);
     try {
-      const file = files[0];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // If multiple files are selected, use their original filenames to avoid naming collisions,
+        // unless the user explicitly provided a name (which we only use if it's a single file upload)
+        const name = files.length > 1 ? file.name : (uploadName || file.name);
 
-      await api.uploadAsset(
-        currentCard.meta.id,
-        file,
-        uploadType,
-        uploadName || file.name,
-        uploadIsMain,
-        uploadTags
-      );
+        await api.uploadAsset(
+          currentCard.meta.id,
+          file,
+          uploadType,
+          name,
+          uploadIsMain && i === 0, // Only set as main for the first file if multiple
+          uploadTags
+        );
+      }
 
       // Reset form and reload
       setUploadName('');
@@ -89,8 +94,8 @@ export function AssetsPanel() {
       setShowUploadForm(false);
       await loadAssets();
     } catch (err) {
-      console.error('Failed to upload asset:', err);
-      alert('Failed to upload asset');
+      console.error('Failed to upload assets:', err);
+      alert('Failed to upload one or more assets');
     } finally {
       setIsUploading(false);
     }
@@ -333,6 +338,7 @@ export function AssetsPanel() {
                 type="file"
                 className="hidden"
                 accept="image/*,video/*,audio/*"
+                multiple
                 onChange={(e) => handleFileSelect(e.target.files)}
                 disabled={isUploading}
               />
