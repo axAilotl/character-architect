@@ -129,39 +129,33 @@ export async function buildVoxtaPackage(
         let voxtaPath = '';
         const tags = cardAsset.tags || [];
         
+        // Handle double extension issue
+        let safeName = cardAsset.name;
+        if (safeName.toLowerCase().endsWith(`.${cardAsset.ext.toLowerCase()}`)) {
+            safeName = safeName.substring(0, safeName.length - (cardAsset.ext.length + 1));
+        }
+        const finalFilename = `${safeName}.${cardAsset.ext}`;
+        
         if (cardAsset.type === 'sound' || tags.includes('voice')) {
            // Voice Sample
-           voxtaPath = `Characters/${characterId}/Assets/VoiceSamples/${cardAsset.name}`;
-        } else if (cardAsset.type === 'icon') {
-           // Avatar
+           voxtaPath = `Characters/${characterId}/Assets/VoiceSamples/${finalFilename}`;
+        } else if (cardAsset.type === 'icon' || cardAsset.type === 'emotion') {
+           // Avatar (Default folder)
            
            // Check if this is the thumbnail candidate
-           if (tags.includes('portrait-override')) {
-             mainThumbnail = cardAsset;
-           } else if (!mainThumbnail && cardAsset.name === 'main') {
-             mainThumbnail = cardAsset;
+           if (cardAsset.type === 'icon') {
+             if (tags.includes('portrait-override')) {
+               mainThumbnail = cardAsset;
+             } else if (!mainThumbnail && (cardAsset.name === 'main' || cardAsset.isMain)) {
+               mainThumbnail = cardAsset;
+             }
            }
 
-           // Construct {Emotion}_{State}_{Variant}
-           const emotion = getTagValue(tags, 'emotion') || 'Neutral';
-           const state = getTagValue(tags, 'state') || 'Idle';
-           let variant = getTagValue(tags, 'variant');
-           
-           // If no variant tag, try to extract from name or use order
-           if (!variant) {
-             // If name ends in numbers, use that
-             const numMatch = cardAsset.name.match(/(\d+)$/);
-             variant = numMatch ? numMatch[1] : '01';
-           }
-
-           // Capitalize first letters for standard Voxta style
-           const E = capitalize(emotion);
-           const S = capitalize(state);
-           
-           voxtaPath = `Characters/${characterId}/Assets/Avatars/Default/${E}_${S}_${variant}.webp`;
+           // Use original filename (cleaned)
+           voxtaPath = `Characters/${characterId}/Assets/Avatars/Default/${finalFilename}`;
         } else {
            // Misc
-           voxtaPath = `Characters/${characterId}/Assets/Misc/${cardAsset.name}`;
+           voxtaPath = `Characters/${characterId}/Assets/Misc/${finalFilename}`;
         }
 
         zipfile.addBuffer(buffer, voxtaPath);
@@ -218,13 +212,4 @@ export async function buildVoxtaPackage(
     });
     zipfile.outputStream.on('error', reject);
   });
-}
-
-function getTagValue(tags: string[], prefix: string): string | undefined {
-  const tag = tags.find(t => t.startsWith(`${prefix}:`));
-  return tag ? tag.split(':')[1] : undefined;
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
