@@ -112,28 +112,40 @@ function transformAssetUris(card: CCv3Data, assets: CardAssetWithDetails[]): CCv
     return transformed;
   }
 
+  // Create a mutable copy of assets to handle duplicates (consume as we go)
+  const availableAssets = [...assets];
+
   // Map internal asset URLs to embeded:// URIs
   transformed.data.assets = transformed.data.assets.map((descriptor) => {
     // Find the matching card asset
-    const cardAsset = assets.find(
-      (a) => a.type === descriptor.type && a.name === descriptor.name
+    // We check against name OR _originalName (if it was renamed during fix)
+    const assetIndex = availableAssets.findIndex(
+      (a) => a.type === descriptor.type && 
+             (a.name === descriptor.name || (a as any)._originalName === descriptor.name)
     );
 
-    if (cardAsset && cardAsset.asset.url.startsWith('/storage/')) {
-      // Convert to embeded:// format
-      // Format: embeded://assets/{type}/{subtype}/{name}.{ext}
-      const subtype = cardAsset.asset.mimetype.split('/')[1] || 'bin';
-      const safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const embedUri = `embeded://assets/${cardAsset.type}/${subtype}/${safeName}.${cardAsset.ext}`;
+    if (assetIndex !== -1) {
+      const cardAsset = availableAssets[assetIndex];
+      // Remove from available assets so subsequent duplicates match the next one
+      availableAssets.splice(assetIndex, 1);
 
-      return {
-        ...descriptor,
-        uri: embedUri,
-        // Inject metadata from DB if available
-        width: cardAsset.asset.width || undefined,
-        height: cardAsset.asset.height || undefined,
-        size: cardAsset.asset.size || undefined,
-      };
+      if (cardAsset.asset.url.startsWith('/storage/')) {
+        // Convert to embeded:// format
+        // Format: embeded://assets/{type}/{subtype}/{name}.{ext}
+        const subtype = cardAsset.asset.mimetype.split('/')[1] || 'bin';
+        const safeName = cardAsset.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const embedUri = `embeded://assets/${cardAsset.type}/${subtype}/${safeName}.${cardAsset.ext}`;
+
+        return {
+          ...descriptor,
+          name: safeName, // Update name to match unique filename
+          uri: embedUri,
+          // Inject metadata from DB if available
+          width: cardAsset.asset.width || undefined,
+          height: cardAsset.asset.height || undefined,
+          size: cardAsset.asset.size || undefined,
+        };
+      }
     }
 
     // Keep original URI for remote/default assets

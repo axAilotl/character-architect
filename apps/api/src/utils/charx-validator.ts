@@ -236,7 +236,8 @@ export function applyExportFixes(assets: CardAssetWithDetails[]): CardAssetWithD
       return {
         ...asset,
         name: `${baseName}_${count}`,
-      };
+        _originalName: baseName,
+      } as CardAssetWithDetails & { _originalName?: string };
     }
     return asset;
   });
