@@ -1,6 +1,3 @@
-# Documentation (internal/working docs)
-docs/
-
 # Dependencies
 node_modules/
 .pnp/
