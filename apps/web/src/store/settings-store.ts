@@ -10,6 +10,35 @@ interface CreatorNotesSettings {
   htmlMode: boolean;
 }
 
+interface FeatureFlags {
+  wwwyzzerddEnabled: boolean;
+  comfyUIEnabled: boolean;
+}
+
+interface WwwyzzerddSettings {
+  activePromptSetId: string | null;
+}
+
+interface AIPromptSettings {
+  tagsSystemPrompt: string;
+  taglineSystemPrompt: string;
+}
+
+interface ComfyUISettings {
+  serverUrl: string;
+  activeWorkflowId: string | null;
+  activePromptId: string | null;
+  autoSelectType: boolean;
+  autoGenerateFilename: boolean;
+  defaultModel: string;
+  defaultSampler: string;
+  defaultScheduler: string;
+  defaultWidth: number;
+  defaultHeight: number;
+  positivePrefix: string;
+  negativePrefix: string;
+}
+
 // Theme definitions
 export type ThemeId =
   | 'default-dark'
@@ -187,6 +216,18 @@ interface SettingsStore {
   // Editor settings
   editor: EditorSettings;
 
+  // Feature flags
+  features: FeatureFlags;
+
+  // wwwyzzerdd settings
+  wwwyzzerdd: WwwyzzerddSettings;
+
+  // ComfyUI settings
+  comfyUI: ComfyUISettings;
+
+  // AI prompt settings
+  aiPrompts: AIPromptSettings;
+
   // Actions
   setAutoSnapshotEnabled: (enabled: boolean) => void;
   setAutoSnapshotInterval: (minutes: number) => void;
@@ -203,6 +244,25 @@ interface SettingsStore {
   setExportSpec: (spec: 'v2' | 'v3') => void;
   setShowExtensionsTab: (show: boolean) => void;
   setExtendedFocusedField: (field: keyof EditorSettings['extendedFocusedFields'], enabled: boolean) => void;
+
+  // Feature flag actions
+  setWwwyzzerddEnabled: (enabled: boolean) => void;
+  setComfyUIEnabled: (enabled: boolean) => void;
+
+  // wwwyzzerdd actions
+  setWwwyzzerddActivePromptSet: (id: string | null) => void;
+
+  // ComfyUI actions
+  setComfyUIServerUrl: (url: string) => void;
+  setComfyUIActiveWorkflow: (id: string | null) => void;
+  setComfyUIActivePrompt: (id: string | null) => void;
+  setComfyUIAutoSelectType: (enabled: boolean) => void;
+  setComfyUIAutoGenerateFilename: (enabled: boolean) => void;
+  setComfyUIDefaults: (defaults: Partial<Omit<ComfyUISettings, 'serverUrl' | 'activeWorkflowId' | 'activePromptId' | 'autoSelectType' | 'autoGenerateFilename'>>) => void;
+
+  // AI prompt actions
+  setTagsSystemPrompt: (prompt: string) => void;
+  setTaglineSystemPrompt: (prompt: string) => void;
 }
 
 const DEFAULT_AUTO_SNAPSHOT: AutoSnapshotSettings = {
@@ -235,6 +295,35 @@ const DEFAULT_EDITOR: EditorSettings = {
   },
 };
 
+const DEFAULT_FEATURES: FeatureFlags = {
+  wwwyzzerddEnabled: false,
+  comfyUIEnabled: false,
+};
+
+const DEFAULT_WWWYZZERDD: WwwyzzerddSettings = {
+  activePromptSetId: null,
+};
+
+const DEFAULT_COMFYUI: ComfyUISettings = {
+  serverUrl: 'http://127.0.0.1:8188',
+  activeWorkflowId: null,
+  activePromptId: null,
+  autoSelectType: true,
+  autoGenerateFilename: true,
+  defaultModel: '',
+  defaultSampler: 'euler',
+  defaultScheduler: 'normal',
+  defaultWidth: 512,
+  defaultHeight: 768,
+  positivePrefix: '',
+  negativePrefix: 'blurry, low quality, deformed, bad anatomy, watermark, signature',
+};
+
+const DEFAULT_AI_PROMPTS: AIPromptSettings = {
+  tagsSystemPrompt: 'You are a helpful assistant that generates tags for character cards. Output ONLY a JSON array of lowercase single-word tag strings, nothing else. Tags should be relevant descriptors like genre, personality traits, setting, species, etc. Generate 5-10 tags. Each tag must be a single word (use hyphens for compound words like "sci-fi").',
+  taglineSystemPrompt: 'You are a helpful assistant that writes short taglines for character cards. Output ONLY the tagline text, nothing else. The tagline should be catchy, intriguing, and under 500 characters. Do not use quotes around it.',
+};
+
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
@@ -242,6 +331,10 @@ export const useSettingsStore = create<SettingsStore>()(
       creatorNotes: DEFAULT_CREATOR_NOTES,
       theme: DEFAULT_THEME,
       editor: DEFAULT_EDITOR,
+      features: DEFAULT_FEATURES,
+      wwwyzzerdd: DEFAULT_WWWYZZERDD,
+      comfyUI: DEFAULT_COMFYUI,
+      aiPrompts: DEFAULT_AI_PROMPTS,
 
       setAutoSnapshotEnabled: (enabled) =>
         set((state) => ({
@@ -303,9 +396,84 @@ export const useSettingsStore = create<SettingsStore>()(
             },
           },
         })),
+
+      // Feature flag actions
+      setWwwyzzerddEnabled: (enabled) =>
+        set((state) => ({
+          features: { ...state.features, wwwyzzerddEnabled: enabled },
+        })),
+
+      setComfyUIEnabled: (enabled) =>
+        set((state) => ({
+          features: { ...state.features, comfyUIEnabled: enabled },
+        })),
+
+      // wwwyzzerdd actions
+      setWwwyzzerddActivePromptSet: (activePromptSetId) =>
+        set((state) => ({
+          wwwyzzerdd: { ...state.wwwyzzerdd, activePromptSetId },
+        })),
+
+      // ComfyUI actions
+      setComfyUIServerUrl: (serverUrl) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, serverUrl },
+        })),
+
+      setComfyUIActiveWorkflow: (activeWorkflowId) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, activeWorkflowId },
+        })),
+
+      setComfyUIActivePrompt: (activePromptId) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, activePromptId },
+        })),
+
+      setComfyUIAutoSelectType: (autoSelectType) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, autoSelectType },
+        })),
+
+      setComfyUIAutoGenerateFilename: (autoGenerateFilename) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, autoGenerateFilename },
+        })),
+
+      setComfyUIDefaults: (defaults) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, ...defaults },
+        })),
+
+      // AI prompt actions
+      setTagsSystemPrompt: (tagsSystemPrompt) =>
+        set((state) => ({
+          aiPrompts: { ...state.aiPrompts, tagsSystemPrompt },
+        })),
+
+      setTaglineSystemPrompt: (taglineSystemPrompt) =>
+        set((state) => ({
+          aiPrompts: { ...state.aiPrompts, taglineSystemPrompt },
+        })),
     }),
     {
       name: 'card-architect-settings',
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<SettingsStore>;
+        return {
+          ...currentState,
+          ...persisted,
+          // Ensure new properties are properly merged with defaults
+          features: { ...currentState.features, ...persisted.features },
+          wwwyzzerdd: { ...currentState.wwwyzzerdd, ...persisted.wwwyzzerdd },
+          comfyUI: { ...currentState.comfyUI, ...persisted.comfyUI },
+          aiPrompts: { ...currentState.aiPrompts, ...persisted.aiPrompts },
+          autoSnapshot: { ...currentState.autoSnapshot, ...persisted.autoSnapshot },
+          creatorNotes: { ...currentState.creatorNotes, ...persisted.creatorNotes },
+          theme: { ...currentState.theme, ...persisted.theme },
+          editor: { ...currentState.editor, ...persisted.editor },
+        };
+      },
     }
   )
 );

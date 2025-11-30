@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 
+type EditorTab = 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused' | 'assets' | 'wwwyzzerdd' | 'comfyui';
+
 interface UIStore {
   // Editor UI State
-  activeTab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused' | 'assets';
+  activeTab: EditorTab;
   showAdvanced: boolean;
 
   // Actions
-  setActiveTab: (
-    tab: 'edit' | 'preview' | 'diff' | 'simulator' | 'redundancy' | 'lore-trigger' | 'focused' | 'assets'
-  ) => void;
+  setActiveTab: (tab: EditorTab) => void;
   setShowAdvanced: (show: boolean) => void;
 }
 

@@ -1,23 +1,42 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useCardStore } from '../../../store/card-store';
 import { useUIStore } from '../../../store/ui-store';
+import { useSettingsStore } from '../../../store/settings-store';
 
 export function EditorTabs() {
   const { currentCard, createSnapshot } = useCardStore();
   const { activeTab, setActiveTab } = useUIStore();
+  const wwwyzzerddEnabled = useSettingsStore((state) => state.features?.wwwyzzerddEnabled ?? false);
+  const comfyUIEnabled = useSettingsStore((state) => state.features?.comfyUIEnabled ?? false);
   const [isCreating, setIsCreating] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [message, setMessage] = useState('');
 
-  const tabs = [
-    { id: 'edit', label: 'Edit' },
-    { id: 'assets', label: 'Assets' },
-    { id: 'focused', label: 'Focused' },
-    { id: 'preview', label: 'Preview' },
-    { id: 'diff', label: 'Diff' },
-    // { id: 'redundancy', label: 'Card Efficiency' }, // Disabled
-    // { id: 'lore-trigger', label: 'Lore Trigger Tester' }, // Disabled
-  ] as const;
+  const tabs = useMemo(() => {
+    const baseTabs: { id: string; label: string; color?: string }[] = [
+      { id: 'edit', label: 'Edit' },
+      { id: 'assets', label: 'Assets' },
+      { id: 'focused', label: 'Focused' },
+    ];
+
+    // Add wwwyzzerdd tab after Focused if enabled
+    if (wwwyzzerddEnabled) {
+      baseTabs.push({ id: 'wwwyzzerdd', label: 'wwwyzzerdd', color: 'purple' });
+    }
+
+    // Add ComfyUI tab if enabled
+    if (comfyUIEnabled) {
+      baseTabs.push({ id: 'comfyui', label: 'ComfyUI', color: 'green' });
+    }
+
+    // Add remaining tabs
+    baseTabs.push(
+      { id: 'preview', label: 'Preview' },
+      { id: 'diff', label: 'Diff' }
+    );
+
+    return baseTabs;
+  }, [wwwyzzerddEnabled, comfyUIEnabled]);
 
   const handleCreateSnapshot = async () => {
     if (showPrompt) {
@@ -45,19 +64,23 @@ export function EditorTabs() {
     <div className="bg-dark-surface border-b border-dark-border">
       <div className="flex items-center justify-between">
         <div className="flex">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-dark-bg text-dark-text border-b-2 border-blue-500'
-                  : 'text-dark-muted hover:text-dark-text'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {tabs.map((tab) => {
+            const borderColor = tab.color === 'purple' ? 'border-purple-500' : tab.color === 'green' ? 'border-green-500' : 'border-blue-500';
+            const textColor = tab.color === 'purple' ? 'text-purple-400' : tab.color === 'green' ? 'text-green-400' : 'text-dark-text';
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-6 py-3 font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? `bg-dark-bg ${textColor} border-b-2 ${borderColor}`
+                    : 'text-dark-muted hover:text-dark-text'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Snapshot Button */}

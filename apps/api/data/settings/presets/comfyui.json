@@ -1,0 +1,151 @@
+{
+  "promptTemplates": [
+    {
+      "id": "comfyui-character",
+      "name": "Character (Full Body)",
+      "description": "Generate a full body portrait of the character",
+      "type": "character",
+      "prompt": "In the next response I want you to provide only a detailed comma-delimited list of keywords and phrases which describe {{char}} based on what you know about them. Be sure to include their hair color, eye color, any accessories or outfit they may wear, their body type, and any other relevant details. Also include a subject and medium for the image. Don't explain anything. Do not preface your response with \"here is...\" or something similar. The purpose of this response is to use it as a prompt for stable diffusion to generate an avatar of {{char}}. DO NOT leave any placeholders or fill-in-the-blank items. Make your best guess based on the genre if the details are not provided, don't ask for more information.",
+      "negativePrompt": "blurry, low quality, deformed, bad anatomy, watermark, signature, text, cropped",
+      "isDefault": true,
+      "createdAt": "2025-11-29T22:01:16.500Z",
+      "updatedAt": "2025-11-29T22:01:16.500Z"
+    },
+    {
+      "id": "comfyui-scenario",
+      "name": "Scenario (Scene)",
+      "description": "Generate a scene illustration with the character",
+      "type": "scenario",
+      "prompt": "Ignore previous instructions and provide a detailed description for all of the following. {{char}}'s personality, appearance, and mannerisms. Their relationship with {{user}}, the first message of the roleplay, the scenario in which the roleplay takes place, and any other relevant details. Everything should be written in a detailed descriptive prose style for a visual illustration. Include visual details about lighting, atmosphere, and composition.",
+      "negativePrompt": "blurry, low quality, empty background, plain background, text, watermark",
+      "isDefault": true,
+      "createdAt": "2025-11-29T22:01:16.500Z",
+      "updatedAt": "2025-11-29T22:01:16.500Z"
+    },
+    {
+      "id": "comfyui-portrait",
+      "name": "Portrait (Face)",
+      "description": "Generate a close-up facial portrait",
+      "type": "portrait",
+      "prompt": "In the next response I want you to provide only a detailed comma-delimited list of keywords and phrases which describe {{char}}'s face and upper body based on what you know about them. Focus on facial features: eye shape and color, eyebrows, nose, lips, facial structure, skin tone, hair style and color, expression, and any facial accessories. Include lighting and mood keywords. Don't explain anything. The purpose is to generate a portrait with stable diffusion.",
+      "negativePrompt": "blurry, low quality, deformed face, bad anatomy, asymmetric eyes, watermark",
+      "isDefault": true,
+      "createdAt": "2025-11-29T22:01:16.500Z",
+      "updatedAt": "2025-11-29T22:01:16.500Z"
+    },
+    {
+      "id": "comfyui-background",
+      "name": "Background",
+      "description": "Generate a background/environment without characters",
+      "type": "background",
+      "prompt": "Ignore previous instructions and provide a detailed description of {{char}}'s surroundings based on the scenario and setting. Describe the environment, architecture, lighting conditions, time of day, weather, atmosphere, and any notable objects or features. Focus only on the environment - no characters should be present. Write as comma-delimited keywords for stable diffusion.",
+      "negativePrompt": "people, characters, faces, figures, blurry, low quality, text, watermark",
+      "isDefault": true,
+      "createdAt": "2025-11-29T22:01:16.500Z",
+      "updatedAt": "2025-11-29T22:01:16.500Z"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "comfyui-basic-txt2img",
+      "name": "Basic Text to Image",
+      "description": "Simple text-to-image workflow with KSampler",
+      "workflow": {
+        "3": {
+          "inputs": {
+            "seed": 0,
+            "steps": 20,
+            "cfg": 7,
+            "sampler_name": "euler",
+            "scheduler": "normal",
+            "denoise": 1,
+            "model": [
+              "4",
+              0
+            ],
+            "positive": [
+              "6",
+              0
+            ],
+            "negative": [
+              "7",
+              0
+            ],
+            "latent_image": [
+              "5",
+              0
+            ]
+          },
+          "class_type": "KSampler"
+        },
+        "4": {
+          "inputs": {
+            "ckpt_name": "model.safetensors"
+          },
+          "class_type": "CheckpointLoaderSimple"
+        },
+        "5": {
+          "inputs": {
+            "width": 512,
+            "height": 768,
+            "batch_size": 1
+          },
+          "class_type": "EmptyLatentImage"
+        },
+        "6": {
+          "inputs": {
+            "text": "positive prompt",
+            "clip": [
+              "4",
+              1
+            ]
+          },
+          "class_type": "CLIPTextEncode"
+        },
+        "7": {
+          "inputs": {
+            "text": "negative prompt",
+            "clip": [
+              "4",
+              1
+            ]
+          },
+          "class_type": "CLIPTextEncode"
+        },
+        "8": {
+          "inputs": {
+            "samples": [
+              "3",
+              0
+            ],
+            "vae": [
+              "4",
+              2
+            ]
+          },
+          "class_type": "VAEDecode"
+        },
+        "9": {
+          "inputs": {
+            "filename_prefix": "ComfyUI",
+            "images": [
+              "8",
+              0
+            ]
+          },
+          "class_type": "SaveImage"
+        }
+      },
+      "defaultModel": "",
+      "defaultSampler": "euler",
+      "defaultScheduler": "normal",
+      "defaultResolution": {
+        "width": 512,
+        "height": 768
+      },
+      "isDefault": true,
+      "createdAt": "2025-11-29T22:01:16.500Z",
+      "updatedAt": "2025-11-29T22:01:16.500Z"
+    }
+  ]
+}

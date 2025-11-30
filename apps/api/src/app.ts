@@ -17,6 +17,8 @@ import { presetRoutes } from './routes/presets.js';
 import { sillyTavernRoutes } from './routes/sillytavern.js';
 import { settingsRoutes } from './routes/settings.js';
 import { templateRoutes } from './routes/templates.js';
+import { wwwyzzerddRoutes } from './routes/wwwyzzerdd.js';
+import { comfyuiRoutes } from './routes/comfyui.js';
 import type Database from 'better-sqlite3';
 
 // Extend Fastify instance type
@@ -73,6 +75,8 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(sillyTavernRoutes, apiPrefix);
   await fastify.register(settingsRoutes, apiPrefix);
   await fastify.register(templateRoutes, apiPrefix);
+  await fastify.register(wwwyzzerddRoutes, apiPrefix);
+  await fastify.register(comfyuiRoutes, apiPrefix);
 
   // Add hook to close database when server closes
   fastify.addHook('onClose', async () => {

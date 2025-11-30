@@ -84,9 +84,22 @@ export function DiffPanel() {
           <h3 className="font-semibold">
             Comparing Version {selectedVersion.version} with Current
           </h3>
-          <button onClick={() => setSelectedVersion(null)} className="btn-secondary">
-            Back to Versions
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                if (confirm(`Restore to Version ${selectedVersion.version}?`)) {
+                  await api.restoreVersion(currentCard.meta.id, selectedVersion.id);
+                  window.location.reload();
+                }
+              }}
+              className="btn-primary"
+            >
+              Restore This Version
+            </button>
+            <button onClick={() => setSelectedVersion(null)} className="btn-secondary">
+              Back to Versions
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-auto p-4">

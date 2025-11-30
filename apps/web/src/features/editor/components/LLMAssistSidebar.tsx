@@ -3,7 +3,7 @@
  * Provides AI-powered editing capabilities for any field
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLLMStore } from '../../../store/llm-store';
 import { api } from '../../../lib/api';
 import type {
@@ -58,6 +58,7 @@ export function LLMAssistSidebar({
   const [streamedContent, setStreamedContent] = useState('');
   const [assistResponse, setAssistResponse] = useState<LLMAssistResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -115,11 +116,23 @@ export function LLMAssistSidebar({
     }
   }, [useKnowledgeBase]);
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsProcessing(false);
+      setError('Request stopped by user');
+    }
+  };
+
   const handleRun = async () => {
     if (!instruction && !selectedPresetId) {
       setError('Please provide an instruction or select a preset');
       return;
     }
+
+    // Create abort controller
+    abortControllerRef.current = new AbortController();
 
     setIsProcessing(true);
     setError(null);
@@ -200,20 +213,34 @@ export function LLMAssistSidebar({
         (response: LLMAssistResponse) => {
           setAssistResponse(response);
           setIsProcessing(false);
+          abortControllerRef.current = null;
         },
         (err: string) => {
-          setError(err);
+          if (!err.includes('abort')) {
+            setError(err);
+          }
           setIsProcessing(false);
-        }
+          abortControllerRef.current = null;
+        },
+        abortControllerRef.current?.signal
       );
     } else {
-      const { data, error: apiError } = await api.llmAssist(request);
-      setIsProcessing(false);
+      try {
+        const { data, error: apiError } = await api.llmAssist(request);
+        setIsProcessing(false);
+        abortControllerRef.current = null;
 
-      if (apiError) {
-        setError(apiError);
-      } else if (data) {
-        setAssistResponse(data);
+        if (apiError) {
+          setError(apiError);
+        } else if (data) {
+          setAssistResponse(data);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name !== 'AbortError') {
+          setError(err.message);
+        }
+        setIsProcessing(false);
+        abortControllerRef.current = null;
       }
     }
   };
@@ -228,6 +255,29 @@ export function LLMAssistSidebar({
   const handleUserPresetSelect = (presetId: string) => {
     setSelectedPresetId(presetId);
     setInstruction(''); // Clear custom instruction when preset is selected
+  };
+
+  const handleSaveAsPreset = async () => {
+    if (!instruction.trim()) return;
+
+    const name = prompt('Enter a name for this preset:');
+    if (!name) return;
+
+    const result = await api.createPreset({
+      name: name.trim(),
+      instruction: instruction.trim(),
+      category: 'custom',
+      description: '',
+    });
+
+    if (result.data?.preset) {
+      await loadPresets();
+      setSelectedPresetId(result.data.preset.id);
+      setInstruction('');
+      setShowCustomInstruction(false);
+    } else if (result.error) {
+      setError(`Failed to save preset: ${result.error}`);
+    }
   };
 
   if (!isOpen) return null;
@@ -428,19 +478,36 @@ export function LLMAssistSidebar({
               placeholder="Describe what you want to do..."
               className="w-full bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm resize-none h-32"
             />
+            {instruction.trim() && (
+              <button
+                onClick={handleSaveAsPreset}
+                className="self-end px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
+              >
+                Save as Preset
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Run Button - Always visible */}
+      {/* Run/Stop Button - Always visible */}
       <div className="p-4 border-b border-dark-border">
-        <button
-          onClick={handleRun}
-          disabled={isProcessing || (!instruction && !selectedPresetId)}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {isProcessing ? 'Processing...' : 'Run'}
-        </button>
+        {isProcessing ? (
+          <button
+            onClick={handleStop}
+            className="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Stop
+          </button>
+        ) : (
+          <button
+            onClick={handleRun}
+            disabled={!instruction && !selectedPresetId}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Run
+          </button>
+        )}
       </div>
 
       {/* Results - Takes remaining space */}

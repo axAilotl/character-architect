@@ -41,7 +41,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     getCachedModels,
   } = useLLMStore();
 
-  const [activeTab, setActiveTab] = useState<'general' | 'editor' | 'themes' | 'providers' | 'rag' | 'templates' | 'presets' | 'sillytavern'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'editor' | 'themes' | 'providers' | 'rag' | 'templates' | 'presets' | 'sillytavern' | 'wwwyzzerdd' | 'comfyui'>('general');
 
   // Settings from store
   const {
@@ -60,7 +60,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setExportSpec,
     setShowExtensionsTab,
     setExtendedFocusedField,
+    setWwwyzzerddEnabled,
+    setComfyUIEnabled,
+    setWwwyzzerddActivePromptSet,
+    setComfyUIServerUrl,
+    setComfyUIActiveWorkflow,
+    setComfyUIAutoSelectType,
+    setComfyUIAutoGenerateFilename,
+    setComfyUIDefaults,
   } = useSettingsStore();
+
+  // Use individual selectors for feature flags to ensure proper reactivity
+  const wwwyzzerddEnabled = useSettingsStore((state) => state.features?.wwwyzzerddEnabled ?? false);
+  const comfyUIEnabled = useSettingsStore((state) => state.features?.comfyUIEnabled ?? false);
+  const wwwyzzerddSettings = useSettingsStore((state) => state.wwwyzzerdd);
+  const comfyUISettings = useSettingsStore((state) => state.comfyUI);
   const [editingProvider, setEditingProvider] = useState<Partial<ProviderConfig> | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; error?: string }>>({});
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
@@ -93,6 +107,43 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [stSessionCookie, setStSessionCookie] = useState('');
   const [stStatus, setStStatus] = useState<string | null>(null);
   const [stLoading, setStLoading] = useState(false);
+
+  // wwwyzzerdd state
+  interface WwwyzzerddPromptSet {
+    id: string;
+    name: string;
+    description?: string;
+    characterPrompt: string;
+    lorePrompt: string;
+    personality: string;
+    isDefault?: boolean;
+  }
+  const [wwwyzzerddPromptSets, setWwwyzzerddPromptSets] = useState<WwwyzzerddPromptSet[]>([]);
+  const [wwwyzzerddLoading, setWwwyzzerddLoading] = useState(false);
+  const [wwwyzzerddStatus, setWwwyzzerddStatus] = useState<string | null>(null);
+  const [editingPromptSet, setEditingPromptSet] = useState<Partial<WwwyzzerddPromptSet> | null>(null);
+
+  // ComfyUI state
+  interface ComfyUIPromptTemplate {
+    id: string;
+    name: string;
+    description?: string;
+    type: 'character' | 'scenario' | 'portrait' | 'background' | 'custom';
+    prompt: string;
+    negativePrompt?: string;
+    isDefault?: boolean;
+  }
+  interface ComfyUIWorkflowItem {
+    id: string;
+    name: string;
+    description?: string;
+    isDefault?: boolean;
+  }
+  const [comfyPromptTemplates, setComfyPromptTemplates] = useState<ComfyUIPromptTemplate[]>([]);
+  const [comfyWorkflows, setComfyWorkflows] = useState<ComfyUIWorkflowItem[]>([]);
+  const [comfyLoading, setComfyLoading] = useState(false);
+  const [comfyStatus, setComfyStatus] = useState<string | null>(null);
+  const [editingComfyPrompt, setEditingComfyPrompt] = useState<Partial<ComfyUIPromptTemplate> | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -135,6 +186,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       };
 
       loadStSettings();
+    }
+  }, [isOpen, activeTab]);
+
+  // Load wwwyzzerdd prompt sets when tab is active
+  useEffect(() => {
+    if (isOpen && activeTab === 'wwwyzzerdd') {
+      loadWwwyzzerddPromptSets();
+    }
+  }, [isOpen, activeTab]);
+
+  // Load ComfyUI data when tab is active
+  useEffect(() => {
+    if (isOpen && activeTab === 'comfyui') {
+      loadComfyUIData();
     }
   }, [isOpen, activeTab]);
 
@@ -465,6 +530,282 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   };
 
+  // wwwyzzerdd handlers
+  const loadWwwyzzerddPromptSets = async () => {
+    setWwwyzzerddLoading(true);
+    setWwwyzzerddStatus(null);
+    try {
+      const response = await fetch('/api/wwwyzzerdd/prompts');
+      const data = await response.json();
+      setWwwyzzerddPromptSets(data.promptSets || []);
+    } catch (err) {
+      setWwwyzzerddStatus('Failed to load prompt sets');
+    }
+    setWwwyzzerddLoading(false);
+  };
+
+  const handleSavePromptSet = async () => {
+    if (!editingPromptSet || !editingPromptSet.name || !editingPromptSet.characterPrompt || !editingPromptSet.lorePrompt || !editingPromptSet.personality) {
+      setWwwyzzerddStatus('Name, Character Prompt, Lore Prompt, and Personality are required.');
+      return;
+    }
+
+    try {
+      const method = editingPromptSet.id ? 'PATCH' : 'POST';
+      const url = editingPromptSet.id
+        ? `/api/wwwyzzerdd/prompts/${editingPromptSet.id}`
+        : '/api/wwwyzzerdd/prompts';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingPromptSet.name,
+          description: editingPromptSet.description,
+          characterPrompt: editingPromptSet.characterPrompt,
+          lorePrompt: editingPromptSet.lorePrompt,
+          personality: editingPromptSet.personality,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        setWwwyzzerddStatus(err.error || 'Failed to save');
+        return;
+      }
+
+      setEditingPromptSet(null);
+      setWwwyzzerddStatus(editingPromptSet.id ? 'Prompt set updated.' : 'Prompt set created.');
+      loadWwwyzzerddPromptSets();
+    } catch {
+      setWwwyzzerddStatus('Failed to save prompt set');
+    }
+  };
+
+  const handleDeletePromptSet = async (id: string) => {
+    const confirmed = window.confirm('Delete this prompt set? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/wwwyzzerdd/prompts/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const err = await response.json();
+        setWwwyzzerddStatus(err.error || 'Failed to delete');
+        return;
+      }
+      setWwwyzzerddStatus('Prompt set deleted.');
+      loadWwwyzzerddPromptSets();
+    } catch {
+      setWwwyzzerddStatus('Failed to delete prompt set');
+    }
+  };
+
+  const handleCopyPromptSet = async (id: string) => {
+    try {
+      const response = await fetch(`/api/wwwyzzerdd/prompts/${id}/copy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        setWwwyzzerddStatus(err.error || 'Failed to copy');
+        return;
+      }
+      setWwwyzzerddStatus('Prompt set copied.');
+      loadWwwyzzerddPromptSets();
+    } catch {
+      setWwwyzzerddStatus('Failed to copy prompt set');
+    }
+  };
+
+  const handleExportWwwyzzerddPrompts = async () => {
+    try {
+      const response = await fetch('/api/wwwyzzerdd/prompts/export/all');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'wwwyzzerdd-prompts.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      setWwwyzzerddStatus('Prompts exported.');
+    } catch {
+      setWwwyzzerddStatus('Failed to export prompts');
+    }
+  };
+
+  const handleImportWwwyzzerddPrompts = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+
+      const response = await fetch('/api/wwwyzzerdd/prompts/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promptSets: json.promptSets || [] }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        setWwwyzzerddStatus(result.error || 'Failed to import');
+        return;
+      }
+
+      setWwwyzzerddStatus(`Imported ${result.imported} prompt set(s).`);
+      loadWwwyzzerddPromptSets();
+    } catch {
+      setWwwyzzerddStatus('Failed to parse import file');
+    }
+
+    e.target.value = '';
+  };
+
+  // ComfyUI handlers
+  const loadComfyUIData = async () => {
+    setComfyLoading(true);
+    setComfyStatus(null);
+    try {
+      const [promptsRes, workflowsRes] = await Promise.all([
+        fetch('/api/comfyui/prompts'),
+        fetch('/api/comfyui/workflows'),
+      ]);
+      const promptsData = await promptsRes.json();
+      const workflowsData = await workflowsRes.json();
+      setComfyPromptTemplates(promptsData.promptTemplates || []);
+      setComfyWorkflows(workflowsData.workflows || []);
+    } catch {
+      setComfyStatus('Failed to load ComfyUI data');
+    }
+    setComfyLoading(false);
+  };
+
+  const handleSaveComfyPrompt = async () => {
+    if (!editingComfyPrompt || !editingComfyPrompt.name || !editingComfyPrompt.type || !editingComfyPrompt.prompt) {
+      setComfyStatus('Name, type, and prompt are required.');
+      return;
+    }
+
+    try {
+      const method = editingComfyPrompt.id ? 'PATCH' : 'POST';
+      const url = editingComfyPrompt.id
+        ? `/api/comfyui/prompts/${editingComfyPrompt.id}`
+        : '/api/comfyui/prompts';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingComfyPrompt.name,
+          description: editingComfyPrompt.description,
+          type: editingComfyPrompt.type,
+          prompt: editingComfyPrompt.prompt,
+          negativePrompt: editingComfyPrompt.negativePrompt,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        setComfyStatus(err.error || 'Failed to save');
+        return;
+      }
+
+      setEditingComfyPrompt(null);
+      setComfyStatus(editingComfyPrompt.id ? 'Prompt template updated.' : 'Prompt template created.');
+      loadComfyUIData();
+    } catch {
+      setComfyStatus('Failed to save prompt template');
+    }
+  };
+
+  const handleDeleteComfyPrompt = async (id: string) => {
+    const confirmed = window.confirm('Delete this prompt template? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/comfyui/prompts/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const err = await response.json();
+        setComfyStatus(err.error || 'Failed to delete');
+        return;
+      }
+      setComfyStatus('Prompt template deleted.');
+      loadComfyUIData();
+    } catch {
+      setComfyStatus('Failed to delete prompt template');
+    }
+  };
+
+  const handleCopyComfyPrompt = async (id: string) => {
+    try {
+      const response = await fetch(`/api/comfyui/prompts/${id}/copy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        setComfyStatus(err.error || 'Failed to copy');
+        return;
+      }
+      setComfyStatus('Prompt template copied.');
+      loadComfyUIData();
+    } catch {
+      setComfyStatus('Failed to copy prompt template');
+    }
+  };
+
+  const handleDeleteComfyWorkflow = async (id: string) => {
+    const confirmed = window.confirm('Delete this workflow? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/comfyui/workflows/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const err = await response.json();
+        setComfyStatus(err.error || 'Failed to delete');
+        return;
+      }
+      setComfyStatus('Workflow deleted.');
+      loadComfyUIData();
+    } catch {
+      setComfyStatus('Failed to delete workflow');
+    }
+  };
+
+  const handleImportComfyWorkflow = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const workflow = JSON.parse(text);
+      const name = file.name.replace(/\.json$/, '');
+
+      const response = await fetch('/api/comfyui/workflows/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, workflow }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        setComfyStatus(err.error || 'Failed to import');
+        return;
+      }
+
+      setComfyStatus('Workflow imported.');
+      loadComfyUIData();
+    } catch {
+      setComfyStatus('Failed to parse workflow file');
+    }
+
+    e.target.value = '';
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -563,6 +904,30 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           >
             SillyTavern
           </button>
+          {wwwyzzerddEnabled && (
+            <button
+              className={`px-4 py-3 font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'wwwyzzerdd'
+                  ? 'border-b-2 border-purple-500 text-purple-500'
+                  : 'text-dark-muted hover:text-dark-text'
+              }`}
+              onClick={() => setActiveTab('wwwyzzerdd')}
+            >
+              wwwyzzerdd
+            </button>
+          )}
+          {comfyUIEnabled && (
+            <button
+              className={`px-4 py-3 font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'comfyui'
+                  ? 'border-b-2 border-green-500 text-green-500'
+                  : 'text-dark-muted hover:text-dark-text'
+              }`}
+              onClick={() => setActiveTab('comfyui')}
+            >
+              ComfyUI
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -656,6 +1021,48 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <li>Right panel: Live HTML preview (sanitized for safety)</li>
                     <li>When disabled, uses the standard Markdown WYSIWYG editor</li>
                   </ul>
+                </div>
+              </div>
+
+              {/* Experimental Features */}
+              <div className="border border-dark-border rounded-lg p-6 space-y-4">
+                <h4 className="font-semibold">Experimental Features</h4>
+                <p className="text-sm text-dark-muted">
+                  Enable experimental features. These are in development and may change.
+                </p>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="wwwyzzerddEnabled"
+                      checked={wwwyzzerddEnabled}
+                      onChange={(e) => setWwwyzzerddEnabled(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="wwwyzzerddEnabled" className="text-sm font-medium">
+                      Enable wwwyzzerdd Mode
+                    </label>
+                  </div>
+                  <p className="text-xs text-dark-muted ml-6">
+                    AI-assisted character card creation wizard. Adds a "wwwyzzerdd" tab in the editor and settings for prompt configuration.
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="comfyUIEnabled"
+                      checked={comfyUIEnabled}
+                      onChange={(e) => setComfyUIEnabled(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="comfyUIEnabled" className="text-sm font-medium">
+                      Enable ComfyUI Integration
+                    </label>
+                  </div>
+                  <p className="text-xs text-dark-muted ml-6">
+                    Scaffolding for future ComfyUI image generation integration. Adds workflow and prompt template management in settings.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1336,6 +1743,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                 </div>
               )}
+
             </div>
           )}
 
@@ -2055,6 +2463,658 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                 </div>
               )}
+
+              {/* AI Generation Prompts */}
+              <div className="mt-8 border-t border-dark-border pt-6">
+                <h3 className="text-lg font-semibold mb-4">AI Generation Prompts</h3>
+                <p className="text-dark-muted mb-4">
+                  System prompts for the AI generate buttons (tags, tagline).
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Tags Generation</label>
+                    <p className="text-xs text-dark-muted mb-2">
+                      5-10 single-word slugs. Hyphens for compound words.
+                    </p>
+                    <textarea
+                      value={useSettingsStore.getState().aiPrompts.tagsSystemPrompt}
+                      onChange={(e) => useSettingsStore.getState().setTagsSystemPrompt(e.target.value)}
+                      rows={3}
+                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Tagline Generation</label>
+                    <p className="text-xs text-dark-muted mb-2">
+                      Catchy text, up to 500 characters.
+                    </p>
+                    <textarea
+                      value={useSettingsStore.getState().aiPrompts.taglineSystemPrompt}
+                      onChange={(e) => useSettingsStore.getState().setTaglineSystemPrompt(e.target.value)}
+                      rows={3}
+                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'wwwyzzerdd' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">wwwyzzerdd Configuration</h3>
+                <p className="text-dark-muted">
+                  Configure the AI character creation wizard prompts and personality.
+                </p>
+              </div>
+
+              {wwwyzzerddStatus && (
+                <div className={`p-2 rounded text-sm ${
+                  wwwyzzerddStatus.includes('Failed') || wwwyzzerddStatus.includes('required')
+                    ? 'bg-red-900/30 border border-red-700 text-red-100'
+                    : 'bg-green-900/20 border border-green-700 text-green-100'
+                }`}>
+                  {wwwyzzerddStatus}
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <h4 className="text-lg font-semibold">Prompt Sets</h4>
+                <div className="flex gap-2">
+                  <label className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors cursor-pointer">
+                    Import
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportWwwyzzerddPrompts}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    onClick={handleExportWwwyzzerddPrompts}
+                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                  >
+                    Export
+                  </button>
+                  <button
+                    onClick={() => setEditingPromptSet({
+                      name: '',
+                      description: '',
+                      characterPrompt: '',
+                      lorePrompt: '',
+                      personality: '',
+                    })}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    + New Prompt Set
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-dark-border rounded-lg p-4">
+                <label className="block text-sm font-medium mb-2">Active Prompt Set</label>
+                <select
+                  value={wwwyzzerddSettings.activePromptSetId || ''}
+                  onChange={(e) => setWwwyzzerddActivePromptSet(e.target.value || null)}
+                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                >
+                  <option value="">-- Select a prompt set --</option>
+                  {wwwyzzerddPromptSets.map((ps) => (
+                    <option key={ps.id} value={ps.id}>{ps.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-dark-muted mt-1">
+                  The active prompt set determines how wwwyzzerdd behaves when assisting with character creation.
+                </p>
+              </div>
+
+              {wwwyzzerddLoading ? (
+                <div className="text-center py-8 text-dark-muted">Loading prompt sets...</div>
+              ) : (
+                <div className="space-y-3">
+                  {wwwyzzerddPromptSets.map((ps) => (
+                    <div
+                      key={ps.id}
+                      className={`border rounded-lg p-4 ${
+                        ps.isDefault
+                          ? 'border-dark-border bg-dark-card/50'
+                          : 'border-dark-border hover:border-purple-500'
+                      } transition-colors`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h6 className="font-semibold">{ps.name}</h6>
+                            {ps.isDefault && (
+                              <span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
+                                Built-in
+                              </span>
+                            )}
+                          </div>
+                          {ps.description && (
+                            <p className="text-sm text-dark-muted mt-1">{ps.description}</p>
+                          )}
+                          <details className="mt-2">
+                            <summary className="text-xs text-dark-muted cursor-pointer hover:text-dark-text">
+                              Show prompts
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              <div>
+                                <span className="text-xs font-medium">Character Prompt:</span>
+                                <pre className="mt-1 text-xs bg-dark-bg p-2 rounded border border-dark-border whitespace-pre-wrap max-h-32 overflow-auto">
+                                  {ps.characterPrompt}
+                                </pre>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium">Lore Prompt:</span>
+                                <pre className="mt-1 text-xs bg-dark-bg p-2 rounded border border-dark-border whitespace-pre-wrap max-h-32 overflow-auto">
+                                  {ps.lorePrompt}
+                                </pre>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium">Personality:</span>
+                                <pre className="mt-1 text-xs bg-dark-bg p-2 rounded border border-dark-border whitespace-pre-wrap max-h-32 overflow-auto">
+                                  {ps.personality}
+                                </pre>
+                              </div>
+                            </div>
+                          </details>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={() => handleCopyPromptSet(ps.id)}
+                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                            title="Create editable copy"
+                          >
+                            Copy
+                          </button>
+                          {!ps.isDefault && (
+                            <>
+                              <button
+                                onClick={() => setEditingPromptSet(ps)}
+                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeletePromptSet(ps.id)}
+                                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {wwwyzzerddPromptSets.length === 0 && (
+                    <div className="text-center py-8 text-dark-muted">
+                      No prompt sets found. Default sets will be created on first load.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Prompt Set Editor */}
+              {editingPromptSet && (
+                <div className="border border-purple-500 rounded-lg p-6 bg-dark-bg">
+                  <h4 className="text-lg font-semibold mb-4">
+                    {editingPromptSet.id ? 'Edit Prompt Set' : 'New Prompt Set'}
+                  </h4>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Name *</label>
+                        <input
+                          type="text"
+                          value={editingPromptSet.name || ''}
+                          onChange={(e) =>
+                            setEditingPromptSet({ ...editingPromptSet, name: e.target.value })
+                          }
+                          placeholder="e.g., Creative Wizard"
+                          className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Description</label>
+                        <input
+                          type="text"
+                          value={editingPromptSet.description || ''}
+                          onChange={(e) =>
+                            setEditingPromptSet({ ...editingPromptSet, description: e.target.value })
+                          }
+                          placeholder="Brief description"
+                          className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Character Prompt *</label>
+                      <textarea
+                        value={editingPromptSet.characterPrompt || ''}
+                        onChange={(e) =>
+                          setEditingPromptSet({ ...editingPromptSet, characterPrompt: e.target.value })
+                        }
+                        placeholder="System prompt for character creation assistance..."
+                        rows={6}
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Lore Prompt *</label>
+                      <textarea
+                        value={editingPromptSet.lorePrompt || ''}
+                        onChange={(e) =>
+                          setEditingPromptSet({ ...editingPromptSet, lorePrompt: e.target.value })
+                        }
+                        placeholder="System prompt for lore/worldbuilding assistance..."
+                        rows={4}
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Personality *</label>
+                      <textarea
+                        value={editingPromptSet.personality || ''}
+                        onChange={(e) =>
+                          setEditingPromptSet({ ...editingPromptSet, personality: e.target.value })
+                        }
+                        placeholder="How wwwyzzerdd should speak and behave..."
+                        rows={3}
+                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setEditingPromptSet(null)}
+                        className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSavePromptSet}
+                        className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'comfyui' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">ComfyUI Configuration</h3>
+                <p className="text-dark-muted">
+                  Configure ComfyUI integration settings, workflows, and prompt templates.
+                  <span className="text-yellow-400 ml-2">(Scaffolding - not yet connected)</span>
+                </p>
+              </div>
+
+              {comfyStatus && (
+                <div className={`p-2 rounded text-sm ${
+                  comfyStatus.includes('Failed') || comfyStatus.includes('required')
+                    ? 'bg-red-900/30 border border-red-700 text-red-100'
+                    : 'bg-green-900/20 border border-green-700 text-green-100'
+                }`}>
+                  {comfyStatus}
+                </div>
+              )}
+
+              {/* Server Configuration */}
+              <div className="border border-dark-border rounded-lg p-6 space-y-4">
+                <h4 className="font-semibold">Server Configuration</h4>
+                <div>
+                  <label className="block text-sm font-medium mb-1">ComfyUI Server URL</label>
+                  <input
+                    type="text"
+                    value={comfyUISettings.serverUrl}
+                    onChange={(e) => setComfyUIServerUrl(e.target.value)}
+                    placeholder="http://127.0.0.1:8188"
+                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                  />
+                  <p className="text-xs text-dark-muted mt-1">
+                    The address of your ComfyUI server (not connected yet - for future use)
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="comfyAutoSelectType"
+                      checked={comfyUISettings.autoSelectType}
+                      onChange={(e) => setComfyUIAutoSelectType(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="comfyAutoSelectType" className="text-sm">
+                      Auto-select asset type from prompt
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="comfyAutoFilename"
+                      checked={comfyUISettings.autoGenerateFilename}
+                      onChange={(e) => setComfyUIAutoGenerateFilename(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="comfyAutoFilename" className="text-sm">
+                      Auto-generate filenames
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Default Generation Settings */}
+              <div className="border border-dark-border rounded-lg p-6 space-y-4">
+                <h4 className="font-semibold">Default Generation Settings</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Sampler</label>
+                    <select
+                      value={comfyUISettings.defaultSampler}
+                      onChange={(e) => setComfyUIDefaults({ defaultSampler: e.target.value })}
+                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                    >
+                      <option value="euler">euler</option>
+                      <option value="euler_ancestral">euler_ancestral</option>
+                      <option value="heun">heun</option>
+                      <option value="dpm_2">dpm_2</option>
+                      <option value="dpm_2_ancestral">dpm_2_ancestral</option>
+                      <option value="lms">lms</option>
+                      <option value="ddim">ddim</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Scheduler</label>
+                    <select
+                      value={comfyUISettings.defaultScheduler}
+                      onChange={(e) => setComfyUIDefaults({ defaultScheduler: e.target.value })}
+                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                    >
+                      <option value="normal">normal</option>
+                      <option value="karras">karras</option>
+                      <option value="exponential">exponential</option>
+                      <option value="sgm_uniform">sgm_uniform</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Default Model</label>
+                    <input
+                      type="text"
+                      value={comfyUISettings.defaultModel}
+                      onChange={(e) => setComfyUIDefaults({ defaultModel: e.target.value })}
+                      placeholder="model.safetensors"
+                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Default Width</label>
+                    <input
+                      type="number"
+                      value={comfyUISettings.defaultWidth}
+                      onChange={(e) => setComfyUIDefaults({ defaultWidth: parseInt(e.target.value) || 512 })}
+                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Default Height</label>
+                    <input
+                      type="number"
+                      value={comfyUISettings.defaultHeight}
+                      onChange={(e) => setComfyUIDefaults({ defaultHeight: parseInt(e.target.value) || 768 })}
+                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Negative Prompt Prefix</label>
+                  <textarea
+                    value={comfyUISettings.negativePrefix}
+                    onChange={(e) => setComfyUIDefaults({ negativePrefix: e.target.value })}
+                    placeholder="blurry, low quality..."
+                    rows={2}
+                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Prompt Templates */}
+              <div className="border border-dark-border rounded-lg p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold">Prompt Templates</h4>
+                  <button
+                    onClick={() => setEditingComfyPrompt({
+                      name: '',
+                      description: '',
+                      type: 'character',
+                      prompt: '',
+                      negativePrompt: '',
+                    })}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    + New Template
+                  </button>
+                </div>
+
+                {comfyLoading ? (
+                  <div className="text-center py-4 text-dark-muted">Loading...</div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-auto">
+                    {comfyPromptTemplates.map((pt) => (
+                      <div
+                        key={pt.id}
+                        className={`border rounded p-3 ${
+                          pt.isDefault ? 'border-dark-border bg-dark-card/50' : 'border-dark-border'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{pt.name}</span>
+                              <span className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded">
+                                {pt.type}
+                              </span>
+                              {pt.isDefault && (
+                                <span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
+                                  Built-in
+                                </span>
+                              )}
+                            </div>
+                            {pt.description && (
+                              <p className="text-xs text-dark-muted mt-1">{pt.description}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleCopyComfyPrompt(pt.id)}
+                              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                            >
+                              Copy
+                            </button>
+                            {!pt.isDefault && (
+                              <>
+                                <button
+                                  onClick={() => setEditingComfyPrompt(pt)}
+                                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteComfyPrompt(pt.id)}
+                                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Prompt Template Editor */}
+                {editingComfyPrompt && (
+                  <div className="border border-green-500 rounded-lg p-4 bg-dark-bg mt-4">
+                    <h5 className="font-semibold mb-3">
+                      {editingComfyPrompt.id ? 'Edit Template' : 'New Template'}
+                    </h5>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Name *</label>
+                          <input
+                            type="text"
+                            value={editingComfyPrompt.name || ''}
+                            onChange={(e) =>
+                              setEditingComfyPrompt({ ...editingComfyPrompt, name: e.target.value })
+                            }
+                            className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Type *</label>
+                          <select
+                            value={editingComfyPrompt.type || 'character'}
+                            onChange={(e) =>
+                              setEditingComfyPrompt({ ...editingComfyPrompt, type: e.target.value as any })
+                            }
+                            className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
+                          >
+                            <option value="character">Character</option>
+                            <option value="scenario">Scenario</option>
+                            <option value="portrait">Portrait</option>
+                            <option value="background">Background</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Prompt *</label>
+                        <textarea
+                          value={editingComfyPrompt.prompt || ''}
+                          onChange={(e) =>
+                            setEditingComfyPrompt({ ...editingComfyPrompt, prompt: e.target.value })
+                          }
+                          rows={4}
+                          className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Negative Prompt</label>
+                        <textarea
+                          value={editingComfyPrompt.negativePrompt || ''}
+                          onChange={(e) =>
+                            setEditingComfyPrompt({ ...editingComfyPrompt, negativePrompt: e.target.value })
+                          }
+                          rows={2}
+                          className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => setEditingComfyPrompt(null)}
+                          className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveComfyPrompt}
+                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Workflows */}
+              <div className="border border-dark-border rounded-lg p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold">Workflows</h4>
+                  <div className="flex gap-2">
+                    <select
+                      value={comfyUISettings.activeWorkflowId || ''}
+                      onChange={(e) => setComfyUIActiveWorkflow(e.target.value || null)}
+                      className="bg-dark-card border border-dark-border rounded px-3 py-1 text-sm"
+                    >
+                      <option value="">-- Select active workflow --</option>
+                      {comfyWorkflows.map((wf) => (
+                        <option key={wf.id} value={wf.id}>{wf.name}</option>
+                      ))}
+                    </select>
+                    <label className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 cursor-pointer">
+                      Import
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleImportComfyWorkflow}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-2 max-h-48 overflow-auto">
+                  {comfyWorkflows.map((wf) => (
+                    <div
+                      key={wf.id}
+                      className={`border rounded p-3 ${
+                        wf.isDefault ? 'border-dark-border bg-dark-card/50' : 'border-dark-border'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-medium">{wf.name}</span>
+                          {wf.isDefault && (
+                            <span className="ml-2 px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
+                              Built-in
+                            </span>
+                          )}
+                          {wf.description && (
+                            <p className="text-xs text-dark-muted">{wf.description}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-1">
+                          {!wf.isDefault && (
+                            <button
+                              onClick={() => handleDeleteComfyWorkflow(wf.id)}
+                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {comfyWorkflows.length === 0 && (
+                    <p className="text-sm text-dark-muted text-center py-4">
+                      No workflows. Import a ComfyUI workflow JSON file.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

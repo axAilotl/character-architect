@@ -1,22 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCardStore, extractCardData } from '../../../store/card-store';
 import { useSettingsStore } from '../../../store/settings-store';
 import { useTokenStore } from '../../../store/token-store';
+import { useLLMStore } from '../../../store/llm-store';
 import type { CCFieldName, FocusField, Template, Snippet } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
+import { ElaraVossPanel } from './ElaraVossPanel';
 import { LLMAssistSidebar } from './LLMAssistSidebar';
 import { TagInput } from './TagInput';
 import { TemplateSnippetPanel } from './TemplateSnippetPanel';
 
-type EditTab = 'basic' | 'character' | 'greetings' | 'advanced' | 'lorebook' | 'extensions';
+type EditTab = 'basic' | 'character' | 'greetings' | 'advanced' | 'lorebook' | 'elara-voss' | 'extensions';
 
 export function EditPanel() {
   const { currentCard, updateCardData, updateCardMeta } = useCardStore();
-  const { editor } = useSettingsStore();
+  const { editor, aiPrompts } = useSettingsStore();
   const tokenCounts = useTokenStore((state) => state.tokenCounts);
+  const { settings: llmSettings, loadSettings } = useLLMStore();
 
   const [activeTab, setActiveTab] = useState<EditTab>('basic');
+
+  // Load LLM settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+  const [generatingTags, setGeneratingTags] = useState(false);
+  const [generatingTagline, setGeneratingTagline] = useState(false);
 
   const [llmAssistOpen, setLLMAssistOpen] = useState(false);
   const [llmAssistField, setLLMAssistField] = useState<CCFieldName>('description');
@@ -117,6 +127,111 @@ export function EditPanel() {
     handleFieldChange(templatesField, newValue);
   };
 
+  // AI Generate Tags from description
+  const handleGenerateTags = async () => {
+    if (!cardData.description) {
+      alert('Please add a description first to generate tags.');
+      return;
+    }
+
+    let activeProvider = llmSettings.providers.find((p) => p.id === llmSettings.activeProviderId);
+    if (!activeProvider && llmSettings.providers.length > 0) {
+      activeProvider = llmSettings.providers[0];
+    }
+    if (!activeProvider) {
+      alert('Please configure an LLM provider in Settings > AI Providers first.');
+      return;
+    }
+
+    setGeneratingTags(true);
+    try {
+      const response = await fetch('/api/llm/invoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerId: activeProvider.id,
+          system: aiPrompts.tagsSystemPrompt,
+          messages: [
+            { role: 'user', content: `Generate tags for this character:\n\nName: ${cardData.name || 'Unknown'}\n\nDescription:\n${cardData.description}` }
+          ],
+          temperature: 0.7,
+          maxTokens: 200,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+
+      const content = data.content || data.text || '';
+      // Parse JSON array from response
+      const jsonMatch = content.match(/\[[\s\S]*?\]/);
+      if (jsonMatch) {
+        const tags = JSON.parse(jsonMatch[0]) as string[];
+        if (Array.isArray(tags) && tags.length > 0) {
+          // Merge with existing tags, avoiding duplicates - ensure single-word slugs
+          const existingTags = currentCard?.meta.tags || [];
+          const newTags = [...new Set([...existingTags, ...tags.map((t: string) => t.toLowerCase().trim().replace(/\s+/g, '-'))])];
+          handleTagsChange(newTags);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to generate tags:', err);
+      alert(`Failed to generate tags: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setGeneratingTags(false);
+    }
+  };
+
+  // AI Generate Tagline from description
+  const handleGenerateTagline = async () => {
+    if (!cardData.description) {
+      alert('Please add a description first to generate a tagline.');
+      return;
+    }
+
+    let activeProvider = llmSettings.providers.find((p) => p.id === llmSettings.activeProviderId);
+    if (!activeProvider && llmSettings.providers.length > 0) {
+      activeProvider = llmSettings.providers[0];
+    }
+    if (!activeProvider) {
+      alert('Please configure an LLM provider in Settings > AI Providers first.');
+      return;
+    }
+
+    setGeneratingTagline(true);
+    try {
+      const response = await fetch('/api/llm/invoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerId: activeProvider.id,
+          system: aiPrompts.taglineSystemPrompt,
+          messages: [
+            { role: 'user', content: `Write a short tagline for this character:\n\nName: ${cardData.name || 'Unknown'}\n\nDescription:\n${cardData.description}` }
+          ],
+          temperature: 0.8,
+          maxTokens: 200,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+
+      const content = (data.content || data.text || '').trim();
+      if (content) {
+        // Update tagline extension
+        const existingExtensions = (cardData as any).extensions || {};
+        const extensions = { ...existingExtensions, tagline: content.slice(0, 500) };
+        handleFieldChange('extensions', extensions);
+      }
+    } catch (err) {
+      console.error('Failed to generate tagline:', err);
+      alert(`Failed to generate tagline: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setGeneratingTagline(false);
+    }
+  };
+
   // Get depth_prompt extension data
   const depthPrompt = (cardData as any).extensions?.depth_prompt;
   const characterNoteValue = depthPrompt?.prompt || '';
@@ -202,6 +317,7 @@ export function EditPanel() {
     { id: 'greetings' as EditTab, label: 'Greetings' },
     { id: 'advanced' as EditTab, label: 'Advanced' },
     { id: 'lorebook' as EditTab, label: 'Lorebook' },
+    { id: 'elara-voss' as EditTab, label: 'ELARA VOSS' },
     ...(editor.showExtensionsTab ? [{ id: 'extensions' as EditTab, label: 'Extensions' }] : []),
   ];
 
@@ -331,8 +447,20 @@ export function EditPanel() {
 
             {/* Tags */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-between mb-2">
                 <label className="label">Tags</label>
+                <button
+                  onClick={handleGenerateTags}
+                  disabled={generatingTags || !cardData.description}
+                  className="text-sm px-1.5 py-0.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
+                  title="Generate tags from description using AI"
+                >
+                  {generatingTags ? (
+                    <span className="animate-spin inline-block">&#9696;</span>
+                  ) : (
+                    <>&#10024;</>
+                  )}
+                </button>
               </div>
               <TagInput
                 tags={currentCard.meta.tags || []}
@@ -359,9 +487,23 @@ export function EditPanel() {
 
             {/* Tagline / Short Description - Extension field */}
             <div className="input-group">
-              <div className="flex items-center gap-2 mb-2">
-                <label className="label">Tagline / Short Description</label>
-                <span className="text-xs px-2 py-0.5 rounded bg-green-600 text-white">Extension</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <label className="label">Tagline / Short Description</label>
+                  <span className="text-xs px-2 py-0.5 rounded bg-green-600 text-white">Extension</span>
+                </div>
+                <button
+                  onClick={handleGenerateTagline}
+                  disabled={generatingTagline || !cardData.description}
+                  className="text-sm px-1.5 py-0.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
+                  title="Generate tagline from description using AI"
+                >
+                  {generatingTagline ? (
+                    <span className="animate-spin inline-block">&#9696;</span>
+                  ) : (
+                    <>&#10024;</>
+                  )}
+                </button>
               </div>
               <p className="text-sm text-dark-muted mb-2">
                 A short tagline for display on card hosting sites. Max 500 characters.
@@ -871,6 +1013,11 @@ export function EditPanel() {
         {/* Lorebook Tab */}
         {activeTab === 'lorebook' && (
           <LorebookEditor />
+        )}
+
+        {/* ELARA VOSS Tab */}
+        {activeTab === 'elara-voss' && (
+          <ElaraVossPanel />
         )}
 
         {/* Extensions Tab */}
