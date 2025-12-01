@@ -192,10 +192,26 @@ if %errorlevel% neq 0 (
 echo.
 echo [5/6] Building packages...
 
-call npm run build
+:: Build packages first (required for apps to work)
+echo [INFO] Building shared packages first...
+call npm run build:packages
 
 if %errorlevel% neq 0 (
-    echo [WARN] Build had some warnings, but may still work.
+    echo [ERROR] Failed to build packages. Trying individual builds...
+    cd packages\schemas && call npm run build && cd ..\..
+    cd packages\utils && call npm run build && cd ..\..
+    cd packages\png && call npm run build && cd ..\..
+    cd packages\charx && call npm run build && cd ..\..
+    cd packages\voxta && call npm run build && cd ..\..
+    cd packages\tokenizers && call npm run build && cd ..\..
+    cd packages\plugins && call npm run build && cd ..\..
+)
+
+echo [INFO] Building applications...
+call npm run build:apps
+
+if %errorlevel% neq 0 (
+    echo [WARN] App build had some warnings, but may still work.
 )
 
 :: ============================================
@@ -209,6 +225,9 @@ echo [6/6] Creating startup scripts...
 echo @echo off
 echo cd /d "%%~dp0"
 echo echo Starting Card Architect development servers...
+echo echo.
+echo echo Building packages first...
+echo call npm run build:packages
 echo echo.
 echo echo Web UI will be available at: http://localhost:5173
 echo echo API will be available at: http://localhost:3456

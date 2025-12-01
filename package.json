@@ -9,10 +9,12 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev": "npm run build:packages && concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev --workspace=@card-architect/api",
     "dev:web": "npm run dev --workspace=@card-architect/web",
-    "build": "npm run build --workspaces",
+    "build": "npm run build:packages && npm run build:apps",
+    "build:packages": "npm run build --workspace=@card-architect/schemas && npm run build --workspace=@card-architect/utils && npm run build --workspace=@card-architect/png && npm run build --workspace=@card-architect/charx && npm run build --workspace=@card-architect/voxta && npm run build --workspace=@card-architect/tokenizers && npm run build --workspace=@card-architect/plugins",
+    "build:apps": "npm run build --workspace=@card-architect/api && npm run build --workspace=@card-architect/web",
     "build:api": "npm run build --workspace=@card-architect/api",
     "build:web": "npm run build --workspace=@card-architect/web",
     "test": "npm run test --workspaces --if-present",
