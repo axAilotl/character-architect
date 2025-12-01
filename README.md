@@ -50,9 +50,22 @@
 ### Editing Tools
 
 - **Focused Editor** - Distraction-free full-screen editing mode
+- **Block Editor** - Visual block-based character card editing with drag-and-drop
+  - Import existing card content into structured blocks
+  - Parse markdown headings, lists, and text automatically
+  - Target blocks to specific card fields
+  - Save and load block templates
 - **Template System** - Reusable templates for common card structures (JED, JED+, Anime Character)
 - **Snippet Management** - Save and reuse text snippets with JED format sections
 - **Card Grid View** - Browse and manage multiple cards with sorting and bulk operations
+
+### Optional Modules
+
+- **wwwyzzerdd** - AI-powered character generation wizard
+  - Generate complete characters from simple prompts
+  - Customizable prompt sets for different styles
+  - Automatic lorebook generation
+- **ComfyUI Integration** - AI image generation for character portraits (experimental)
 
 ## Quick Start
 
