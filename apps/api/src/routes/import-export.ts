@@ -1328,10 +1328,45 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           // CHARX export - get card assets
           let assets = cardAssetRepo.listByCardWithDetails(request.params.id);
 
+          // CHARX is always V3 - convert if needed
+          let charxData: CCv3Data;
+          const currentSpec = detectSpec(card.data);
+
+          if (currentSpec === 'v2') {
+            // Convert V2 to V3 format
+            const v2Data = card.data as unknown as { spec?: string; spec_version?: string; data?: CCv2Data } & CCv2Data;
+            const sourceData = v2Data.data || v2Data;
+
+            charxData = {
+              spec: 'chara_card_v3',
+              spec_version: '3.0',
+              data: {
+                name: sourceData.name || '',
+                description: sourceData.description || '',
+                personality: sourceData.personality || '',
+                scenario: sourceData.scenario || '',
+                first_mes: sourceData.first_mes || '',
+                mes_example: sourceData.mes_example || '',
+                creator: sourceData.creator || '',
+                character_version: sourceData.character_version || '1.0',
+                tags: sourceData.tags || [],
+                creator_notes: sourceData.creator_notes,
+                system_prompt: sourceData.system_prompt,
+                post_history_instructions: sourceData.post_history_instructions,
+                alternate_greetings: sourceData.alternate_greetings || [],
+                group_only_greetings: [],
+                character_book: sourceData.character_book as CCv3Data['data']['character_book'],
+                extensions: sourceData.extensions,
+              },
+            };
+            fastify.log.info({ cardId: request.params.id }, 'Converted V2 card to V3 for CHARX export');
+          } else {
+            charxData = card.data as CCv3Data;
+          }
+
           // Convert Voxta macros to standard format if this is a Voxta card
-          let charxData = card.data as CCv3Data;
           if (isVoxtaCard(card.data)) {
-            charxData = convertCardMacros(card.data as unknown as Record<string, unknown>, voxtaToStandard) as unknown as CCv3Data;
+            charxData = convertCardMacros(charxData as unknown as Record<string, unknown>, voxtaToStandard) as unknown as CCv3Data;
             fastify.log.info({ cardId: request.params.id }, 'Converted Voxta macros to standard format for CHARX export');
           }
 
