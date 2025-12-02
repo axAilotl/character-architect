@@ -24,6 +24,8 @@ interface BlockEditorStore {
   templates: BlockTemplate[];
   specVersion: 'v2' | 'v3';
   currentCardId: string | null;
+  // Per-card block storage
+  cardBlocks: Record<string, Block[]>;
 
   // Import from card
   importFromCard: (fieldContent: Record<string, string>) => void;
@@ -348,16 +350,30 @@ export const useBlockEditorStore = create<BlockEditorStore>()(
       templates: [],
       specVersion: 'v2',
       currentCardId: null,
+      cardBlocks: {},
 
-  // Card tracking - clears blocks when switching to a different card
+  // Card tracking - saves current blocks and loads blocks for new card
   setCurrentCardId: (cardId) => {
-    const { currentCardId: oldCardId } = get();
-    if (oldCardId !== null && cardId !== oldCardId) {
-      // Switching to a different card - clear blocks
-      set({ blocks: [], currentCardId: cardId });
-    } else {
-      set({ currentCardId: cardId });
+    const { currentCardId: oldCardId, blocks, cardBlocks } = get();
+
+    if (cardId === oldCardId) {
+      return; // No change
     }
+
+    // Save current blocks to the old card (if any)
+    const updatedCardBlocks = { ...cardBlocks };
+    if (oldCardId !== null) {
+      updatedCardBlocks[oldCardId] = blocks;
+    }
+
+    // Load blocks for the new card (or empty array if none)
+    const newBlocks = cardId ? (updatedCardBlocks[cardId] || []) : [];
+
+    set({
+      currentCardId: cardId,
+      blocks: newBlocks,
+      cardBlocks: updatedCardBlocks,
+    });
   },
 
   // Import from card - parses markdown content into blocks
@@ -870,12 +886,32 @@ export const useBlockEditorStore = create<BlockEditorStore>()(
     }),
     {
       name: 'card-architect-block-editor',
-      partialize: (state) => ({
-        blocks: state.blocks,
-        templates: state.templates,
-        specVersion: state.specVersion,
-        currentCardId: state.currentCardId,
-      }),
+      partialize: (state) => {
+        // When persisting, save current blocks to cardBlocks
+        const cardBlocks = { ...state.cardBlocks };
+        if (state.currentCardId) {
+          cardBlocks[state.currentCardId] = state.blocks;
+        }
+        return {
+          templates: state.templates,
+          specVersion: state.specVersion,
+          currentCardId: state.currentCardId,
+          cardBlocks,
+        };
+      },
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<BlockEditorStore>;
+        // When loading, restore blocks for current card from cardBlocks
+        const cardBlocks = persisted.cardBlocks || {};
+        const currentCardId = persisted.currentCardId || null;
+        const blocks = currentCardId ? (cardBlocks[currentCardId] || []) : [];
+        return {
+          ...currentState,
+          ...persisted,
+          blocks,
+          cardBlocks,
+        };
+      },
     }
   )
 );
