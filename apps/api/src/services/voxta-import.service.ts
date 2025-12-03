@@ -74,17 +74,19 @@ export class VoxtaImportService {
       data: ccv3Data as any, // Type assertion needed due to schema strictness
     });
 
-    // Import Thumbnail if present
+    // Import Thumbnail if present - this becomes the main icon
     if (char.thumbnail) {
-      // We can save this as the main image or just store it
-      // For now, let's update the card with this image blob
+      // Save as main card image (for PNG export)
       this.cardRepo.updateImage(card.meta.id, char.thumbnail);
+
+      // Also save as a card asset with isMain: true (for CHARX export)
+      await this.importThumbnailAsMainIcon(card.meta.id, char.thumbnail);
     }
 
     // Import Assets
     if (char.assets && char.assets.length > 0) {
-      const assetDescriptors = await this.importAssets(card.meta.id, char.assets);
-      
+      const assetDescriptors = await this.importAssets(card.meta.id, char.assets, !!char.thumbnail);
+
       // Update card with assets list so frontend sees them in the JSON blob
       ccv3Data.data.assets = assetDescriptors;
       this.cardRepo.update(card.meta.id, { data: ccv3Data });
@@ -180,10 +182,72 @@ export class VoxtaImportService {
   }
 
   /**
-   * Import Assets for a card
+   * Import the Voxta thumbnail as the main icon asset
    */
-  private async importAssets(cardId: string, assets: ExtractedVoxtaAsset[]): Promise<any[]> {
-    let orderCounter = 0;
+  private async importThumbnailAsMainIcon(cardId: string, thumbnail: Buffer): Promise<void> {
+    // Detect format from buffer
+    let ext = 'png';
+    let mimetype = 'image/png';
+
+    // Check magic bytes for common formats
+    if (thumbnail[0] === 0xFF && thumbnail[1] === 0xD8) {
+      ext = 'jpg';
+      mimetype = 'image/jpeg';
+    } else if (thumbnail[0] === 0x52 && thumbnail[1] === 0x49 && thumbnail[2] === 0x46 && thumbnail[3] === 0x46) {
+      ext = 'webp';
+      mimetype = 'image/webp';
+    }
+
+    // Save file to storage
+    const fileId = nanoid();
+    const storageFilename = `${fileId}.${ext}`;
+    const storagePath = join(config.storagePath, storageFilename);
+
+    await writeFile(storagePath, thumbnail);
+
+    // Get dimensions
+    let width = 0;
+    let height = 0;
+    try {
+      const meta = await sharp(thumbnail).metadata();
+      width = meta.width || 0;
+      height = meta.height || 0;
+    } catch (e) {
+      console.warn('[Voxta Import] Failed to get thumbnail dimensions:', e);
+    }
+
+    // Create Asset Record
+    const assetRecord = this.assetRepo.create({
+      filename: storageFilename,
+      mimetype,
+      size: thumbnail.length,
+      url: `/storage/${storageFilename}`,
+      width,
+      height
+    });
+
+    // Create Card Asset Link - this is the MAIN icon
+    this.cardAssetRepo.create({
+      cardId,
+      assetId: assetRecord.id,
+      type: 'icon',
+      name: 'main', // Named 'main' for CHARX compatibility
+      ext,
+      order: 0,
+      isMain: true, // This is THE main icon
+      tags: ['portrait-override']
+    });
+
+    console.log(`[Voxta Import] Imported thumbnail as main icon for card ${cardId}`);
+  }
+
+  /**
+   * Import Assets for a card
+   * @param hasThumbnail - If true, start order at 1 (thumbnail is order 0)
+   */
+  private async importAssets(cardId: string, assets: ExtractedVoxtaAsset[], hasThumbnail: boolean = false): Promise<any[]> {
+    // Start at 1 if thumbnail already imported as order 0
+    let orderCounter = hasThumbnail ? 1 : 0;
     const descriptors: any[] = [];
 
     for (const asset of assets) {
