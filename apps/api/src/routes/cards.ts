@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository, CardAssetRepository } from '../db/repository.js';
 import { validateV2, validateV3, type CCv2Data, type CCv3Data, type CardMeta } from '@card-architect/schemas';
+import { normalizeLorebookEntries } from './import-export.js';
 
 export async function cardRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
@@ -130,12 +131,23 @@ export async function cardRoutes(fastify: FastifyInstance) {
       return { error: 'Card not found' };
     }
 
-    // Validate if data is being updated
+    // Normalize and validate if data is being updated
     if (body.data) {
       const spec = existing.meta.spec;
+
+      // Normalize lorebook entries before validation
+      // Handle both wrapped ({spec, data}) and unwrapped formats
+      const dataObj = body.data as Record<string, unknown>;
+      if ('data' in dataObj && typeof dataObj.data === 'object' && dataObj.data) {
+        normalizeLorebookEntries(dataObj.data as Record<string, unknown>);
+      } else {
+        normalizeLorebookEntries(dataObj);
+      }
+
       const validation = spec === 'v3' ? validateV3(body.data) : validateV2(body.data);
 
       if (!validation.valid) {
+        fastify.log.error({ errors: validation.errors, spec }, 'Card validation failed');
         reply.code(400);
         return { error: 'Validation failed', errors: validation.errors };
       }

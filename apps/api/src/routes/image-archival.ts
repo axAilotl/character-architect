@@ -146,6 +146,62 @@ export function restoreOriginalUrls(
   return clonedData;
 }
 
+/**
+ * Convert local /user/images/ URLs to embeded:// URLs for CHARX/Voxta export
+ * Returns both the modified card data and a list of assets that need to be embedded
+ */
+export function convertToEmbeddedUrls(
+  cardData: Record<string, unknown>,
+  archivedAssets: Array<{ assetId: string; ext: string; originalUrl: string }>,
+  characterName: string
+): { cardData: Record<string, unknown>; embeddedAssets: Array<{ assetId: string; ext: string; embedPath: string }> } {
+  if (archivedAssets.length === 0) {
+    return { cardData, embeddedAssets: [] };
+  }
+
+  const sluggedName = slugifyName(characterName);
+  const embeddedAssets: Array<{ assetId: string; ext: string; embedPath: string }> = [];
+
+  // Build local path to embedded URL mapping
+  const localToEmbedded = new Map<string, string>();
+  for (const asset of archivedAssets) {
+    const localPath = `/user/images/${sluggedName}/${asset.assetId}.${asset.ext}`;
+    const embedPath = `assets/embedded/${asset.assetId}.${asset.ext}`;
+    const embeddedUrl = `embeded://${embedPath}`;
+    localToEmbedded.set(localPath, embeddedUrl);
+    embeddedAssets.push({ assetId: asset.assetId, ext: asset.ext, embedPath });
+  }
+
+  // Clone the data to avoid mutating the original
+  const clonedData = JSON.parse(JSON.stringify(cardData)) as Record<string, unknown>;
+
+  // Handle both wrapped format (spec/data) and direct fields
+  const innerData = (clonedData.data as Record<string, unknown>) || clonedData;
+
+  // Replace local paths with embedded URLs
+  let firstMes = (innerData.first_mes as string) || '';
+  let alternateGreetings = [...((innerData.alternate_greetings as string[]) || [])];
+
+  for (const [localPath, embeddedUrl] of localToEmbedded) {
+    const escapedPath = localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    firstMes = firstMes.replace(new RegExp(escapedPath, 'g'), embeddedUrl);
+    alternateGreetings = alternateGreetings.map(g =>
+      g.replace(new RegExp(escapedPath, 'g'), embeddedUrl)
+    );
+  }
+
+  // Update the correct location based on data structure
+  if (clonedData.data) {
+    (clonedData.data as Record<string, unknown>).first_mes = firstMes;
+    (clonedData.data as Record<string, unknown>).alternate_greetings = alternateGreetings;
+  } else {
+    clonedData.first_mes = firstMes;
+    clonedData.alternate_greetings = alternateGreetings;
+  }
+
+  return { cardData: clonedData, embeddedAssets };
+}
+
 export async function imageArchivalRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
   const assetRepo = new AssetRepository(fastify.db);

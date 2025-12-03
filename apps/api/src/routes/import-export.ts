@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository, AssetRepository, CardAssetRepository } from '../db/repository.js';
-import { restoreOriginalUrls } from './image-archival.js';
+import { restoreOriginalUrls, convertToEmbeddedUrls } from './image-archival.js';
 import {
   extractFromPNG,
   validatePNGSize,
@@ -124,7 +124,7 @@ function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
  * Normalize lorebook entry fields to match schema expectations
  * Handles legacy position values (numeric), V3 fields in V2 cards, and other common issues
  */
-function normalizeLorebookEntries(dataObj: Record<string, unknown>) {
+export function normalizeLorebookEntries(dataObj: Record<string, unknown>) {
   if (!dataObj.character_book || typeof dataObj.character_book !== 'object') {
     return;
   }
@@ -1425,6 +1425,64 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             fastify.log.info({ cardId: request.params.id }, 'Converted Voxta macros to standard format for CHARX export');
           }
 
+          // Convert local /user/images/ URLs to embeded:// URLs for archived images
+          const cardAssets = cardAssetRepo.listByCard(request.params.id);
+          const archivedAssets = cardAssets
+            .filter(a => a.originalUrl)
+            .map(a => ({ assetId: a.assetId, ext: a.ext, originalUrl: a.originalUrl! }));
+
+          if (archivedAssets.length > 0) {
+            const characterName = charxData.data?.name || card.meta.name || 'character';
+            const { cardData: convertedData, embeddedAssets } = convertToEmbeddedUrls(
+              charxData as unknown as Record<string, unknown>,
+              archivedAssets,
+              characterName
+            );
+            charxData = convertedData as unknown as CCv3Data;
+
+            // Add embedded archived images to the assets list
+            for (const embedded of embeddedAssets) {
+              // Find the corresponding asset record
+              const cardAsset = cardAssets.find(a => a.assetId === embedded.assetId);
+              if (cardAsset) {
+                const now = new Date().toISOString();
+                // Look up the full asset details
+                const fullAsset = assets.find(a => a.assetId === embedded.assetId);
+                if (!fullAsset) {
+                  // Need to add this archived image as an asset for CHARX
+                  const assetRecord = assetRepo.get(embedded.assetId);
+                  if (assetRecord) {
+                    assets.push({
+                      id: cardAsset.id,
+                      cardId: request.params.id,
+                      assetId: embedded.assetId,
+                      type: 'custom', // Archived images go as custom type
+                      name: `embedded-${embedded.assetId}`,
+                      ext: embedded.ext,
+                      order: assets.length,
+                      isMain: false,
+                      createdAt: now,
+                      updatedAt: now,
+                      asset: {
+                        id: assetRecord.id,
+                        filename: assetRecord.filename,
+                        mimetype: assetRecord.mimetype,
+                        size: assetRecord.size,
+                        url: assetRecord.url,
+                        createdAt: assetRecord.createdAt,
+                      },
+                    });
+                  }
+                }
+              }
+            }
+
+            fastify.log.info({
+              cardId: request.params.id,
+              count: archivedAssets.length,
+            }, 'Converted archived image URLs to embedded format for CHARX export');
+          }
+
           // Pre-export validation with auto-fixes
           const exportValidation = await validateCharxExport(
             charxData,
@@ -1490,15 +1548,74 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         }
       } else if (format === 'voxta') {
         try {
-          const assets = cardAssetRepo.listByCardWithDetails(request.params.id);
+          let assets = cardAssetRepo.listByCardWithDetails(request.params.id);
 
           // Convert standard macros to Voxta format (add spaces)
           // This applies to all cards being exported to Voxta, not just existing Voxta cards
-          const voxtaData = convertCardMacros(
+          let voxtaData = convertCardMacros(
             card.data as unknown as Record<string, unknown>,
             standardToVoxta
           ) as unknown as import('@card-architect/schemas').CCv3Data;
           fastify.log.info({ cardId: request.params.id }, 'Converted standard macros to Voxta format for Voxta export');
+
+          // Convert local /user/images/ URLs to embeded:// URLs for archived images
+          const cardAssets = cardAssetRepo.listByCard(request.params.id);
+          const archivedAssets = cardAssets
+            .filter(a => a.originalUrl)
+            .map(a => ({ assetId: a.assetId, ext: a.ext, originalUrl: a.originalUrl! }));
+
+          if (archivedAssets.length > 0) {
+            const voxtaObj = voxtaData as unknown as Record<string, unknown>;
+            const characterName = voxtaObj.data
+              ? (voxtaObj.data as Record<string, unknown>).name as string
+              : voxtaObj.name as string
+              || card.meta.name || 'character';
+            const { cardData: convertedData, embeddedAssets } = convertToEmbeddedUrls(
+              voxtaData as unknown as Record<string, unknown>,
+              archivedAssets,
+              characterName
+            );
+            voxtaData = convertedData as unknown as import('@card-architect/schemas').CCv3Data;
+
+            // Add embedded archived images to the assets list
+            for (const embedded of embeddedAssets) {
+              const cardAsset = cardAssets.find(a => a.assetId === embedded.assetId);
+              if (cardAsset) {
+                const now = new Date().toISOString();
+                const fullAsset = assets.find(a => a.assetId === embedded.assetId);
+                if (!fullAsset) {
+                  const assetRecord = assetRepo.get(embedded.assetId);
+                  if (assetRecord) {
+                    assets.push({
+                      id: cardAsset.id,
+                      cardId: request.params.id,
+                      assetId: embedded.assetId,
+                      type: 'custom',
+                      name: `embedded-${embedded.assetId}`,
+                      ext: embedded.ext,
+                      order: assets.length,
+                      isMain: false,
+                      createdAt: now,
+                      updatedAt: now,
+                      asset: {
+                        id: assetRecord.id,
+                        filename: assetRecord.filename,
+                        mimetype: assetRecord.mimetype,
+                        size: assetRecord.size,
+                        url: assetRecord.url,
+                        createdAt: assetRecord.createdAt,
+                      },
+                    });
+                  }
+                }
+              }
+            }
+
+            fastify.log.info({
+              cardId: request.params.id,
+              count: archivedAssets.length,
+            }, 'Converted archived image URLs to embedded format for Voxta export');
+          }
 
           const result = await buildVoxtaPackage(
             voxtaData,
