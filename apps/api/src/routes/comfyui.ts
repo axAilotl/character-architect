@@ -1,6 +1,6 @@
 /**
  * ComfyUI Routes
- * Scaffolding for ComfyUI integration - workflows and prompt templates
+ * ComfyUI integration - workflows, prompt templates, and image generation
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -8,6 +8,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import { getComfyUIClient, injectIntoWorkflow, injectEmotionsIntoWorkflow } from '../services/comfyui-client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -15,6 +16,7 @@ const __dirname = dirname(__filename);
 // Paths for JSON storage
 const SETTINGS_DIR = join(__dirname, '../../data/settings/presets');
 const COMFYUI_PATH = join(SETTINGS_DIR, 'comfyui.json');
+const EMOTIONS_PATH = join(SETTINGS_DIR, 'emotions.json');
 
 // Ensure directory exists
 function ensureDir() {
@@ -42,6 +44,15 @@ interface ComfyUIWorkflow {
   name: string;
   description?: string;
   workflow: object;
+  injectionMap?: {
+    positive_prompt?: string;
+    negative_prompt?: string;
+    seed?: string;
+    hires_seed?: string;
+    filename_prefix?: string;
+    checkpoint?: string;
+    width_height?: string;
+  };
   defaultModel?: string;
   defaultSampler?: string;
   defaultScheduler?: string;
@@ -104,10 +115,8 @@ const DEFAULT_WORKFLOWS: ComfyUIWorkflow[] = [
   {
     id: 'comfyui-basic-txt2img',
     name: 'Basic Text to Image',
-    description: 'Simple text-to-image workflow with KSampler',
+    description: 'Simple text-to-image workflow with KSampler. Configure your checkpoint in Settings.',
     workflow: {
-      // This is a minimal placeholder workflow
-      // Users should upload their own workflows
       "3": {
         "inputs": {
           "seed": 0,
@@ -125,14 +134,14 @@ const DEFAULT_WORKFLOWS: ComfyUIWorkflow[] = [
       },
       "4": {
         "inputs": {
-          "ckpt_name": "model.safetensors"
+          "ckpt_name": "A_Illustrious/Anime/dreamcake_vaporal/dreamcake_vaporal.safetensors"
         },
         "class_type": "CheckpointLoaderSimple"
       },
       "5": {
         "inputs": {
-          "width": 512,
-          "height": 768,
+          "width": 1024,
+          "height": 1536,
           "batch_size": 1
         },
         "class_type": "EmptyLatentImage"
@@ -166,10 +175,18 @@ const DEFAULT_WORKFLOWS: ComfyUIWorkflow[] = [
         "class_type": "SaveImage"
       }
     },
-    defaultModel: '',
+    injectionMap: {
+      positive_prompt: "6",
+      negative_prompt: "7",
+      seed: "3",
+      filename_prefix: "9",
+      checkpoint: "4",
+      width_height: "5",
+    },
+    defaultModel: 'A_Illustrious/Anime/dreamcake_vaporal/dreamcake_vaporal.safetensors',
     defaultSampler: 'euler',
     defaultScheduler: 'normal',
-    defaultResolution: { width: 512, height: 768 },
+    defaultResolution: { width: 1024, height: 1536 },
     isDefault: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -292,10 +309,6 @@ export async function comfyuiRoutes(fastify: FastifyInstance) {
     }
 
     const existing = data.promptTemplates[index];
-    if (existing.isDefault) {
-      reply.code(403);
-      return { error: 'Cannot modify default templates. Copy it first.' };
-    }
 
     const updated: ComfyUIPromptTemplate = {
       ...existing,
@@ -317,11 +330,6 @@ export async function comfyuiRoutes(fastify: FastifyInstance) {
     if (index === -1) {
       reply.code(404);
       return { error: 'Prompt template not found' };
-    }
-
-    if (data.promptTemplates[index].isDefault) {
-      reply.code(403);
-      return { error: 'Cannot delete default templates' };
     }
 
     data.promptTemplates.splice(index, 1);
@@ -497,6 +505,15 @@ export async function comfyuiRoutes(fastify: FastifyInstance) {
       name: string;
       description: string;
       workflow: object;
+      injectionMap: {
+        positive_prompt?: string;
+        negative_prompt?: string;
+        seed?: string;
+        hires_seed?: string;
+        filename_prefix?: string;
+        checkpoint?: string;
+        width_height?: string;
+      };
       defaultModel: string;
       defaultSampler: string;
       defaultScheduler: string;
@@ -512,10 +529,6 @@ export async function comfyuiRoutes(fastify: FastifyInstance) {
     }
 
     const existing = data.workflows[index];
-    if (existing.isDefault) {
-      reply.code(403);
-      return { error: 'Cannot modify default workflows. Copy it first.' };
-    }
 
     const updated: ComfyUIWorkflow = {
       ...existing,
@@ -537,11 +550,6 @@ export async function comfyuiRoutes(fastify: FastifyInstance) {
     if (index === -1) {
       reply.code(404);
       return { error: 'Workflow not found' };
-    }
-
-    if (data.workflows[index].isDefault) {
-      reply.code(403);
-      return { error: 'Cannot delete default workflows' };
     }
 
     data.workflows.splice(index, 1);
@@ -640,6 +648,483 @@ export async function comfyuiRoutes(fastify: FastifyInstance) {
     return { workflow: newWorkflow };
   });
 
+  // ========== SERVER CONNECTION ==========
+
+  // Test connection to ComfyUI server
+  fastify.post<{
+    Body: { serverUrl: string };
+  }>('/comfyui/connect', async (request, reply) => {
+    const { serverUrl } = request.body;
+
+    if (!serverUrl) {
+      reply.code(400);
+      return { error: 'serverUrl is required' };
+    }
+
+    try {
+      const client = getComfyUIClient(serverUrl);
+      const result = await client.testConnection();
+
+      if (result.connected) {
+        return {
+          connected: true,
+          systemInfo: result.systemInfo,
+          clientId: client.getClientId,
+        };
+      } else {
+        return {
+          connected: false,
+          error: result.error,
+        };
+      }
+    } catch (error) {
+      return {
+        connected: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  });
+
+  // Get available models from ComfyUI
+  fastify.post<{
+    Body: { serverUrl: string };
+  }>('/comfyui/models', async (request, reply) => {
+    const { serverUrl } = request.body;
+
+    if (!serverUrl) {
+      reply.code(400);
+      return { error: 'serverUrl is required' };
+    }
+
+    try {
+      const client = getComfyUIClient(serverUrl);
+      const models = await client.getModels();
+      return models;
+    } catch (error) {
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Failed to get models' };
+    }
+  });
+
+  // Get queue status
+  fastify.post<{
+    Body: { serverUrl: string };
+  }>('/comfyui/queue', async (request, reply) => {
+    const { serverUrl } = request.body;
+
+    if (!serverUrl) {
+      reply.code(400);
+      return { error: 'serverUrl is required' };
+    }
+
+    try {
+      const client = getComfyUIClient(serverUrl);
+      const status = await client.getQueueStatus();
+      return status;
+    } catch (error) {
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Failed to get queue status' };
+    }
+  });
+
+  // ========== IMAGE GENERATION ==========
+
+  // Generate image from workflow
+  fastify.post<{
+    Body: {
+      serverUrl: string;
+      workflowId?: string;
+      workflow?: object;
+      injectionMap?: {
+        positive_prompt?: string;
+        negative_prompt?: string;
+        seed?: string;
+        hires_seed?: string;
+        filename_prefix?: string;
+        checkpoint?: string;
+        width_height?: string;
+      };
+      values?: {
+        positivePrompt?: string;
+        negativePrompt?: string;
+        seed?: number;
+        filename?: string;
+        checkpoint?: string;
+        width?: number;
+        height?: number;
+      };
+      includeBase64?: boolean;
+    };
+  }>('/comfyui/generate', async (request, reply) => {
+    const { serverUrl, workflowId, workflow: directWorkflow, injectionMap: providedInjectionMap, values, includeBase64 } = request.body;
+
+    if (!serverUrl) {
+      reply.code(400);
+      return { error: 'serverUrl is required' };
+    }
+
+    // Get workflow either from ID or direct
+    let workflow: Record<string, unknown>;
+    let injectionMap = providedInjectionMap;
+
+    if (workflowId) {
+      const data = loadData();
+      const found = data.workflows.find((w) => w.id === workflowId);
+      if (!found) {
+        reply.code(404);
+        return { error: 'Workflow not found' };
+      }
+      workflow = found.workflow as Record<string, unknown>;
+      // Use stored injectionMap if not provided in request
+      if (!injectionMap && found.injectionMap) {
+        injectionMap = found.injectionMap;
+      }
+    } else if (directWorkflow) {
+      workflow = directWorkflow as Record<string, unknown>;
+    } else {
+      reply.code(400);
+      return { error: 'Either workflowId or workflow is required' };
+    }
+
+    // Inject values if injection map exists
+    if (injectionMap && values) {
+      // Generate random seed if not provided
+      const finalValues = {
+        ...values,
+        seed: values.seed ?? Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+      };
+      workflow = injectIntoWorkflow(workflow, injectionMap, finalValues);
+    }
+
+    try {
+      const client = getComfyUIClient(serverUrl);
+      const result = await client.queuePrompt(workflow);
+
+      // Log what we got back
+      console.log('[ComfyUI] Generation result:', {
+        promptId: result.promptId,
+        imageCount: result.images?.length,
+        firstImage: result.images?.[0],
+        executionTime: result.executionTime,
+      });
+
+      // Optionally include base64 data
+      if (includeBase64 && result.images?.length > 0) {
+        for (const image of result.images) {
+          try {
+            image.base64 = await client.getImageBase64(image.filename, image.subfolder, image.type);
+            console.log('[ComfyUI] Base64 fetched for:', image.filename, 'length:', image.base64?.length);
+          } catch (b64Error) {
+            console.error('[ComfyUI] Failed to fetch base64 for', image.filename, b64Error);
+            // Continue without base64 - frontend will use proxy URL
+          }
+        }
+      }
+
+      return {
+        success: true,
+        promptId: result.promptId,
+        images: result.images,
+        executionTime: result.executionTime,
+      };
+    } catch (error) {
+      console.error('[ComfyUI] Generation error:', error);
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Generation failed',
+      };
+    }
+  });
+
+  // Generate emotions batch
+  fastify.post<{
+    Body: {
+      serverUrl: string;
+      workflowId: string;
+      format: 'sillytavern' | 'voxta';
+      totalLimit?: number;
+      sourceImage?: string;
+      outputPath?: string;
+    };
+  }>('/comfyui/generate-emotions', async (request, reply) => {
+    const { serverUrl, workflowId, format, totalLimit = 0, sourceImage, outputPath } = request.body;
+
+    if (!serverUrl || !workflowId || !format) {
+      reply.code(400);
+      return { error: 'serverUrl, workflowId, and format are required' };
+    }
+
+    // Load workflow
+    const data = loadData();
+    const workflowData = data.workflows.find((w) => w.id === workflowId);
+    if (!workflowData) {
+      reply.code(404);
+      return { error: 'Workflow not found' };
+    }
+
+    // Check for emotion injection map
+    const emotionInjectionMap = (workflowData as any).emotionInjectionMap;
+    if (!emotionInjectionMap) {
+      reply.code(400);
+      return { error: 'Workflow does not support emotion injection. Add emotionInjectionMap to workflow.' };
+    }
+
+    // Load emotion data
+    if (!existsSync(EMOTIONS_PATH)) {
+      reply.code(404);
+      return { error: 'Emotions preset file not found' };
+    }
+
+    const emotionsData = JSON.parse(readFileSync(EMOTIONS_PATH, 'utf-8'));
+    const items = emotionsData[format]?.items;
+
+    if (!items || items.length === 0) {
+      reply.code(400);
+      return { error: `No emotion items found for format: ${format}` };
+    }
+
+    // Inject emotions into workflow
+    const workflow = injectEmotionsIntoWorkflow(
+      workflowData.workflow as Record<string, unknown>,
+      emotionInjectionMap,
+      items,
+      { totalLimit, sourceImage, outputPath }
+    );
+
+    const actualCount = totalLimit > 0 ? Math.min(totalLimit, items.length) : items.length;
+
+    try {
+      const client = getComfyUIClient(serverUrl);
+      const result = await client.queuePrompt(workflow);
+
+      return {
+        success: true,
+        promptId: result.promptId,
+        format,
+        totalEmotions: actualCount,
+        executionTime: result.executionTime,
+        images: result.images,
+      };
+    } catch (error) {
+      console.error('[ComfyUI] Emotion generation error:', error);
+      reply.code(500);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Emotion generation failed',
+      };
+    }
+  });
+
+  // Upload image to ComfyUI input folder
+  fastify.post('/comfyui/upload-image', async (request, reply) => {
+    const data = await request.file();
+    if (!data) {
+      reply.code(400);
+      return { error: 'No file uploaded' };
+    }
+
+    const serverUrl = (request.query as { serverUrl?: string }).serverUrl;
+    if (!serverUrl) {
+      reply.code(400);
+      return { error: 'serverUrl query parameter is required' };
+    }
+
+    try {
+      const buffer = await data.toBuffer();
+      const formData = new FormData();
+      formData.append('image', new Blob([new Uint8Array(buffer)]), data.filename);
+
+      const response = await fetch(`${serverUrl}/upload/image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        reply.code(response.status);
+        return { error: errorText || `Upload failed: ${response.status}` };
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        name: result.name,
+        subfolder: result.subfolder || '',
+        type: result.type || 'input',
+      };
+    } catch (error) {
+      console.error('[ComfyUI] Upload error:', error);
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Upload failed' };
+    }
+  });
+
+  // Interrupt current generation
+  fastify.post<{
+    Body: { serverUrl: string };
+  }>('/comfyui/interrupt', async (request, reply) => {
+    const { serverUrl } = request.body;
+
+    if (!serverUrl) {
+      reply.code(400);
+      return { error: 'serverUrl is required' };
+    }
+
+    try {
+      const client = getComfyUIClient(serverUrl);
+      await client.interrupt();
+      return { success: true };
+    } catch (error) {
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Failed to interrupt' };
+    }
+  });
+
+  // Clear queue
+  fastify.post<{
+    Body: { serverUrl: string };
+  }>('/comfyui/clear-queue', async (request, reply) => {
+    const { serverUrl } = request.body;
+
+    if (!serverUrl) {
+      reply.code(400);
+      return { error: 'serverUrl is required' };
+    }
+
+    try {
+      const client = getComfyUIClient(serverUrl);
+      await client.clearQueue();
+      return { success: true };
+    } catch (error) {
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Failed to clear queue' };
+    }
+  });
+
+  // Get image from ComfyUI
+  fastify.get<{
+    Querystring: {
+      serverUrl: string;
+      filename: string;
+      subfolder?: string;
+      type?: string;
+    };
+  }>('/comfyui/image', async (request, reply) => {
+    const { serverUrl, filename, subfolder = '', type = 'output' } = request.query;
+
+    if (!serverUrl || !filename) {
+      reply.code(400);
+      return { error: 'serverUrl and filename are required' };
+    }
+
+    try {
+      const url = `${serverUrl}/view?filename=${encodeURIComponent(filename)}&subfolder=${encodeURIComponent(subfolder)}&type=${encodeURIComponent(type)}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        reply.code(response.status);
+        return { error: 'Failed to fetch image' };
+      }
+
+      const buffer = await response.arrayBuffer();
+      const contentType = response.headers.get('content-type') || 'image/png';
+
+      reply.header('Content-Type', contentType);
+      reply.header('Cache-Control', 'public, max-age=3600');
+      return reply.send(Buffer.from(buffer));
+    } catch (error) {
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Failed to fetch image' };
+    }
+  });
+
+  // ========== HISTORY ==========
+
+  // Get generation history from ComfyUI server
+  fastify.post<{
+    Body: { serverUrl: string; limit?: number };
+  }>('/comfyui/history', async (request, reply) => {
+    const { serverUrl, limit = 20 } = request.body;
+
+    if (!serverUrl) {
+      reply.code(400);
+      return { error: 'serverUrl is required' };
+    }
+
+    try {
+      // Fetch history from ComfyUI
+      const response = await fetch(`${serverUrl}/history`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch history: ${response.status}`);
+      }
+
+      const historyData = await response.json() as Record<string, {
+        prompt: [number, string, object, object, string[]];
+        outputs: Record<string, { images?: Array<{ filename: string; subfolder: string; type: string }> }>;
+        status?: { completed?: boolean };
+      }>;
+
+      // Transform to our format - most recent first
+      const entries = Object.entries(historyData)
+        .map(([promptId, data]) => {
+          // Extract images from outputs
+          const images: Array<{ filename: string; subfolder: string; type: string }> = [];
+          for (const nodeOutput of Object.values(data.outputs || {})) {
+            if (nodeOutput.images) {
+              images.push(...nodeOutput.images);
+            }
+          }
+
+          // Try to extract prompt text from the workflow
+          let positivePrompt = '';
+          let negativePrompt = '';
+          let seed = 0;
+
+          const workflow = data.prompt?.[2] as Record<string, { inputs?: Record<string, unknown>; class_type?: string }> | undefined;
+          if (workflow) {
+            for (const node of Object.values(workflow)) {
+              if (node.class_type === 'CLIPTextEncode' && node.inputs?.text) {
+                const text = String(node.inputs.text);
+                // Heuristic: negative prompts usually mention "blurry", "low quality", etc.
+                if (text.includes('blurry') || text.includes('low quality') || text.includes('score_6')) {
+                  if (!negativePrompt) negativePrompt = text;
+                } else {
+                  if (!positivePrompt) positivePrompt = text;
+                }
+              }
+              if ((node.class_type === 'KSampler' || node.class_type === 'KSampler (Efficient)') && node.inputs?.seed) {
+                seed = Number(node.inputs.seed) || 0;
+              }
+            }
+          }
+
+          return {
+            promptId,
+            timestamp: data.prompt?.[0] || Date.now(),
+            images: images.map(img => ({
+              filename: img.filename,
+              subfolder: img.subfolder || '',
+              type: img.type || 'output',
+              // Construct proxy URL through our API
+              url: `/api/comfyui/image?serverUrl=${encodeURIComponent(serverUrl)}&filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(img.subfolder || '')}&type=${encodeURIComponent(img.type || 'output')}`,
+            })),
+            positivePrompt,
+            negativePrompt,
+            seed,
+          };
+        })
+        .filter(entry => entry.images.length > 0) // Only entries with images
+        .sort((a, b) => b.timestamp - a.timestamp) // Most recent first
+        .slice(0, limit);
+
+      return { history: entries };
+    } catch (error) {
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Failed to fetch history' };
+    }
+  });
+
   // ========== RESET ==========
 
   // Reset to defaults (keeps user-created, restores defaults)
@@ -658,5 +1143,64 @@ export async function comfyuiRoutes(fastify: FastifyInstance) {
     saveData(reset);
 
     return { success: true, data: reset };
+  });
+
+  // ========== EMOTIONS ==========
+
+  // Get emotion presets
+  fastify.get('/comfyui/emotions', async (_request, reply) => {
+    try {
+      if (!existsSync(EMOTIONS_PATH)) {
+        reply.code(404);
+        return { error: 'Emotions preset file not found' };
+      }
+
+      const data = readFileSync(EMOTIONS_PATH, 'utf-8');
+      const emotions = JSON.parse(data);
+      return emotions;
+    } catch (error) {
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Failed to load emotions' };
+    }
+  });
+
+  // Update emotion presets (for import/edit functionality)
+  fastify.patch<{
+    Body: {
+      format: 'sillytavern' | 'voxta';
+      items: Array<{ filename: string; prompt: string }>;
+    };
+  }>('/comfyui/emotions', async (request, reply) => {
+    try {
+      const { format, items } = request.body;
+
+      if (!format || !items) {
+        reply.code(400);
+        return { error: 'format and items are required' };
+      }
+
+      if (!existsSync(EMOTIONS_PATH)) {
+        reply.code(404);
+        return { error: 'Emotions preset file not found' };
+      }
+
+      const data = readFileSync(EMOTIONS_PATH, 'utf-8');
+      const emotions = JSON.parse(data);
+
+      if (!emotions[format]) {
+        reply.code(400);
+        return { error: `Invalid format: ${format}` };
+      }
+
+      emotions[format].items = items;
+      emotions[format].count = items.length;
+
+      writeFileSync(EMOTIONS_PATH, JSON.stringify(emotions, null, 2), 'utf-8');
+
+      return { success: true, format, count: items.length };
+    } catch (error) {
+      reply.code(500);
+      return { error: error instanceof Error ? error.message : 'Failed to update emotions' };
+    }
   });
 }

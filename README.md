@@ -79,7 +79,7 @@
   - Customizable prompt sets for different styles
   - Automatic lorebook generation
 - **SillyTavern Integration** - Direct push to SillyTavern with one click
-- **ComfyUI Integration** - AI image generation for character portraits (experimental)
+- **ComfyUI Integration** - AI image generation for portraits and emotion sprites
 
 ## Quick Start
 
@@ -182,7 +182,7 @@ Optional features are loaded as modules with auto-discovery using Vite's `import
 /apps/web/src/modules/
 ├── block-editor/     # Visual block-based card builder
 ├── wwwyzzerdd/       # AI character wizard
-├── comfyui/          # Image generation (experimental)
+├── comfyui/          # Image generation with ComfyUI
 ├── sillytavern/      # SillyTavern push integration
 └── webimport/        # Browser userscript integration
 ```

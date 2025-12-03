@@ -30,6 +30,16 @@ interface AIPromptSettings {
   taglineSystemPrompt: string;
 }
 
+interface ComfyUIGenerationHistoryItem {
+  id: string;
+  timestamp: number;
+  positivePrompt: string;
+  negativePrompt: string;
+  seed: number;
+  imageUrl: string;
+  workflowId: string;
+}
+
 interface ComfyUISettings {
   serverUrl: string;
   activeWorkflowId: string | null;
@@ -43,6 +53,13 @@ interface ComfyUISettings {
   defaultHeight: number;
   positivePrefix: string;
   negativePrefix: string;
+  // Generation state (persisted)
+  positivePrompt: string;
+  negativePrompt: string;
+  seed: number;
+  selectedCheckpoint: string;
+  selectedWorkflowId: string | null;
+  history: ComfyUIGenerationHistoryItem[];
 }
 
 // Theme definitions
@@ -269,6 +286,14 @@ interface SettingsStore {
   setComfyUIAutoSelectType: (enabled: boolean) => void;
   setComfyUIAutoGenerateFilename: (enabled: boolean) => void;
   setComfyUIDefaults: (defaults: Partial<Omit<ComfyUISettings, 'serverUrl' | 'activeWorkflowId' | 'activePromptId' | 'autoSelectType' | 'autoGenerateFilename'>>) => void;
+  // ComfyUI generation state actions
+  setComfyUIPositivePrompt: (prompt: string) => void;
+  setComfyUINegativePrompt: (prompt: string) => void;
+  setComfyUISeed: (seed: number) => void;
+  setComfyUISelectedCheckpoint: (checkpoint: string) => void;
+  setComfyUISelectedWorkflowId: (id: string | null) => void;
+  setComfyUIHistory: (history: ComfyUIGenerationHistoryItem[]) => void;
+  addComfyUIHistoryItem: (item: ComfyUIGenerationHistoryItem) => void;
 
   // AI prompt actions
   setTagsSystemPrompt: (prompt: string) => void;
@@ -332,6 +357,13 @@ const DEFAULT_COMFYUI: ComfyUISettings = {
   defaultHeight: 768,
   positivePrefix: '',
   negativePrefix: 'blurry, low quality, deformed, bad anatomy, watermark, signature',
+  // Generation state
+  positivePrompt: '',
+  negativePrompt: '',
+  seed: Math.floor(Math.random() * 999999999),
+  selectedCheckpoint: '',
+  selectedWorkflowId: null,
+  history: [],
 };
 
 const DEFAULT_AI_PROMPTS: AIPromptSettings = {
@@ -483,6 +515,45 @@ export const useSettingsStore = create<SettingsStore>()(
           comfyUI: { ...state.comfyUI, ...defaults },
         })),
 
+      // ComfyUI generation state actions
+      setComfyUIPositivePrompt: (positivePrompt) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, positivePrompt },
+        })),
+
+      setComfyUINegativePrompt: (negativePrompt) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, negativePrompt },
+        })),
+
+      setComfyUISeed: (seed) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, seed },
+        })),
+
+      setComfyUISelectedCheckpoint: (selectedCheckpoint) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, selectedCheckpoint },
+        })),
+
+      setComfyUISelectedWorkflowId: (selectedWorkflowId) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, selectedWorkflowId },
+        })),
+
+      setComfyUIHistory: (history) =>
+        set((state) => ({
+          comfyUI: { ...state.comfyUI, history },
+        })),
+
+      addComfyUIHistoryItem: (item) =>
+        set((state) => ({
+          comfyUI: {
+            ...state.comfyUI,
+            history: [item, ...state.comfyUI.history].slice(0, 50), // Keep last 50
+          },
+        })),
+
       // AI prompt actions
       setTagsSystemPrompt: (tagsSystemPrompt) =>
         set((state) => ({
@@ -496,6 +567,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'card-architect-settings',
+      // History now uses proxy URLs (small strings) instead of base64, so it can be persisted
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<SettingsStore>;
         return {

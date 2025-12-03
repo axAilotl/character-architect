@@ -8,8 +8,8 @@
       "prompt": "In the next response I want you to provide only a detailed comma-delimited list of keywords and phrases which describe {{char}} based on what you know about them. Be sure to include their hair color, eye color, any accessories or outfit they may wear, their body type, and any other relevant details. Also include a subject and medium for the image. Don't explain anything. Do not preface your response with \"here is...\" or something similar. The purpose of this response is to use it as a prompt for stable diffusion to generate an avatar of {{char}}. DO NOT leave any placeholders or fill-in-the-blank items. Make your best guess based on the genre if the details are not provided, don't ask for more information.",
       "negativePrompt": "blurry, low quality, deformed, bad anatomy, watermark, signature, text, cropped",
       "isDefault": true,
-      "createdAt": "2025-11-29T22:01:16.500Z",
-      "updatedAt": "2025-11-29T22:01:16.500Z"
+      "createdAt": "2025-12-03T18:19:09.957Z",
+      "updatedAt": "2025-12-03T18:19:09.957Z"
     },
     {
       "id": "comfyui-scenario",
@@ -19,8 +19,8 @@
       "prompt": "Ignore previous instructions and provide a detailed description for all of the following. {{char}}'s personality, appearance, and mannerisms. Their relationship with {{user}}, the first message of the roleplay, the scenario in which the roleplay takes place, and any other relevant details. Everything should be written in a detailed descriptive prose style for a visual illustration. Include visual details about lighting, atmosphere, and composition.",
       "negativePrompt": "blurry, low quality, empty background, plain background, text, watermark",
       "isDefault": true,
-      "createdAt": "2025-11-29T22:01:16.500Z",
-      "updatedAt": "2025-11-29T22:01:16.500Z"
+      "createdAt": "2025-12-03T18:19:09.957Z",
+      "updatedAt": "2025-12-03T18:19:09.957Z"
     },
     {
       "id": "comfyui-portrait",
@@ -30,8 +30,8 @@
       "prompt": "In the next response I want you to provide only a detailed comma-delimited list of keywords and phrases which describe {{char}}'s face and upper body based on what you know about them. Focus on facial features: eye shape and color, eyebrows, nose, lips, facial structure, skin tone, hair style and color, expression, and any facial accessories. Include lighting and mood keywords. Don't explain anything. The purpose is to generate a portrait with stable diffusion.",
       "negativePrompt": "blurry, low quality, deformed face, bad anatomy, asymmetric eyes, watermark",
       "isDefault": true,
-      "createdAt": "2025-11-29T22:01:16.500Z",
-      "updatedAt": "2025-11-29T22:01:16.500Z"
+      "createdAt": "2025-12-03T18:19:09.957Z",
+      "updatedAt": "2025-12-03T18:19:09.957Z"
     },
     {
       "id": "comfyui-background",
@@ -41,15 +41,15 @@
       "prompt": "Ignore previous instructions and provide a detailed description of {{char}}'s surroundings based on the scenario and setting. Describe the environment, architecture, lighting conditions, time of day, weather, atmosphere, and any notable objects or features. Focus only on the environment - no characters should be present. Write as comma-delimited keywords for stable diffusion.",
       "negativePrompt": "people, characters, faces, figures, blurry, low quality, text, watermark",
       "isDefault": true,
-      "createdAt": "2025-11-29T22:01:16.500Z",
-      "updatedAt": "2025-11-29T22:01:16.500Z"
+      "createdAt": "2025-12-03T18:19:09.957Z",
+      "updatedAt": "2025-12-03T18:19:09.957Z"
     }
   ],
   "workflows": [
     {
       "id": "comfyui-basic-txt2img",
       "name": "Basic Text to Image",
-      "description": "Simple text-to-image workflow with KSampler",
+      "description": "Simple text-to-image workflow with KSampler. Configure your checkpoint in Settings.",
       "workflow": {
         "3": {
           "inputs": {
@@ -80,14 +80,14 @@
         },
         "4": {
           "inputs": {
-            "ckpt_name": "model.safetensors"
+            "ckpt_name": "A_Illustrious/Anime/dreamcake_vaporal/dreamcake_vaporal.safetensors"
           },
           "class_type": "CheckpointLoaderSimple"
         },
         "5": {
           "inputs": {
-            "width": 512,
-            "height": 768,
+            "width": 1024,
+            "height": 1536,
             "batch_size": 1
           },
           "class_type": "EmptyLatentImage"
@@ -136,16 +136,706 @@
           "class_type": "SaveImage"
         }
       },
-      "defaultModel": "",
+      "injectionMap": {
+        "positive_prompt": "6",
+        "negative_prompt": "7",
+        "seed": "3",
+        "filename_prefix": "9",
+        "checkpoint": "4",
+        "width_height": "5"
+      },
+      "defaultModel": "A_Illustrious/Anime/dreamcake_vaporal/dreamcake_vaporal.safetensors",
       "defaultSampler": "euler",
       "defaultScheduler": "normal",
       "defaultResolution": {
-        "width": 512,
-        "height": 768
+        "width": 1024,
+        "height": 1536
       },
       "isDefault": true,
-      "createdAt": "2025-11-29T22:01:16.500Z",
-      "updatedAt": "2025-11-29T22:01:16.500Z"
+      "createdAt": "2025-12-03T18:19:09.957Z",
+      "updatedAt": "2025-12-03T18:19:09.957Z"
+    },
+    {
+      "id": "comfyui-workflow-915f8051-2fb6-4594-9325-0b1fb11f9952",
+      "name": "ponyflow_v3c",
+      "workflow": {
+        "140": {
+          "inputs": {
+            "ckpt_name": "A_Illustrious/Anime/dreamcake_vaporal/dreamcake_vaporal.safetensors"
+          },
+          "class_type": "Checkpoint Loader with Name (Image Saver)",
+          "_meta": {
+            "title": "Checkpoint Loader with Name (Image Saver)"
+          }
+        },
+        "142": {
+          "inputs": {
+            "resolution": "832x1152 (0.72)",
+            "batch_size": 1,
+            "width_override": 0,
+            "height_override": 0
+          },
+          "class_type": "SDXLEmptyLatentSizePicker+",
+          "_meta": {
+            "title": "🔧 SDXL Empty Latent Size Picker"
+          }
+        },
+        "192": {
+          "inputs": {
+            "stop_at_clip_layer": -2,
+            "clip": [
+              "140",
+              1
+            ]
+          },
+          "class_type": "CLIPSetLastLayer",
+          "_meta": {
+            "title": "CLIP Set Last Layer"
+          }
+        },
+        "204": {
+          "inputs": {
+            "seed": [
+              "427",
+              3
+            ],
+            "steps": 30,
+            "cfg": 6,
+            "sampler_name": "dpmpp_2m_sde",
+            "scheduler": "karras",
+            "denoise": 1,
+            "preview_method": "auto",
+            "vae_decode": "true",
+            "model": [
+              "140",
+              0
+            ],
+            "positive": [
+              "416",
+              0
+            ],
+            "negative": [
+              "417",
+              0
+            ],
+            "latent_image": [
+              "142",
+              0
+            ],
+            "optional_vae": [
+              "140",
+              2
+            ],
+            "script": [
+              "423",
+              0
+            ]
+          },
+          "class_type": "KSampler (Efficient)",
+          "_meta": {
+            "title": "KSampler (Efficient)"
+          }
+        },
+        "222": {
+          "inputs": {
+            "scale": 0.3,
+            "strength": 0.2,
+            "saturation": 0.3,
+            "toe": 0.02,
+            "seed": 382838082173520,
+            "image": [
+              "204",
+              5
+            ]
+          },
+          "class_type": "BetterFilmGrain",
+          "_meta": {
+            "title": "Better Film Grain"
+          }
+        },
+        "416": {
+          "inputs": {
+            "text": "",
+            "clip": [
+              "192",
+              0
+            ]
+          },
+          "class_type": "CLIPTextEncode",
+          "_meta": {
+            "title": "Positive"
+          }
+        },
+        "417": {
+          "inputs": {
+            "text": "",
+            "clip": [
+              "192",
+              0
+            ]
+          },
+          "class_type": "CLIPTextEncode",
+          "_meta": {
+            "title": "Negative"
+          }
+        },
+        "422": {
+          "inputs": {
+            "filename_prefix": "VOXTA_API_",
+            "images": [
+              "222",
+              0
+            ]
+          },
+          "class_type": "SaveImage",
+          "_meta": {
+            "title": "Save Image"
+          }
+        },
+        "423": {
+          "inputs": {
+            "upscale_type": "both",
+            "hires_ckpt_name": "(use same)",
+            "latent_upscaler": "nearest-exact",
+            "pixel_upscaler": "4x-ClearRealityV1.pth",
+            "upscale_by": 1.5000000000000002,
+            "use_same_seed": false,
+            "seed": [
+              "427",
+              3
+            ],
+            "hires_steps": 20,
+            "denoise": 0.6000000000000001,
+            "iterations": 1,
+            "use_controlnet": false,
+            "control_net_name": "FLUX.1/InstantX-FLUX1-Dev-Union/diffusion_pytorch_model.safetensors",
+            "strength": 1,
+            "preprocessor": "none",
+            "preprocessor_imgs": false
+          },
+          "class_type": "HighRes-Fix Script",
+          "_meta": {
+            "title": "HighRes-Fix Script"
+          }
+        },
+        "427": {
+          "inputs": {
+            "seed": 1005575757494214
+          },
+          "class_type": "Seed",
+          "_meta": {
+            "title": "Seed"
+          }
+        }
+      },
+      "isDefault": false,
+      "createdAt": "2025-12-03T20:52:13.855Z",
+      "updatedAt": "2025-12-03T20:52:27.364Z",
+      "injectionMap": {
+        "positive_prompt": "416",
+        "negative_prompt": "417",
+        "filename_prefix": "422",
+        "seed": "427"
+      }
+    },
+    {
+      "id": "comfyui-workflow-e185f153-762d-4048-8113-4581147c4249",
+      "name": "Voxta_Avatar_Generator_1.43_API",
+      "workflow": {
+        "10": {
+          "inputs": {
+            "text": "(worst quality, low quality:1.2), text, sign, signature, watermark, (ugly, deformed:1.2), (bad anatomy, bad hands, extra limbs, extra fingers, poorly drawn hands, fused fingers, too many fingers:1.3), malformed limbs, lazy eye, cross-eyed,",
+            "clip": [
+              "160",
+              0
+            ]
+          },
+          "class_type": "CLIPTextEncode",
+          "_meta": {
+            "title": "CLIP Text Encode (NEGATIVE Prompt)"
+          }
+        },
+        "81": {
+          "inputs": {
+            "model": [
+              "301",
+              0
+            ]
+          },
+          "class_type": "ModelPassThrough",
+          "_meta": {
+            "title": "ModelPass"
+          }
+        },
+        "123": {
+          "inputs": {
+            "vae_name": "qwen_image_vae.safetensors"
+          },
+          "class_type": "VAELoader",
+          "_meta": {
+            "title": "Load VAE"
+          }
+        },
+        "145": {
+          "inputs": {
+            "samples": [
+              "196",
+              0
+            ],
+            "vae": [
+              "123",
+              0
+            ]
+          },
+          "class_type": "VAEDecode",
+          "_meta": {
+            "title": "VAE Decode"
+          }
+        },
+        "160": {
+          "inputs": {
+            "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+            "type": "qwen_image",
+            "device": "default"
+          },
+          "class_type": "CLIPLoader",
+          "_meta": {
+            "title": "Load CLIP"
+          }
+        },
+        "164": {
+          "inputs": {
+            "prompt": [
+              "239",
+              0
+            ],
+            "clip": [
+              "160",
+              0
+            ],
+            "vae": [
+              "123",
+              0
+            ],
+            "image": [
+              "202",
+              0
+            ]
+          },
+          "class_type": "TextEncodeQwenImageEdit",
+          "_meta": {
+            "title": "TextEncodeQwenImageEdit"
+          }
+        },
+        "166": {
+          "inputs": {
+            "image": "VOXTA_API__00301_.png"
+          },
+          "class_type": "LoadImage",
+          "_meta": {
+            "title": "Reference Image"
+          }
+        },
+        "169": {
+          "inputs": {
+            "shift": 1.1,
+            "model": [
+              "81",
+              0
+            ]
+          },
+          "class_type": "ModelSamplingAuraFlow",
+          "_meta": {
+            "title": "ModelSamplingAuraFlow"
+          }
+        },
+        "196": {
+          "inputs": {
+            "seed": [
+              "259",
+              0
+            ],
+            "steps": 8,
+            "cfg": 1,
+            "sampler_name": "res_2s",
+            "scheduler": "simple",
+            "denoise": 1,
+            "model": [
+              "201",
+              0
+            ],
+            "positive": [
+              "164",
+              0
+            ],
+            "negative": [
+              "10",
+              0
+            ],
+            "latent_image": [
+              "204",
+              0
+            ]
+          },
+          "class_type": "KSampler",
+          "_meta": {
+            "title": "KSampler"
+          }
+        },
+        "201": {
+          "inputs": {
+            "strength": 1,
+            "model": [
+              "169",
+              0
+            ]
+          },
+          "class_type": "CFGNorm",
+          "_meta": {
+            "title": "CFGNorm"
+          }
+        },
+        "202": {
+          "inputs": {
+            "upscale_method": "lanczos",
+            "megapixels": 1,
+            "image": [
+              "166",
+              0
+            ]
+          },
+          "class_type": "ImageScaleToTotalPixels",
+          "_meta": {
+            "title": "ImageScaleToTotalPixels"
+          }
+        },
+        "204": {
+          "inputs": {
+            "pixels": [
+              "202",
+              0
+            ],
+            "vae": [
+              "123",
+              0
+            ]
+          },
+          "class_type": "VAEEncode",
+          "_meta": {
+            "title": "VAE Encode"
+          }
+        },
+        "205": {
+          "inputs": {
+            "seed": 673446451897318,
+            "steps": 20,
+            "cfg": 3.5,
+            "sampler_name": "dpmpp_2m_sde",
+            "scheduler": "karras",
+            "denoise": 0.03,
+            "model": [
+              "219",
+              0
+            ],
+            "positive": [
+              "207",
+              0
+            ],
+            "negative": [
+              "208",
+              0
+            ],
+            "latent_image": [
+              "210",
+              0
+            ]
+          },
+          "class_type": "KSampler",
+          "_meta": {
+            "title": "KSampler"
+          }
+        },
+        "207": {
+          "inputs": {
+            "text": "Realistic skin detail, blemishes, imperfections, pores",
+            "clip": [
+              "219",
+              1
+            ]
+          },
+          "class_type": "CLIPTextEncode",
+          "_meta": {
+            "title": "CLIP Text Encode (Prompt)"
+          }
+        },
+        "208": {
+          "inputs": {
+            "text": "",
+            "clip": [
+              "219",
+              1
+            ]
+          },
+          "class_type": "CLIPTextEncode",
+          "_meta": {
+            "title": "CLIP Text Encode (Prompt)"
+          }
+        },
+        "210": {
+          "inputs": {
+            "pixels": [
+              "214",
+              0
+            ],
+            "vae": [
+              "219",
+              2
+            ]
+          },
+          "class_type": "VAEEncode",
+          "_meta": {
+            "title": "VAE Encode"
+          }
+        },
+        "212": {
+          "inputs": {
+            "samples": [
+              "205",
+              0
+            ],
+            "vae": [
+              "219",
+              2
+            ]
+          },
+          "class_type": "VAEDecode",
+          "_meta": {
+            "title": "VAE Decode"
+          }
+        },
+        "214": {
+          "inputs": {
+            "upscale_method": "lanczos",
+            "scale_by": 1.5,
+            "image": [
+              "145",
+              0
+            ]
+          },
+          "class_type": "ImageScaleBy",
+          "_meta": {
+            "title": "Upscale Image By"
+          }
+        },
+        "216": {
+          "inputs": {
+            "upscale_method": "lanczos",
+            "megapixels": 1,
+            "image": [
+              "212",
+              0
+            ]
+          },
+          "class_type": "ImageScaleToTotalPixels",
+          "_meta": {
+            "title": "ImageScaleToTotalPixels"
+          }
+        },
+        "219": {
+          "inputs": {
+            "ckpt_name": "A_Illustrious/Realism/redcraftCADSUpdatedMar25_illust3relustion.safetensors"
+          },
+          "class_type": "CheckpointLoaderSimple",
+          "_meta": {
+            "title": "Load Checkpoint"
+          }
+        },
+        "220": {
+          "inputs": {
+            "upscale_model": [
+              "221",
+              0
+            ],
+            "image": [
+              "216",
+              0
+            ]
+          },
+          "class_type": "ImageUpscaleWithModel",
+          "_meta": {
+            "title": "Upscale Image (using Model)"
+          }
+        },
+        "221": {
+          "inputs": {
+            "model_name": "1x-ITF-SkinDiffDetail-Lite-v1.pth"
+          },
+          "class_type": "UpscaleModelLoader",
+          "_meta": {
+            "title": "Load Upscale Model"
+          }
+        },
+        "227": {
+          "inputs": {
+            "prepend_text": "",
+            "multiline_text": "Angry_Idle_01\nAngry_Idle_02\nAngry_Idle_03\nAngry_Idle_04\nAngry_Talking_01\nAngry_Talking_02\nAngry_Talking_03\nAngry_Talking_04\nAngry_Thinking_01\nAngry_Thinking_02\nAngry_Thinking_03\nAngry_Thinking_04\nCry_Idle_01\nCry_Idle_02\nCry_Idle_03\nCry_Idle_04\nCry_Talking_01\nCry_Talking_02\nCry_Talking_03\nCry_Talking_04\nCry_Thinking_01\nCry_Thinking_02\nCry_Thinking_03\nCry_Thinking_04\nFear_Idle_01\nFear_Idle_02\nFear_Idle_03\nFear_Idle_04\nFear_Talking_01\nFear_Talking_02\nFear_Talking_03\nFear_Talking_04\nFear_Thinking_01\nFear_Thinking_02\nFear_Thinking_03\nFear_Thinking_04\nHorny_Idle_01\nHorny_Idle_02\nHorny_Idle_03\nHorny_Idle_04\nHorny_Idle_05\nHorny_Idle_06\nHorny_Idle_07\nHorny_Idle_08\nHorny_Idle_09\nHorny_Idle_10\nHorny_Idle_11\nHorny_Idle_12\nHorny_Idle_13\nHorny_Idle_14\nHorny_Talking_01\nHorny_Talking_02\nHorny_Talking_03\nHorny_Talking_04\nHorny_Talking_05\nHorny_Talking_06\nHorny_Talking_07\nHorny_Talking_08\nHorny_Talking_09\nHorny_Talking_10\nHorny_Talking_11\nHorny_Talking_12\nHorny_Talking_13\nHorny_Talking_14\nHorny_Thinking_01\nHorny_Thinking_02\nHorny_Thinking_03\nHorny_Thinking_04\nHorny_Thinking_05\nHorny_Thinking_06\nHorny_Thinking_07\nHorny_Thinking_08\nHorny_Thinking_09\nHorny_Thinking_10\nHorny_Thinking_11\nHorny_Thinking_12\nHorny_Thinking_13\nHorny_Thinking_14\nLaugh_Idle_01\nLaugh_Idle_02\nLaugh_Idle_03\nLaugh_Idle_04\nLaugh_Idle_05\nLaugh_Talking_01\nLaugh_Talking_02\nLaugh_Talking_03\nLaugh_Talking_04\nLaugh_Talking_05\nLaugh_Thinking_01\nLaugh_Thinking_02\nLaugh_Thinking_03\nLaugh_Thinking_04\nLaugh_Thinking_05\nLove_Idle_01\nLove_Idle_02\nLove_Idle_03\nLove_Idle_04\nLove_Idle_05\nLove_Idle_06\nLove_Idle_07\nLove_Idle_08\nLove_Talking_01\nLove_Talking_02\nLove_Talking_03\nLove_Talking_04\nLove_Talking_05\nLove_Talking_06\nLove_Talking_07\nLove_Talking_08\nLove_Thinking_01\nLove_Thinking_02\nLove_Thinking_03\nLove_Thinking_04\nLove_Thinking_05\nLove_Thinking_06\nLove_Thinking_07\nLove_Thinking_08\nNeutral_Idle_01\nNeutral_Idle_02\nNeutral_Idle_03\nNeutral_Idle_04\nNeutral_Idle_05\nNeutral_Talking_01\nNeutral_Talking_02\nNeutral_Talking_03\nNeutral_Talking_04\nNeutral_Talking_05\nNeutral_Thinking_01\nNeutral_Thinking_02\nNeutral_Thinking_03\nNeutral_Thinking_04\nNeutral_Thinking_05\nQuestion_Idle_01\nQuestion_Idle_02\nQuestion_Idle_03\nQuestion_Idle_04\nQuestion_Talking_01\nQuestion_Talking_02\nQuestion_Talking_03\nQuestion_Talking_04\nQuestion_Thinking_01\nQuestion_Thinking_02\nQuestion_Thinking_03\nQuestion_Thinking_04\nSmile_Idle_01\nSmile_Idle_02\nSmile_Idle_03\nSmile_Idle_04\nSmile_Idle_05\nSmile_Talking_01\nSmile_Talking_02\nSmile_Talking_03\nSmile_Talking_04\nSmile_Talking_05\nSmile_Thinking_01\nSmile_Thinking_02\nSmile_Thinking_03\nSmile_Thinking_04\nSmile_Thinking_05\nSurprise_Idle_01\nSurprise_Idle_02\nSurprise_Idle_03\nSurprise_Idle_04\nSurprise_Idle_05\nSurprise_Talking_01\nSurprise_Talking_02\nSurprise_Talking_03\nSurprise_Talking_04\nSurprise_Talking_05\nSurprise_Thinking_01\nSurprise_Thinking_02\nSurprise_Thinking_03\nSurprise_Thinking_04\nSurprise_Thinking_05\nUnhappy_Idle_01\nUnhappy_Idle_02\nUnhappy_Idle_03\nUnhappy_Idle_04\nUnhappy_Talking_01\nUnhappy_Talking_02\nUnhappy_Talking_03\nUnhappy_Talking_04\nUnhappy_Thinking_01\nUnhappy_Thinking_02\nUnhappy_Thinking_03\nUnhappy_Thinking_04",
+            "append_text": "",
+            "start_index": 0,
+            "max_rows": 84
+          },
+          "class_type": "CR Prompt List",
+          "_meta": {
+            "title": "FILE NAMES"
+          }
+        },
+        "237": {
+          "inputs": {
+            "model": "RMBG-2.0",
+            "sensitivity": 1,
+            "process_res": 1024,
+            "mask_blur": 1,
+            "mask_offset": 0,
+            "invert_output": false,
+            "refine_foreground": false,
+            "background": "Alpha",
+            "background_color": "#222222",
+            "image": [
+              "249",
+              0
+            ]
+          },
+          "class_type": "RMBG",
+          "_meta": {
+            "title": "Remove Background (RMBG)"
+          }
+        },
+        "239": {
+          "inputs": {
+            "any_03": [
+              "266",
+              0
+            ]
+          },
+          "class_type": "Any Switch (rgthree)",
+          "_meta": {
+            "title": "Any Switch (rgthree)"
+          }
+        },
+        "249": {
+          "inputs": {
+            "any_01": [
+              "220",
+              0
+            ],
+            "any_02": [
+              "145",
+              0
+            ]
+          },
+          "class_type": "Any Switch (rgthree)",
+          "_meta": {
+            "title": "Any Switch (rgthree)"
+          }
+        },
+        "254": {
+          "inputs": {
+            "value": 0
+          },
+          "class_type": "INTConstant",
+          "_meta": {
+            "title": "Prompt Start Number (0=first)"
+          }
+        },
+        "255": {
+          "inputs": {
+            "value": 186
+          },
+          "class_type": "INTConstant",
+          "_meta": {
+            "title": "Prompt Count (186+ for all)"
+          }
+        },
+        "259": {
+          "inputs": {
+            "seed": -1
+          },
+          "class_type": "Seed (rgthree)",
+          "_meta": {
+            "title": "Seed (rgthree)"
+          }
+        },
+        "261": {
+          "inputs": {
+            "output_path": "SillyTavern_1A/",
+            "filename_prefix": [
+              "227",
+              0
+            ],
+            "filename_delimiter": "",
+            "filename_number_padding": 1,
+            "filename_number_start": "false",
+            "extension": "webp",
+            "dpi": 300,
+            "quality": 70,
+            "optimize_image": "true",
+            "lossless_webp": "false",
+            "overwrite_mode": "prefix_as_filename",
+            "show_history": "false",
+            "show_history_by_prefix": "true",
+            "embed_workflow": "false",
+            "show_previews": "false",
+            "images": [
+              "237",
+              0
+            ]
+          },
+          "class_type": "Image Save",
+          "_meta": {
+            "title": "Image Save"
+          }
+        },
+        "266": {
+          "inputs": {
+            "prepend_text": "",
+            "multiline_text": "annoyed, firm expression, intense gaze, tense shoulders, idle, looking at viewer\nfrustrated, narrowed eyes, tight lips, arms crossed, idle, looking at viewer\nstern, firm expression, narrowed eyes, hand on own shoulder, idle, looking at viewer\nfurious, tense jaw, flaring nostrils, eyes glaring, head tilted forward, idle, looking down\nangry, talking, shouting, aggressive expression, looking at viewer\nangry, talking, stern, assertive, gesturing near face, looking at viewer\nangry, talking, yelling, expressive hands, leaning in, looking at viewer\nangry, talking, arguing, sharp hand gesture near chest, intense frown, looking at viewer\nfrustrated, thinking, plotting, hand on chin, grim expression, looking to the side\nangry, thinking, seething, narrowed eyes, looking down\nfrustrated, thinking, hand on head, tight lips, looking to the side\nangry, thinking, bitter, rubbing temples, eyes closed, scowl, looking down\nsad, distressed expression, trembling lips, arms crossed over chest, idle, looking at viewer\nsad, mournful gaze, trembling lips, hands held together near chest, puffy eyes, idle, looking at viewer\nsad, sorrowful, pained expression, face crumpled in anguish, looking down\nsad, defeated, head bowed, eyes closed, single tear, idle, looking to the side\nsad, talking, choked up, distressed expression, hand on own chest, looking at viewer\nsad, talking, emotional, trembling lips, pained expression, hands raised near face, looking at viewer\nsad, talking, lamenting, distressed face, impassioned gesture, looking down\nsad, talking, pleading, hand reaching out towards viewer, teary eyes, looking at viewer\nsad, thinking, heartbroken, hand to cheek, pained expression, looking down\nsad, thinking, despairing, pained expression, hands near face, looking to the side\nsad, thinking, deep sadness, pensive, mournful gaze, arms crossed, looking to the side\nsad, thinking, grieving, hiding face in hands, shoulders hunched, looking down\nfear, scared, wide-eyed, tense expression, tense shoulders, idle, looking at viewer\nfear, terrified, trembling, recoiling, hand near mouth, looking to the side\nfear, startled, gasping, hands raised near face, anxious gaze, looking at viewer\nfear, frozen, eyes wide with shock, mouth slightly open, hand clutching chest, idle, looking at viewer\nfear, talking, stuttering, nervous, fidgeting hands near face, looking to the side\nfear, talking, panicking, wide eyes, hands on cheeks, looking at viewer\nfear, talking, whispering, cautious, leaning in, looking to the side\nfear, talking, warning, hand raised in stop gesture near face, wide eyes, looking at viewer\nfear, thinking, worried, biting nails, anxious, looking to the side\nfear, thinking, hesitant, troubled, arms crossed over chest, looking down\nfear, thinking, paranoia, glancing over shoulder, looking to the side\nfear, thinking, dread, biting lip, hand gripping opposite shoulder, looking down\nhorny, seductive gaze, tracing own lips, hand on own shoulder, alluring pose, looking at viewer\nhorny, aroused, sultry eyes, flushed cheeks, hand slowly tracing neck, suggestive pose, looking at viewer\nhorny, lustful, longing expression, parted lips, running hand through hair, leaning in, showing cleavage, looking at viewer\nhorny, playful, winking, teasing smirk, tracing collarbone, suggestive, looking at viewer\nhorny, seductive gaze, parted lips, running hand along cleavage, alluring pose, idle, looking at viewer\nhorny, aroused, sultry expression, flushed cheeks, hand on own chest, suggestive pose, idle, looking at viewer\nhorny, lustful, longing expression, head tilted back, running fingers through hair, idle, looking at viewer\nhorny, playful, winking, teasing smirk, finger on lips, leaning in, suggestive, looking at viewer\nhorny, intense desire, arched neck, eyes half-lidded, hand resting on own shoulder, idle, looking at viewer\nhorny, sultry gaze, biting lower lip, hand on own shoulder, looking over shoulder, idle, looking at viewer\nhorny, alluring, playful grin, hand on collarbone, showing neck, suggestive, looking at viewer\nhorny, intense expression, hands slowly tracing cleavage, parted lips, idle, looking at viewer\nhorny, sultry, biting knuckle, intense stare, flushed skin, idle, looking at viewer\nhorny, yearning, head tilted back, eyes closed, hand on neck, flush, idle, looking at viewer\nhorny, talking, whispering, breathless, seductive gaze, leaning in close, looking at viewer\nhorny, talking, playful smirk, seductive, hand on own chest, leaning in, looking at viewer\nhorny, talking, suggestive, parted lips, flushed face, hand on own chest, looking at viewer\nhorny, talking, playful, suggestive smirk, looking over shoulder, hand on own shoulder, looking at viewer\nhorny, seductive voice, breathless, suggestive gesture near face, leaning in, looking at viewer\nhorny, teasing, playful smirk, hand near own lips, suggestive, leaning in, looking at viewer\nhorny, suggestive, parted lips, hand tracing own collarbone, intense gaze, looking at viewer\nhorny, playful, winking, suggestive expression, hand on own shoulder, looking at viewer\nhorny, passionate, deep expression, hand resting on own shoulder, talking, looking at viewer\nhorny, alluring, sultry gaze, hand gesturing beckoning, leaning in, talking, looking at viewer\nhorny, breathless, head tilted back slightly, open mouth, hand running through hair, looking at viewer\nhorny, intense desire, hand gripping own shoulder, passionate expression, talking, looking at viewer\nhorny, provocative, licking lips, sultry smile, leaning forward, talking, looking at viewer\nhorny, demanding, intense eye contact, chin lifted, smoldering gaze, talking, looking at viewer\nhorny, thinking, fantasizing, lidded eyes, biting lip, lost in thought, hand in hair, looking up\nhorny, thinking, pondering, tracing own lips, wistful expression, suggestive pose, looking to the side\nhorny, thinking, anticipating, suggestive gaze, hand on collarbone, parted lips, looking down\nhorny, thinking, mischievous, playful smirk, hand to chin, looking to the side\nhorny, thinking, fantasizing, lost in thought, hand near mouth, suggestive pose, looking to the side\nhorny, thinking, contemplating, sultry expression, hand slowly touching cleavage, looking down\nhorny, thinking, anticipating, deep thought, biting thumb, eyes half-lidded, looking to the side\nhorny, thinking, mischievous, smirk, hand to chin, looking to the side\nhorny, thinking, longing, wistful expression, hand tracing own arm, suggestive body language, looking to the side\nhorny, thinking, daydreaming, soft smile, hand resting on own chest, eyes closed, looking up\nhorny, thinking, pensive, hand to lips, gaze focused on own hands, suggestive body language, looking down\nhorny, thinking, deep thought, intense gaze, hand resting on cleavage, looking to the side\nhorny, thinking, fixated, staring intensely to side, biting lip, hand on neck, looking to the side\nhorny, thinking, distracted, flushed face, fanning self with hand, mouth open, looking up\nlaughing, joyful, wide smile, happy eyes, head tilted back, idle, looking at viewer\nlaughing, amused, chuckling, smiling widely, hand on own chest, idle, looking at viewer\nlaughing, giggling, eyes crinkling, lighthearted, hand near mouth, idle, looking at viewer\nlaughing, hysterical, head thrown back, eyes closed, open mouth laugh, hand on chest, idle, looking down\nlaughing, suppressing laughter, hand clamped over mouth, eyes crinkling, shoulders shaking, idle, looking at viewer\nlaughing, talking, mid-sentence, joyful expression, gesturing near face, looking at viewer\nlaughing, talking, telling a joke, expressive hands near face, wide smile, looking at viewer\nlaughing, talking, beaming, enthusiastic, clapping hands near face, looking at viewer\nlaughing, talking, animated story, broad smile, hand gestures near shoulders, looking at viewer\nlaughing, talking, breathless, wiping tear from eye, hand on chest, joyful, looking at viewer\nlaughing, thinking, reminiscing, slight smile, happy memory, relaxed pose, looking to the side\nlaughing, thinking, chuckling to self, amused expression, looking down\nlaughing, thinking, joyful thoughts, contented smile, relaxed pose, looking to the side\nlaughing, thinking, funny memory, biting lip to hide smile, looking down\nlaughing, thinking, holding back giggle, hand over mouth, eyes crinkling, looking to the side\nlove, adoring, soft smile, warm gaze, hand on own chest, passionate, idle, looking at viewer\nlove, affectionate, gentle expression, slight blush, longing gaze, idle, looking at viewer\nsmitten, in love, dreamy eyes, contented, relaxed pose, wanting, idle, looking at viewer\nlove, shy, intense blush, looking up through eyelashes, gentle smile, hands clasped near chest, idle, looking at viewer\nlove, playful, affectionate, blowing a kiss, winking, hand near mouth, idle, looking at viewer\nlove, tender, chin resting on hands, gentle gaze, soft smile, leaning in, idle, looking at viewer\nlove, cherished, eyes closed, soft smile, head tilted, hands pressed to heart, idle, looking forward\nlove, devoted, gazing softly, head tilted slightly, gentle smile, idle, looking at viewer\nlove, talking, sweet words, tender expression, yearning, open hands near face, looking at viewer\nlove, talking, heartfelt, expressive, loving gaze, hands held together near chest, looking at viewer\nlove, talking, warm smile, caring, leaning in, looking at viewer\nlove, talking, enthusiastic, beaming smile, hands held near face, excited expression, looking at viewer\nlove, talking, gentle, reassuring smile, reaching one hand out towards viewer, soft gaze, comforting expression, looking at viewer\nlove, talking, playful teasing, affectionate grin, pointing to the side, half-closed eyes, looking at viewer\nlove, talking, praising, proud smile, warm eyes, clapping softly near chest, looking at viewer\nlove, talking, confessing, hand on heart, other hand reaching forward, earnest expression, looking at viewer\nlove, thinking, romantic, lost in thought, soft smile, arms crossed over chest, looking to the side\nlove, thinking, adoring, wistful expression, hand to cheek, looking down\nlove, thinking, fond memories, gentle expression, hand on own chest, looking to the side\nlove, thinking, daydreaming, silly grin, eyes closed, head tilted, happy thoughts, lost in romance, looking to the side\nlove, thinking, deep affection, intense gaze, pining, hand resting on neck, wistful expression, looking to the side\nlove, thinking, excited anticipation, biting lower lip happily, wide eyes, looking up\nlove, thinking, infatuated, playing with hair strand, dreamy smile, soft focus, looking to the side\nlove, thinking, deeply bonded, peaceful expression, head resting on hand, content, looking down\nneutral expression, calm face, standing relaxed, relaxed shoulders, idle, looking at viewer\nrelaxed, composed, composed demeanor, arms crossed, idle, looking at viewer\nserene, stoic, reserved expression, relaxed shoulders, idle, looking at viewer\nneutral, waiting, resting chin on hand, bored expression, idle, looking down\nneutral, attentive, listening, head tilted, neutral expression, idle, looking at viewer\nneutral, talking, conversing, calm mouth, subtle hand gestures near face, looking at viewer\nneutral, talking, speaking, composed expression, gesturing, looking at viewer\nneutral, talking, explaining, clear expression, focused gaze, open hands near face, looking at viewer\nneutral, talking, stating facts, serious demeanor, counting on fingers near chest, looking at viewer\nneutral, talking, casual chat, slight smile, shrugging shoulders, looking at viewer\nneutral, thinking, contemplative, thoughtful gaze, hand on chin, arms crossed, looking to the side\nneutral, thinking, processing, gaze to side, pensive, hand on own shoulder, looking to the side\nneutral, thinking, evaluating, slight head tilt, arms crossed, looking down\nneutral, thinking, observing, eyes narrowed slightly, hand tugging earlobe, looking to the side\nneutral, thinking, zoning out, unfocused gaze, neutral mouth, looking forward\nquestioning, curious, raised eyebrow, puzzled gaze, head tilted, idle, looking at viewer\nquestioning, confused, head tilted, furrowed brow, hand on own shoulder, idle, looking at viewer\nquestioning, inquisitive, thoughtful frown, hands raised slightly near shoulders, idle, looking at viewer\nquestioning, skeptical, one eyebrow raised, arms crossed over chest, leaning back, idle, looking at viewer\nquestioning, talking, asking, curious expression, gesturing, looking at viewer\nquestioning, talking, inquiring, direct, slightly uncertain gaze, open hands near face, looking at viewer\nquestioning, talking, seeking answers, concerned, hands raised near face, looking at viewer\nquestioning, talking, probing, leaning forward, intense eye contact, hand gesturing forward, looking at viewer\nquestioning, thinking, pondering, hand to chin, looking up, eyebrows raised\nquestioning, thinking, uncertain, furrowed brow, looking down, rubbing back of neck\nquestioning, thinking, deep thought, eyes to side, hand on own shoulder, looking to the side\nquestioning, thinking, calculating, looking up, tapping chin, narrowed eyes, pensive\nsmiling, happy, contented smile, relaxed shoulders, idle, looking at viewer\nsmiling, gentle, slight grin, pleasant expression, hands held together near chest, idle, looking at viewer\nsmiling, warm, welcoming smile, friendly, open expression, idle, looking at viewer\nsmiling, confident, smirk, chin lifted, relaxed shoulders, idle, looking at viewer\nsmiling, shy, small smile, looking up through lashes, shoulders raised slightly, idle, looking at viewer\nsmiling, talking, conversing happily, animated, gesturing near face, looking at viewer\nsmiling, talking, cheerful expression, expressive hands near face, looking at viewer\nsmiling, talking, engaging, bright smile, leaning in, looking at viewer\nsmiling, talking, encouraging, bright expression, energetic nod, looking at viewer\nsmiling, talking, joking, playful wink, broad grin, looking at viewer\nsmiling, thinking, pleasant thoughts, gentle expression, relaxed pose, looking to the side\nsmiling, thinking, amused, slight smirk, looking down, arms crossed\nsmiling, thinking, content, faraway look, soft smile, relaxed pose, looking to the side\nsmiling, thinking, optimistic, looking up, hopeful expression, smiling\nsmiling, thinking, satisfied, nodding to self, pleased smile, looking down\nsurprised, wide-eyed, open mouth, hands to cheeks, shocked, idle, looking at viewer\nsurprised, astonished, eyebrows raised, gasping, hands raised near face, idle, looking at viewer\nsurprised, amazed, jaw dropped, pointing to the side, sudden realization, idle, looking at viewer\nsurprised, caught off guard, flinching back, eyes wide, hands raised defensively, idle, looking at viewer\nsurprised, stunned, staring wide-eyed, motionless, hand over mouth, idle, looking at viewer\nsurprised, talking, exclaiming, expressive surprise, hands raised near face, looking at viewer\nsurprised, talking, reacting, wide-eyed, hand near mouth, looking at viewer\nsurprised, talking, in disbelief, hands up near face, looking at viewer\nsurprised, talking, interrupting, hand raised, urgent expression, wide eyes, looking at viewer\nsurprised, talking, denying, shaking head rapidly, wide eyes, hands waving near face, looking at viewer\nsurprised, thinking, pondering, bewildered expression, hand on head, looking to the side\nsurprised, thinking, processing shock, furrowed brow, hand on chin, looking down\nsurprised, thinking, re-evaluating, distant gaze, rubbing back of neck, looking to the side\nsurprised, thinking, confused realization, head tilt, frowning in surprise, hand on cheek, looking to the side\nsurprised, thinking, epiphany, finger pointing up, wide eyes, excited smile, looking up\nunhappy, sad, downturned mouth, slumped shoulders, idle, looking at viewer\nunhappy, melancholic, slight frown, arms crossed, idle, looking at viewer\nunhappy, disappointed, sad eyes, hands held together near chest, idle, looking at viewer\nunhappy, sullen, pouting, chin down, looking up through lashes, idle, looking at viewer\nunhappy, talking, pouting lips, sad expression, half-hearted gesture near face, looking at viewer\nunhappy, talking, mournful gaze, hesitant, hands held together near chest, looking at viewer\nunhappy, talking, somber, explaining, slight frown, looking at viewer\nunhappy, talking, complaining, whining, hands thrown up, annoyed face, looking at viewer\nunhappy, thinking, pensive, looking down, arms crossed, sad\nunhappy, thinking, worried, hand to cheek, looking to the side\nunhappy, thinking, contemplative, slight frown, head tilted, arms crossed, looking to the side\nunhappy, thinking, brooding, grim mood, chin resting on hand, looking to the side",
+            "append_text": "",
+            "start_index": [
+              "254",
+              0
+            ],
+            "max_rows": [
+              "255",
+              0
+            ]
+          },
+          "class_type": "CR Prompt List",
+          "_meta": {
+            "title": "📜 Prompt List - PROMPTS, ONE PER LINE - FULL BODY - mute three of these four lists"
+          }
+        },
+        "301": {
+          "inputs": {
+            "model_name": "svdq-int4_r32-qwen-image-edit-lightningv1.0-8steps.safetensors",
+            "cpu_offload": "auto",
+            "num_blocks_on_gpu": 1,
+            "use_pin_memory": "disable"
+          },
+          "class_type": "NunchakuQwenImageDiTLoader",
+          "_meta": {
+            "title": "Nunchaku Qwen-Image DiT Loader"
+          }
+        }
+      },
+      "isDefault": false,
+      "createdAt": "2025-12-03T21:52:26.921Z",
+      "updatedAt": "2025-12-03T21:52:26.921Z",
+      "emotionInjectionMap": {
+        "filename_list": "227",
+        "prompt_list": "266",
+        "total_count": "255",
+        "source_image": "166",
+        "output_path": "261"
+      }
     }
   ]
 }
