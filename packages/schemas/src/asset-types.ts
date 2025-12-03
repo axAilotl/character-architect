@@ -12,6 +12,8 @@ export type AssetType =
   | 'emotion'        // Expression/emotion variant
   | 'user_icon'      // User avatar
   | 'sound'          // Audio assets
+  | 'workflow'       // ComfyUI workflow JSON
+  | 'lorebook'       // Linked lorebook JSON (not embedded in card)
   | 'custom';        // Other/miscellaneous
 
 /**

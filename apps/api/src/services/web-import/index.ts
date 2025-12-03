@@ -393,12 +393,12 @@ export class WebImportService {
             this.cardAssetRepo.create({
               cardId: card.meta.id,
               assetId: assetRecord.id,
-              type: 'custom',
+              type: 'lorebook',
               name: lb.name || `Lorebook ${lb.id}`,
               ext: 'json',
               order: existing.length,
               isMain: false,
-              tags: ['lorebook', 'related-lorebook', `source:${lb.id}`],
+              tags: ['related-lorebook', `source:${lb.id}`],
             });
 
             assetsImported++;

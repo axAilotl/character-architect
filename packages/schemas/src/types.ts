@@ -61,7 +61,7 @@ export interface CCv2LorebookEntry {
  * Based on: https://github.com/kwaroran/character-card-spec-v3
  */
 export interface AssetDescriptor {
-  type: 'icon' | 'background' | 'emotion' | 'user_icon' | 'sound' | 'video' | 'custom' | 'x-risu-asset';
+  type: 'icon' | 'background' | 'emotion' | 'user_icon' | 'sound' | 'video' | 'workflow' | 'lorebook' | 'custom' | 'x-risu-asset';
   uri: string;
   name: string;
   ext: string;
@@ -294,7 +294,7 @@ export interface CardAsset {
   id: UUID;
   cardId: UUID;
   assetId: UUID; // Reference to Asset table
-  type: 'icon' | 'background' | 'user_icon' | 'emotion' | 'sound' | 'custom' | string;
+  type: 'icon' | 'background' | 'user_icon' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | string;
   name: string; // Display name
   ext: string; // File extension without dot
   order: number; // Display order
@@ -428,11 +428,29 @@ export interface RagDatabaseDetail extends RagDatabase {
   sources: RagSource[];
 }
 
-// LLM settings
+// LLM settings (also includes other app-wide settings)
 export interface LLMSettings {
   providers: ProviderConfig[];
   activeProviderId?: string;
   rag: RagConfig;
+  /** CHARX/Voxta export optimization settings */
+  charxExport?: CharxExportSettings;
+  /** Web import settings */
+  webImport?: Record<string, unknown>;
+  /** Allow additional settings from other modules */
+  [key: string]: unknown;
+}
+
+// CHARX/Voxta Export Optimization Settings
+export interface CharxExportSettings {
+  /** Convert PNG images to WebP on export */
+  convertToWebp: boolean;
+  /** WebP quality for export (0-100) */
+  webpQuality: number;
+  /** Maximum megapixels before downscaling */
+  maxMegapixels: number;
+  /** Strip metadata from images */
+  stripMetadata: boolean;
 }
 
 // LLM message types
