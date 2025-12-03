@@ -7,6 +7,7 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { optimizeMedia } from './image-optimizer.js';
 
 // CHARX package
 import {
@@ -62,6 +63,17 @@ export type { ExtractedVoxtaBook };
 
 export interface CharxBuildOptions extends CharxPackageBuildOptions {
   storagePath: string;
+  /** Optional media optimization settings */
+  optimization?: {
+    enabled: boolean;
+    convertToWebp: boolean;
+    webpQuality: number;
+    maxMegapixels: number;
+    stripMetadata: boolean;
+    convertMp4ToWebm?: boolean;
+    webmQuality?: number;
+    includedAssetTypes?: string[];
+  };
 }
 
 export interface CharxBuildResult {
@@ -72,6 +84,17 @@ export interface CharxBuildResult {
 
 export interface VoxtaBuildOptions extends VoxtaPackageBuildOptions {
   storagePath: string;
+  /** Optional media optimization settings */
+  optimization?: {
+    enabled: boolean;
+    convertToWebp: boolean;
+    webpQuality: number;
+    maxMegapixels: number;
+    stripMetadata: boolean;
+    convertMp4ToWebm?: boolean;
+    webmQuality?: number;
+    includedAssetTypes?: string[];
+  };
 }
 
 export interface VoxtaBuildResult {
@@ -190,8 +213,23 @@ export async function buildCharx(
 ): Promise<CharxBuildResult> {
   // Load asset buffers from storage
   const assetData: CharxWriteAsset[] = [];
+  let totalSaved = 0;
 
-  for (const asset of assets) {
+  // Filter assets by included types (empty array = include all)
+  const includedTypes = options.optimization?.includedAssetTypes || [];
+  const filteredAssets = includedTypes.length > 0
+    ? assets.filter(a => {
+        // Always include main icon regardless of filter
+        if (a.type === 'icon' && a.isMain) return true;
+        return includedTypes.includes(a.type);
+      })
+    : assets;
+
+  if (includedTypes.length > 0) {
+    console.log(`[CHARX Build] Filtering assets: including types [${includedTypes.join(', ')}], ${filteredAssets.length}/${assets.length} assets`);
+  }
+
+  for (const asset of filteredAssets) {
     // Parse storage URL to get file path
     const url = asset.asset.url;
     let filePath: string;
@@ -206,17 +244,40 @@ export async function buildCharx(
     }
 
     try {
-      const buffer = await fs.readFile(filePath);
+      let buffer: Buffer = await fs.readFile(filePath);
+      let ext = asset.ext;
+
+      // Apply optimization if enabled
+      if (options.optimization?.enabled) {
+        const optimized = await optimizeMedia(buffer, {
+          convertToWebp: options.optimization.convertToWebp,
+          webpQuality: options.optimization.webpQuality,
+          maxMegapixels: options.optimization.maxMegapixels,
+          stripMetadata: options.optimization.stripMetadata,
+          convertMp4ToWebm: options.optimization.convertMp4ToWebm ?? false,
+          webmQuality: options.optimization.webmQuality ?? 30,
+          includedAssetTypes: [],
+        }, ext);
+
+        buffer = Buffer.from(optimized.buffer);
+        ext = optimized.ext;
+        totalSaved += optimized.originalSize - optimized.optimizedSize;
+      }
+
       assetData.push({
         type: asset.type,
         name: asset.name,
-        ext: asset.ext,
+        ext,
         data: new Uint8Array(buffer),
         isMain: asset.isMain,
       });
     } catch (err) {
       console.warn(`[CHARX Build] Failed to read asset ${asset.name}: ${err}`);
     }
+  }
+
+  if (totalSaved > 0) {
+    console.log(`[CHARX Build] Media optimization saved ${(totalSaved / 1024).toFixed(1)} KB`);
   }
 
   const result = buildCharxBuffer(card, assetData, options);
@@ -261,13 +322,28 @@ export async function extractVoxtaPackage(
  */
 export async function buildVoxtaPackage(
   card: CCv3Data,
-  assets: Array<{ type: string; name: string; ext: string; asset: { url: string }; tags?: string[] }>,
+  assets: Array<{ type: string; name: string; ext: string; asset: { url: string }; tags?: string[]; isMain?: boolean }>,
   options: VoxtaBuildOptions
 ): Promise<VoxtaBuildResult> {
   // Load asset buffers from storage
   const assetData: VoxtaWriteAsset[] = [];
+  let totalSaved = 0;
 
-  for (const asset of assets) {
+  // Filter assets by included types (empty array = include all)
+  const includedTypes = options.optimization?.includedAssetTypes || [];
+  const filteredAssets = includedTypes.length > 0
+    ? assets.filter(a => {
+        // Always include main icon regardless of filter
+        if (a.type === 'icon' && (a.isMain || a.name === 'main')) return true;
+        return includedTypes.includes(a.type);
+      })
+    : assets;
+
+  if (includedTypes.length > 0) {
+    console.log(`[Voxta Build] Filtering assets: including types [${includedTypes.join(', ')}], ${filteredAssets.length}/${assets.length} assets`);
+  }
+
+  for (const asset of filteredAssets) {
     const url = asset.asset.url;
     let filePath: string;
 
@@ -279,18 +355,41 @@ export async function buildVoxtaPackage(
     }
 
     try {
-      const buffer = await fs.readFile(filePath);
+      let buffer: Buffer = await fs.readFile(filePath);
+      let ext = asset.ext;
+
+      // Apply optimization if enabled
+      if (options.optimization?.enabled) {
+        const optimized = await optimizeMedia(buffer, {
+          convertToWebp: options.optimization.convertToWebp,
+          webpQuality: options.optimization.webpQuality,
+          maxMegapixels: options.optimization.maxMegapixels,
+          stripMetadata: options.optimization.stripMetadata,
+          convertMp4ToWebm: options.optimization.convertMp4ToWebm ?? false,
+          webmQuality: options.optimization.webmQuality ?? 30,
+          includedAssetTypes: [],
+        }, ext);
+
+        buffer = Buffer.from(optimized.buffer);
+        ext = optimized.ext;
+        totalSaved += optimized.originalSize - optimized.optimizedSize;
+      }
+
       assetData.push({
         type: asset.type,
         name: asset.name,
-        ext: asset.ext,
+        ext,
         data: new Uint8Array(buffer),
         tags: asset.tags,
-        isMain: asset.name === 'main',
+        isMain: asset.isMain || asset.name === 'main',
       });
     } catch (err) {
       console.warn(`[Voxta Build] Failed to read asset ${asset.name}: ${err}`);
     }
+  }
+
+  if (totalSaved > 0) {
+    console.log(`[Voxta Build] Media optimization saved ${(totalSaved / 1024).toFixed(1)} KB`);
   }
 
   const result = buildVoxtaBuffer(card, assetData, options);

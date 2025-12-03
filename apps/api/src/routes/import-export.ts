@@ -16,8 +16,10 @@ import {
   findZipStart,
 } from '../utils/file-handlers.js';
 import { validateCharxExport, applyExportFixes } from '../utils/charx-validator.js';
-import { detectSpec, validateV2, validateV3, type CCv2Data, type CCv3Data } from '@card-architect/schemas';
+import { detectSpec, validateV2, validateV3, type CCv2Data, type CCv3Data, type CharxExportSettings } from '@card-architect/schemas';
 import { config } from '../config.js';
+import { getSettings } from '../utils/settings.js';
+import { DEFAULT_CHARX_EXPORT_SETTINGS } from './charx-optimizer.js';
 import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import { join } from 'path';
@@ -1524,9 +1526,26 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             // Continue anyway, just warn
           }
 
-          // Build CHARX ZIP
+          // Get optimization settings
+          const settings = await getSettings();
+          const charxExportSettings: CharxExportSettings = {
+            ...DEFAULT_CHARX_EXPORT_SETTINGS,
+            ...(settings.charxExport as CharxExportSettings),
+          };
+
+          // Build CHARX ZIP with optimization
           const result = await buildCharx(charxData, assets, {
             storagePath: config.storagePath,
+            optimization: {
+              enabled: charxExportSettings.convertToWebp || charxExportSettings.convertMp4ToWebm,
+              convertToWebp: charxExportSettings.convertToWebp,
+              webpQuality: charxExportSettings.webpQuality,
+              maxMegapixels: charxExportSettings.maxMegapixels,
+              stripMetadata: charxExportSettings.stripMetadata,
+              convertMp4ToWebm: charxExportSettings.convertMp4ToWebm,
+              webmQuality: charxExportSettings.webmQuality,
+              includedAssetTypes: charxExportSettings.includedAssetTypes,
+            },
           });
 
           fastify.log.info({
@@ -1535,6 +1554,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             totalSize: result.totalSize,
             validationWarnings: exportValidation.warnings.length,
             appliedFixes: exportValidation.fixes.length,
+            optimization: charxExportSettings.convertToWebp ? 'enabled' : 'disabled',
           }, 'CHARX export successful');
 
           // Return the CHARX file
@@ -1617,16 +1637,36 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             }, 'Converted archived image URLs to embedded format for Voxta export');
           }
 
+          // Get optimization settings
+          const voxtaSettings = await getSettings();
+          const voxtaExportSettings: CharxExportSettings = {
+            ...DEFAULT_CHARX_EXPORT_SETTINGS,
+            ...(voxtaSettings.charxExport as CharxExportSettings),
+          };
+
           const result = await buildVoxtaPackage(
             voxtaData,
             assets,
-            { storagePath: config.storagePath }
+            {
+              storagePath: config.storagePath,
+              optimization: {
+                enabled: voxtaExportSettings.convertToWebp || voxtaExportSettings.convertMp4ToWebm,
+                convertToWebp: voxtaExportSettings.convertToWebp,
+                webpQuality: voxtaExportSettings.webpQuality,
+                maxMegapixels: voxtaExportSettings.maxMegapixels,
+                stripMetadata: voxtaExportSettings.stripMetadata,
+                convertMp4ToWebm: voxtaExportSettings.convertMp4ToWebm,
+                webmQuality: voxtaExportSettings.webmQuality,
+                includedAssetTypes: voxtaExportSettings.includedAssetTypes,
+              },
+            }
           );
 
           fastify.log.info({
             cardId: request.params.id,
             assetCount: result.assetCount,
-            totalSize: result.totalSize
+            totalSize: result.totalSize,
+            optimization: voxtaExportSettings.convertToWebp ? 'enabled' : 'disabled',
           }, 'Voxta export successful');
 
           reply.header('Content-Type', 'application/zip');

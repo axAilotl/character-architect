@@ -441,7 +441,7 @@ export interface LLMSettings {
   [key: string]: unknown;
 }
 
-// CHARX/Voxta Export Optimization Settings
+// Package Export Optimization Settings (CHARX/Voxta)
 export interface CharxExportSettings {
   /** Convert PNG images to WebP on export */
   convertToWebp: boolean;
@@ -451,7 +451,16 @@ export interface CharxExportSettings {
   maxMegapixels: number;
   /** Strip metadata from images */
   stripMetadata: boolean;
+  /** Convert MP4 videos to WebM on export */
+  convertMp4ToWebm: boolean;
+  /** WebM quality (CRF value, 0-63, lower is better) */
+  webmQuality: number;
+  /** Asset types to include in export (empty = all types) */
+  includedAssetTypes: string[];
 }
+
+/** Alias for clarity */
+export type PackageExportSettings = CharxExportSettings;
 
 // LLM message types
 export type MessageRole = 'system' | 'user' | 'assistant';
