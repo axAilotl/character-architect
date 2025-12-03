@@ -301,6 +301,17 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 6,
+    name: 'add_card_assets_original_url',
+    up: (db) => {
+      // Add original_url column to track the original URL of archived linked images
+      // This allows reverting the conversion and exporting with original URLs for JSON/PNG
+      if (!columnExists(db, 'card_assets', 'original_url')) {
+        db.exec('ALTER TABLE card_assets ADD COLUMN original_url TEXT');
+      }
+    },
+  },
 ];
 
 /**

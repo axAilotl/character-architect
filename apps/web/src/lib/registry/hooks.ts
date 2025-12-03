@@ -20,18 +20,35 @@ export function useEditorTabs(context: TabContext = 'card'): EditorTabDefinition
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
+// Cache for filtered settings panels to maintain reference stability
+const settingsPanelsCache = new Map<string, { panels: SettingsPanelDefinition[]; source: SettingsPanelDefinition[] }>();
+
 /**
  * Hook to get registered settings panels
  */
-export function useSettingsPanels(): SettingsPanelDefinition[] {
+export function useSettingsPanels(row?: 'main' | 'modules'): SettingsPanelDefinition[] {
   const subscribe = useCallback(
     (callback: () => void) => registry.subscribe(callback),
     []
   );
 
   const getSnapshot = useCallback(
-    () => registry.getSettingsPanels(),
-    []
+    () => {
+      const allPanels = registry.getSettingsPanels();
+      if (!row) return allPanels;
+
+      // Use cache to maintain reference stability
+      const cacheKey = row;
+      const cached = settingsPanelsCache.get(cacheKey);
+      if (cached && cached.source === allPanels) {
+        return cached.panels;
+      }
+
+      const filtered = allPanels.filter((panel) => panel.row === row);
+      settingsPanelsCache.set(cacheKey, { panels: filtered, source: allPanels });
+      return filtered;
+    },
+    [row]
   );
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);

@@ -2,7 +2,7 @@
  * Settings Modal for Application Configuration
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useLLMStore } from '../../store/llm-store';
 import { useCardStore } from '../../store/card-store';
 import { useSettingsStore, THEMES } from '../../store/settings-store';
@@ -11,6 +11,8 @@ import type { ProviderConfig, ProviderKind, OpenAIMode, UserPreset, CreatePreset
 import { TemplateSnippetPanel } from '../../features/editor/components/TemplateSnippetPanel';
 import { api } from '../../lib/api';
 import { SearchableSelect } from '../ui/SearchableSelect';
+import { useSettingsPanels } from '../../lib/registry/hooks';
+import type { SettingsPanelDefinition } from '../../lib/registry/types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -41,15 +43,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     getCachedModels,
   } = useLLMStore();
 
-  const [activeTab, setActiveTab] = useState<'general' | 'modules' | 'editor' | 'themes' | 'providers' | 'rag' | 'templates' | 'presets' | 'sillytavern' | 'wwwyzzerdd' | 'comfyui'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'modules' | 'editor' | 'themes' | 'providers' | 'rag' | 'templates' | 'presets' | 'sillytavern' | 'wwwyzzerdd' | 'comfyui' | 'webimport' | 'focused-settings' | 'diff-settings' | 'blockeditor-settings'>('general');
 
   // Settings from store
   const {
-    autoSnapshot,
-    setAutoSnapshotEnabled,
-    setAutoSnapshotInterval,
-    creatorNotes,
-    setCreatorNotesHtmlMode,
     theme,
     setTheme,
     setCustomCss,
@@ -59,32 +56,48 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setShowV3Fields,
     setExportSpec,
     setShowExtensionsTab,
-    setExtendedFocusedField,
     setBlockEditorEnabled,
     setWwwyzzerddEnabled,
-    setComfyUIEnabled,
+    setComfyuiEnabled,
     setAssetsEnabled,
     setFocusedEnabled,
     setDiffEnabled,
-    setWwwyzzerddActivePromptSet,
-    setComfyUIServerUrl,
-    setComfyUIActiveWorkflow,
-    setComfyUIAutoSelectType,
-    setComfyUIAutoGenerateFilename,
-    setComfyUIDefaults,
   } = useSettingsStore();
 
   // Use individual selectors for feature flags to ensure proper reactivity
   const blockEditorEnabled = useSettingsStore((state) => state.features?.blockEditorEnabled ?? true);
   const wwwyzzerddEnabled = useSettingsStore((state) => state.features?.wwwyzzerddEnabled ?? false);
-  const comfyUIEnabled = useSettingsStore((state) => state.features?.comfyUIEnabled ?? false);
-  const sillyTavernEnabled = useSettingsStore((state) => state.features?.sillyTavernEnabled ?? false);
+  const comfyuiEnabled = useSettingsStore((state) => state.features?.comfyuiEnabled ?? false);
+  const sillytavernEnabled = useSettingsStore((state) => state.features?.sillytavernEnabled ?? false);
   const assetsEnabled = useSettingsStore((state) => state.features?.assetsEnabled ?? true);
   const focusedEnabled = useSettingsStore((state) => state.features?.focusedEnabled ?? true);
   const diffEnabled = useSettingsStore((state) => state.features?.diffEnabled ?? true);
-  const setSillyTavernEnabled = useSettingsStore((state) => state.setSillyTavernEnabled);
-  const wwwyzzerddSettings = useSettingsStore((state) => state.wwwyzzerdd);
-  const comfyUISettings = useSettingsStore((state) => state.comfyUI);
+  const webimportEnabled = useSettingsStore((state) => state.features?.webimportEnabled ?? false);
+  const linkedImageArchivalEnabled = useSettingsStore((state) => state.features?.linkedImageArchivalEnabled ?? false);
+  const setSillytavernEnabled = useSettingsStore((state) => state.setSillytavernEnabled);
+  const setWebimportEnabled = useSettingsStore((state) => state.setWebimportEnabled);
+  const setLinkedImageArchivalEnabled = useSettingsStore((state) => state.setLinkedImageArchivalEnabled);
+
+  // Get module settings panels from registry
+  const moduleSettingsPanels = useSettingsPanels('modules');
+
+  // Helper to get color class for panel tab
+  const getColorClass = (color: SettingsPanelDefinition['color'], isActive: boolean) => {
+    const colorMap: Record<string, { active: string; inactive: string }> = {
+      blue: { active: 'border-b-2 border-blue-500 text-blue-500', inactive: 'text-dark-muted hover:text-dark-text' },
+      purple: { active: 'border-b-2 border-purple-500 text-purple-500', inactive: 'text-dark-muted hover:text-dark-text' },
+      green: { active: 'border-b-2 border-green-500 text-green-500', inactive: 'text-dark-muted hover:text-dark-text' },
+      orange: { active: 'border-b-2 border-orange-500 text-orange-500', inactive: 'text-dark-muted hover:text-dark-text' },
+      red: { active: 'border-b-2 border-red-500 text-red-500', inactive: 'text-dark-muted hover:text-dark-text' },
+      pink: { active: 'border-b-2 border-pink-500 text-pink-500', inactive: 'text-dark-muted hover:text-dark-text' },
+      cyan: { active: 'border-b-2 border-cyan-500 text-cyan-500', inactive: 'text-dark-muted hover:text-dark-text' },
+      amber: { active: 'border-b-2 border-amber-500 text-amber-500', inactive: 'text-dark-muted hover:text-dark-text' },
+      teal: { active: 'border-b-2 border-teal-500 text-teal-500', inactive: 'text-dark-muted hover:text-dark-text' },
+    };
+    const classes = colorMap[color || 'blue'] || colorMap.blue;
+    return isActive ? classes.active : classes.inactive;
+  };
+
   const [editingProvider, setEditingProvider] = useState<Partial<ProviderConfig> | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; error?: string }>>({});
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
@@ -110,50 +123,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [editingPreset, setEditingPreset] = useState<Partial<UserPreset> | null>(null);
   const [presetStatus, setPresetStatus] = useState<string | null>(null);
 
-  // SillyTavern state
-  const [stEnabled, setStEnabled] = useState(false);
-  const [stBaseUrl, setStBaseUrl] = useState('');
-  const [stImportEndpoint, setStImportEndpoint] = useState('/api/characters/import');
-  const [stSessionCookie, setStSessionCookie] = useState('');
-  const [stStatus, setStStatus] = useState<string | null>(null);
-  const [stLoading, setStLoading] = useState(false);
-
-  // wwwyzzerdd state
-  interface WwwyzzerddPromptSet {
-    id: string;
-    name: string;
-    description?: string;
-    characterPrompt: string;
-    lorePrompt: string;
-    personality: string;
-    isDefault?: boolean;
-  }
-  const [wwwyzzerddPromptSets, setWwwyzzerddPromptSets] = useState<WwwyzzerddPromptSet[]>([]);
-  const [wwwyzzerddLoading, setWwwyzzerddLoading] = useState(false);
-  const [wwwyzzerddStatus, setWwwyzzerddStatus] = useState<string | null>(null);
-  const [editingPromptSet, setEditingPromptSet] = useState<Partial<WwwyzzerddPromptSet> | null>(null);
-
-  // ComfyUI state
-  interface ComfyUIPromptTemplate {
-    id: string;
-    name: string;
-    description?: string;
-    type: 'character' | 'scenario' | 'portrait' | 'background' | 'custom';
-    prompt: string;
-    negativePrompt?: string;
-    isDefault?: boolean;
-  }
-  interface ComfyUIWorkflowItem {
-    id: string;
-    name: string;
-    description?: string;
-    isDefault?: boolean;
-  }
-  const [comfyPromptTemplates, setComfyPromptTemplates] = useState<ComfyUIPromptTemplate[]>([]);
-  const [comfyWorkflows, setComfyWorkflows] = useState<ComfyUIWorkflowItem[]>([]);
-  const [comfyLoading, setComfyLoading] = useState(false);
-  const [comfyStatus, setComfyStatus] = useState<string | null>(null);
-  const [editingComfyPrompt, setEditingComfyPrompt] = useState<Partial<ComfyUIPromptTemplate> | null>(null);
+  // Note: SillyTavern, wwwyzzerdd, ComfyUI, and Web Import state/handlers
+  // have been moved to their respective modular settings components
 
   useEffect(() => {
     if (isOpen) {
@@ -178,40 +149,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   }, [isOpen, activeTab]);
 
-  useEffect(() => {
-    if (isOpen && activeTab === 'sillytavern') {
-      // Load SillyTavern settings from backend
-      const loadStSettings = async () => {
-        setStLoading(true);
-        const result = await api.getSillyTavernSettings();
-        setStLoading(false);
-
-        if (result.data?.settings) {
-          const s = result.data.settings;
-          setStEnabled(s.enabled ?? false);
-          setStBaseUrl(s.baseUrl ?? '');
-          setStImportEndpoint(s.importEndpoint ?? '/api/characters/import');
-          setStSessionCookie(s.sessionCookie ?? '');
-        }
-      };
-
-      loadStSettings();
-    }
-  }, [isOpen, activeTab]);
-
-  // Load wwwyzzerdd prompt sets when tab is active
-  useEffect(() => {
-    if (isOpen && activeTab === 'wwwyzzerdd') {
-      loadWwwyzzerddPromptSets();
-    }
-  }, [isOpen, activeTab]);
-
-  // Load ComfyUI data when tab is active
-  useEffect(() => {
-    if (isOpen && activeTab === 'comfyui') {
-      loadComfyUIData();
-    }
-  }, [isOpen, activeTab]);
+  // Note: Module data loading hooks have been moved to modular settings components
 
   useEffect(() => {
     if (!selectedDbId && ragDatabases.length > 0) {
@@ -540,281 +478,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   };
 
-  // wwwyzzerdd handlers
-  const loadWwwyzzerddPromptSets = async () => {
-    setWwwyzzerddLoading(true);
-    setWwwyzzerddStatus(null);
-    try {
-      const response = await fetch('/api/wwwyzzerdd/prompts');
-      const data = await response.json();
-      setWwwyzzerddPromptSets(data.promptSets || []);
-    } catch (err) {
-      setWwwyzzerddStatus('Failed to load prompt sets');
-    }
-    setWwwyzzerddLoading(false);
-  };
-
-  const handleSavePromptSet = async () => {
-    if (!editingPromptSet || !editingPromptSet.name || !editingPromptSet.characterPrompt || !editingPromptSet.lorePrompt || !editingPromptSet.personality) {
-      setWwwyzzerddStatus('Name, Character Prompt, Lore Prompt, and Personality are required.');
-      return;
-    }
-
-    try {
-      const method = editingPromptSet.id ? 'PATCH' : 'POST';
-      const url = editingPromptSet.id
-        ? `/api/wwwyzzerdd/prompts/${editingPromptSet.id}`
-        : '/api/wwwyzzerdd/prompts';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editingPromptSet.name,
-          description: editingPromptSet.description,
-          characterPrompt: editingPromptSet.characterPrompt,
-          lorePrompt: editingPromptSet.lorePrompt,
-          personality: editingPromptSet.personality,
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        setWwwyzzerddStatus(err.error || 'Failed to save');
-        return;
-      }
-
-      setEditingPromptSet(null);
-      setWwwyzzerddStatus(editingPromptSet.id ? 'Prompt set updated.' : 'Prompt set created.');
-      loadWwwyzzerddPromptSets();
-    } catch {
-      setWwwyzzerddStatus('Failed to save prompt set');
-    }
-  };
-
-  const handleDeletePromptSet = async (id: string) => {
-    const confirmed = window.confirm('Delete this prompt set? This cannot be undone.');
-    if (!confirmed) return;
-
-    try {
-      const response = await fetch(`/api/wwwyzzerdd/prompts/${id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const err = await response.json();
-        setWwwyzzerddStatus(err.error || 'Failed to delete');
-        return;
-      }
-      setWwwyzzerddStatus('Prompt set deleted.');
-      loadWwwyzzerddPromptSets();
-    } catch {
-      setWwwyzzerddStatus('Failed to delete prompt set');
-    }
-  };
-
-  const handleCopyPromptSet = async (id: string) => {
-    try {
-      const response = await fetch(`/api/wwwyzzerdd/prompts/${id}/copy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        setWwwyzzerddStatus(err.error || 'Failed to copy');
-        return;
-      }
-      setWwwyzzerddStatus('Prompt set copied.');
-      loadWwwyzzerddPromptSets();
-    } catch {
-      setWwwyzzerddStatus('Failed to copy prompt set');
-    }
-  };
-
-  const handleExportWwwyzzerddPrompts = async () => {
-    try {
-      const response = await fetch('/api/wwwyzzerdd/prompts/export/all');
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'wwwyzzerdd-prompts.json';
-      a.click();
-      URL.revokeObjectURL(url);
-      setWwwyzzerddStatus('Prompts exported.');
-    } catch {
-      setWwwyzzerddStatus('Failed to export prompts');
-    }
-  };
-
-  const handleImportWwwyzzerddPrompts = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      const json = JSON.parse(text);
-
-      const response = await fetch('/api/wwwyzzerdd/prompts/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ promptSets: json.promptSets || [] }),
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        setWwwyzzerddStatus(result.error || 'Failed to import');
-        return;
-      }
-
-      setWwwyzzerddStatus(`Imported ${result.imported} prompt set(s).`);
-      loadWwwyzzerddPromptSets();
-    } catch {
-      setWwwyzzerddStatus('Failed to parse import file');
-    }
-
-    e.target.value = '';
-  };
-
-  // ComfyUI handlers
-  const loadComfyUIData = async () => {
-    setComfyLoading(true);
-    setComfyStatus(null);
-    try {
-      const [promptsRes, workflowsRes] = await Promise.all([
-        fetch('/api/comfyui/prompts'),
-        fetch('/api/comfyui/workflows'),
-      ]);
-      const promptsData = await promptsRes.json();
-      const workflowsData = await workflowsRes.json();
-      setComfyPromptTemplates(promptsData.promptTemplates || []);
-      setComfyWorkflows(workflowsData.workflows || []);
-    } catch {
-      setComfyStatus('Failed to load ComfyUI data');
-    }
-    setComfyLoading(false);
-  };
-
-  const handleSaveComfyPrompt = async () => {
-    if (!editingComfyPrompt || !editingComfyPrompt.name || !editingComfyPrompt.type || !editingComfyPrompt.prompt) {
-      setComfyStatus('Name, type, and prompt are required.');
-      return;
-    }
-
-    try {
-      const method = editingComfyPrompt.id ? 'PATCH' : 'POST';
-      const url = editingComfyPrompt.id
-        ? `/api/comfyui/prompts/${editingComfyPrompt.id}`
-        : '/api/comfyui/prompts';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editingComfyPrompt.name,
-          description: editingComfyPrompt.description,
-          type: editingComfyPrompt.type,
-          prompt: editingComfyPrompt.prompt,
-          negativePrompt: editingComfyPrompt.negativePrompt,
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        setComfyStatus(err.error || 'Failed to save');
-        return;
-      }
-
-      setEditingComfyPrompt(null);
-      setComfyStatus(editingComfyPrompt.id ? 'Prompt template updated.' : 'Prompt template created.');
-      loadComfyUIData();
-    } catch {
-      setComfyStatus('Failed to save prompt template');
-    }
-  };
-
-  const handleDeleteComfyPrompt = async (id: string) => {
-    const confirmed = window.confirm('Delete this prompt template? This cannot be undone.');
-    if (!confirmed) return;
-
-    try {
-      const response = await fetch(`/api/comfyui/prompts/${id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const err = await response.json();
-        setComfyStatus(err.error || 'Failed to delete');
-        return;
-      }
-      setComfyStatus('Prompt template deleted.');
-      loadComfyUIData();
-    } catch {
-      setComfyStatus('Failed to delete prompt template');
-    }
-  };
-
-  const handleCopyComfyPrompt = async (id: string) => {
-    try {
-      const response = await fetch(`/api/comfyui/prompts/${id}/copy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        setComfyStatus(err.error || 'Failed to copy');
-        return;
-      }
-      setComfyStatus('Prompt template copied.');
-      loadComfyUIData();
-    } catch {
-      setComfyStatus('Failed to copy prompt template');
-    }
-  };
-
-  const handleDeleteComfyWorkflow = async (id: string) => {
-    const confirmed = window.confirm('Delete this workflow? This cannot be undone.');
-    if (!confirmed) return;
-
-    try {
-      const response = await fetch(`/api/comfyui/workflows/${id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const err = await response.json();
-        setComfyStatus(err.error || 'Failed to delete');
-        return;
-      }
-      setComfyStatus('Workflow deleted.');
-      loadComfyUIData();
-    } catch {
-      setComfyStatus('Failed to delete workflow');
-    }
-  };
-
-  const handleImportComfyWorkflow = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      const workflow = JSON.parse(text);
-      const name = file.name.replace(/\.json$/, '');
-
-      const response = await fetch('/api/comfyui/workflows/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, workflow }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        setComfyStatus(err.error || 'Failed to import');
-        return;
-      }
-
-      setComfyStatus('Workflow imported.');
-      loadComfyUIData();
-    } catch {
-      setComfyStatus('Failed to parse workflow file');
-    }
-
-    e.target.value = '';
-  };
+  // Note: wwwyzzerdd, ComfyUI, Web Import, and SillyTavern handlers
+  // have been moved to their respective modular settings components
 
   if (!isOpen) return null;
 
@@ -914,48 +579,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           >
             LLM Presets
           </button>
-          {sillyTavernEnabled && (
-            <button
-              className={`px-4 py-3 font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'sillytavern'
-                  ? 'border-b-2 border-blue-500 text-blue-500'
-                  : 'text-dark-muted hover:text-dark-text'
-              }`}
-              onClick={() => setActiveTab('sillytavern')}
-            >
-              SillyTavern
-            </button>
-          )}
         </div>
 
-        {/* Module Settings Tabs - Row 2 (shown when modules are enabled) */}
-        {(wwwyzzerddEnabled || comfyUIEnabled || sillyTavernEnabled) && (
+        {/* Module Settings Tabs - Row 2 (dynamically rendered from registry) */}
+        {moduleSettingsPanels.length > 0 && (
           <div className="flex border-b border-dark-border overflow-x-auto bg-dark-card/50">
             <span className="px-4 py-2 text-xs text-dark-muted uppercase tracking-wide self-center">Module Settings:</span>
-            {wwwyzzerddEnabled && (
+            {moduleSettingsPanels.map((panel) => (
               <button
-                className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
-                  activeTab === 'wwwyzzerdd'
-                    ? 'border-b-2 border-purple-500 text-purple-500'
-                    : 'text-dark-muted hover:text-dark-text'
-                }`}
-                onClick={() => setActiveTab('wwwyzzerdd')}
+                key={panel.id}
+                className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${getColorClass(panel.color, activeTab === panel.id)}`}
+                onClick={() => setActiveTab(panel.id as typeof activeTab)}
               >
-                wwwyzzerdd
+                {panel.label}
               </button>
-            )}
-            {comfyUIEnabled && (
-              <button
-                className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
-                  activeTab === 'comfyui'
-                    ? 'border-b-2 border-green-500 text-green-500'
-                    : 'text-dark-muted hover:text-dark-text'
-                }`}
-                onClick={() => setActiveTab('comfyui')}
-              >
-                ComfyUI
-              </button>
-            )}
+            ))}
           </div>
         )}
 
@@ -970,89 +608,51 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </p>
               </div>
 
-              {/* Auto-Snapshot Settings */}
+              {/* Linked Image Archival */}
               <div className="border border-dark-border rounded-lg p-6 space-y-4">
-                <h4 className="font-semibold">Auto-Snapshot</h4>
-                <p className="text-sm text-dark-muted">
-                  Automatically create version snapshots while editing cards.
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="autoSnapshotEnabled"
-                    checked={autoSnapshot.enabled}
-                    onChange={(e) => setAutoSnapshotEnabled(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="autoSnapshotEnabled" className="text-sm font-medium">
-                    Enable Auto-Snapshot
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      Linked Image Archival
+                      <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded">Destructive</span>
+                    </h4>
+                    <p className="text-sm text-dark-muted mt-1">
+                      Archive external images from first message and alternate greetings as local assets.
+                      Original URLs are preserved for export to JSON/PNG formats.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={linkedImageArchivalEnabled}
+                      onChange={(e) => setLinkedImageArchivalEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
                   </label>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Snapshot Interval
-                  </label>
-                  <select
-                    value={autoSnapshot.intervalMinutes}
-                    onChange={(e) => setAutoSnapshotInterval(parseInt(e.target.value))}
-                    disabled={!autoSnapshot.enabled}
-                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 disabled:opacity-50"
-                  >
-                    <option value={1}>Every 1 minute</option>
-                    <option value={5}>Every 5 minutes</option>
-                    <option value={10}>Every 10 minutes</option>
-                    <option value={15}>Every 15 minutes</option>
-                    <option value={30}>Every 30 minutes</option>
-                  </select>
-                  <p className="text-xs text-dark-muted mt-1">
-                    A snapshot will be created automatically at this interval when you have unsaved changes.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-dark-bg rounded border border-dark-border">
-                  <h5 className="font-medium text-sm mb-2">How Auto-Snapshot Works</h5>
-                  <ul className="text-xs text-dark-muted space-y-1 list-disc list-inside">
-                    <li>Snapshots are only created when you have unsaved changes</li>
-                    <li>Auto-snapshots are labeled with "[Auto]" in the version history</li>
-                    <li>You can view and restore auto-snapshots from the Diff tab</li>
-                    <li>Auto-snapshots do not replace manual snapshots</li>
-                  </ul>
-                </div>
+                {linkedImageArchivalEnabled && (
+                  <div className="pt-4 border-t border-dark-border">
+                    <div className="p-3 bg-amber-900/20 border border-amber-600 rounded">
+                      <p className="text-sm text-amber-200">
+                        <strong>Warning:</strong> This feature modifies card content. A snapshot backup is automatically created before archiving.
+                        Use the "Convert Linked Images" button in the Assets tab to archive images for the current card.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Creator's Notes Settings */}
-              <div className="border border-dark-border rounded-lg p-6 space-y-4">
-                <h4 className="font-semibold">Creator's Notes</h4>
+              <div className="p-4 bg-dark-bg rounded border border-dark-border">
                 <p className="text-sm text-dark-muted">
-                  Configure how the Creator's Notes field is edited in Focused Mode.
+                  Module-specific settings have been moved to their respective tabs in the Module Settings row above.
                 </p>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="creatorNotesHtmlMode"
-                    checked={creatorNotes.htmlMode}
-                    onChange={(e) => setCreatorNotesHtmlMode(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="creatorNotesHtmlMode" className="text-sm font-medium">
-                    HTML Mode
-                  </label>
-                </div>
-
-                <div className="p-3 bg-dark-bg rounded border border-dark-border">
-                  <h5 className="font-medium text-sm mb-2">HTML Mode Behavior</h5>
-                  <ul className="text-xs text-dark-muted space-y-1 list-disc list-inside">
-                    <li>When enabled, the Focused Editor for Creator's Notes uses an HTML code editor</li>
-                    <li>Left panel: HTML source code with syntax highlighting</li>
-                    <li>Right panel: Live HTML preview (sanitized for safety)</li>
-                    <li>When disabled, uses the standard Markdown WYSIWYG editor</li>
-                  </ul>
-                </div>
+                <ul className="text-xs text-dark-muted mt-2 space-y-1 list-disc list-inside">
+                  <li><strong>Auto-Snapshot</strong> → Diff module settings</li>
+                  <li><strong>Creator's Notes HTML</strong> → Focused module settings</li>
+                  <li><strong>Focused Editor Fields</strong> → Focused module settings</li>
+                </ul>
               </div>
-
             </div>
           )}
 
@@ -1071,7 +671,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div>
                     <h4 className="font-semibold flex items-center gap-2">
                       Block Editor
-                      <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs rounded">Core</span>
+                      <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs rounded">BeastBlocks</span>
                     </h4>
                     <p className="text-sm text-dark-muted mt-1">
                       Visual block-based character card builder with drag & drop, nested blocks, and content types.
@@ -1135,14 +735,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={comfyUIEnabled}
-                      onChange={(e) => setComfyUIEnabled(e.target.checked)}
+                      checked={comfyuiEnabled}
+                      onChange={(e) => setComfyuiEnabled(e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
                   </label>
                 </div>
-                {comfyUIEnabled && (
+                {comfyuiEnabled && (
                   <div className="pt-4 border-t border-dark-border">
                     <p className="text-xs text-dark-muted">
                       Configure workflows and prompts in the <button className="text-blue-400 hover:underline" onClick={() => setActiveTab('comfyui')}>ComfyUI tab</button>.
@@ -1166,17 +766,48 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={sillyTavernEnabled}
-                      onChange={(e) => setSillyTavernEnabled(e.target.checked)}
+                      checked={sillytavernEnabled}
+                      onChange={(e) => setSillytavernEnabled(e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-pink-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
                   </label>
                 </div>
-                {sillyTavernEnabled && (
+                {sillytavernEnabled && (
                   <div className="pt-4 border-t border-dark-border">
                     <p className="text-xs text-dark-muted">
                       Configure connection settings in the <button className="text-pink-400 hover:underline" onClick={() => setActiveTab('sillytavern')}>SillyTavern tab</button>.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Web Import Module */}
+              <div className="border border-dark-border rounded-lg p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      Web Import
+                      <span className="px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded">Userscript</span>
+                    </h4>
+                    <p className="text-sm text-dark-muted mt-1">
+                      Import characters from Chub.ai, Wyvern, Character Tavern, and Risu Realm via browser userscript.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={webimportEnabled}
+                      onChange={(e) => setWebimportEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-teal-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                  </label>
+                </div>
+                {webimportEnabled && (
+                  <div className="pt-4 border-t border-dark-border">
+                    <p className="text-xs text-dark-muted">
+                      Configure import settings in the <button className="text-teal-400 hover:underline" onClick={() => setActiveTab('webimport')}>Web Import tab</button>.
                     </p>
                   </div>
                 )}
@@ -1359,75 +990,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
               </div>
 
-              {/* Extended Focused Editor Fields */}
-              <div className="border border-dark-border rounded-lg p-6 space-y-4">
-                <h4 className="font-semibold">Focused Editor Fields</h4>
-                <p className="text-sm text-dark-muted">
-                  Choose which fields to show in the Focused Mode editor.
+              <div className="p-3 bg-dark-bg rounded border border-dark-border">
+                <p className="text-xs text-dark-muted">
+                  <strong>Focused Editor Fields</strong> have been moved to the Focused module settings tab.
                 </p>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="focusedPersonality"
-                      checked={editor.extendedFocusedFields.personality}
-                      onChange={(e) => setExtendedFocusedField('personality', e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="focusedPersonality" className="text-sm">Personality</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="focusedAppearance"
-                      checked={editor.extendedFocusedFields.appearance}
-                      onChange={(e) => setExtendedFocusedField('appearance', e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="focusedAppearance" className="text-sm">Appearance</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="focusedCharacterNote"
-                      checked={editor.extendedFocusedFields.characterNote}
-                      onChange={(e) => setExtendedFocusedField('characterNote', e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="focusedCharacterNote" className="text-sm">Character Note</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="focusedExampleDialogue"
-                      checked={editor.extendedFocusedFields.exampleDialogue}
-                      onChange={(e) => setExtendedFocusedField('exampleDialogue', e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="focusedExampleDialogue" className="text-sm">Example Dialogue</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="focusedSystemPrompt"
-                      checked={editor.extendedFocusedFields.systemPrompt}
-                      onChange={(e) => setExtendedFocusedField('systemPrompt', e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="focusedSystemPrompt" className="text-sm">System Prompt</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="focusedPostHistory"
-                      checked={editor.extendedFocusedFields.postHistory}
-                      onChange={(e) => setExtendedFocusedField('postHistory', e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="focusedPostHistory" className="text-sm">Post History</label>
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -2289,132 +1855,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             />
           )}
 
-          {activeTab === 'sillytavern' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">SillyTavern Integration</h3>
-                <p className="text-dark-muted">
-                  Configure push integration to send character cards directly to your SillyTavern instance.
-                </p>
-              </div>
-
-              {stStatus && (
-                <div className={`p-3 rounded border ${
-                  stStatus.includes('success') || stStatus.includes('saved')
-                    ? 'bg-green-900/20 border-green-700 text-green-100'
-                    : 'bg-red-900/30 border-red-700 text-red-100'
-                }`}>
-                  {stStatus}
-                </div>
-              )}
-
-              <div className="border border-dark-border rounded-lg p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="stEnabled"
-                    checked={stEnabled}
-                    onChange={(e) => setStEnabled(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="stEnabled" className="text-sm font-medium">
-                    Enable SillyTavern Push Integration
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    SillyTavern Base URL *
-                  </label>
-                  <input
-                    type="text"
-                    value={stBaseUrl}
-                    onChange={(e) => setStBaseUrl(e.target.value)}
-                    placeholder="http://localhost:8000"
-                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                    disabled={!stEnabled}
-                  />
-                  <p className="text-xs text-dark-muted mt-1">
-                    The base URL of your SillyTavern instance (e.g., http://localhost:8000)
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Import Endpoint
-                  </label>
-                  <input
-                    type="text"
-                    value={stImportEndpoint}
-                    onChange={(e) => setStImportEndpoint(e.target.value)}
-                    placeholder="/api/characters/import"
-                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                    disabled={!stEnabled}
-                  />
-                  <p className="text-xs text-dark-muted mt-1">
-                    Usually /api/characters/import (default)
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Session Cookie (Optional)
-                  </label>
-                  <textarea
-                    value={stSessionCookie}
-                    onChange={(e) => setStSessionCookie(e.target.value)}
-                    placeholder="connect.sid=..."
-                    rows={3}
-                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-xs resize-none"
-                    disabled={!stEnabled}
-                  />
-                  <p className="text-xs text-dark-muted mt-1">
-                    Optional session cookie for authentication. Usually not needed for local instances.
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t border-dark-border">
-                  <button
-                    onClick={async () => {
-                      setStLoading(true);
-                      setStStatus(null);
-
-                      const config = {
-                        enabled: stEnabled,
-                        baseUrl: stBaseUrl,
-                        importEndpoint: stImportEndpoint,
-                        sessionCookie: stSessionCookie,
-                      };
-
-                      const result = await api.updateSillyTavernSettings(config);
-                      setStLoading(false);
-
-                      if (result.error) {
-                        setStStatus(`Failed to save: ${result.error}`);
-                      } else {
-                        setStStatus('Settings saved successfully!');
-                      }
-                    }}
-                    disabled={stLoading}
-                    className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {stLoading ? 'Saving...' : 'Save Settings'}
-                  </button>
-                </div>
-
-              </div>
-
-              <div className="border border-dark-border rounded-lg p-6">
-                <h4 className="font-semibold mb-3">How to Use</h4>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-dark-muted">
-                  <li>Enable the integration and configure your SillyTavern base URL above</li>
-                  <li>Click "Save Settings" to apply the configuration</li>
-                  <li>Open a character card in the editor</li>
-                  <li>Click the "→ SillyTavern" button in the header - the card will be automatically converted to PNG and pushed</li>
-                </ol>
-              </div>
-            </div>
-          )}
+          {/* Note: SillyTavern settings panel is now rendered via registry */}
 
           {activeTab === 'presets' && (
             <div className="space-y-6">
@@ -2709,621 +2150,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           )}
 
-          {activeTab === 'wwwyzzerdd' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">wwwyzzerdd Configuration</h3>
-                <p className="text-dark-muted">
-                  Configure the AI character creation wizard prompts and personality.
-                </p>
-              </div>
+          {/* Dynamic Module Settings Panels - rendered from registry */}
+          {moduleSettingsPanels.map((panel) => {
+            if (activeTab !== panel.id) return null;
 
-              {wwwyzzerddStatus && (
-                <div className={`p-2 rounded text-sm ${
-                  wwwyzzerddStatus.includes('Failed') || wwwyzzerddStatus.includes('required')
-                    ? 'bg-red-900/30 border border-red-700 text-red-100'
-                    : 'bg-green-900/20 border border-green-700 text-green-100'
-                }`}>
-                  {wwwyzzerddStatus}
-                </div>
-              )}
-
-              <div className="flex justify-between items-center">
-                <h4 className="text-lg font-semibold">Prompt Sets</h4>
-                <div className="flex gap-2">
-                  <label className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors cursor-pointer">
-                    Import
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleImportWwwyzzerddPrompts}
-                      className="hidden"
-                    />
-                  </label>
-                  <button
-                    onClick={handleExportWwwyzzerddPrompts}
-                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                  >
-                    Export
-                  </button>
-                  <button
-                    onClick={() => setEditingPromptSet({
-                      name: '',
-                      description: '',
-                      characterPrompt: '',
-                      lorePrompt: '',
-                      personality: '',
-                    })}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                  >
-                    + New Prompt Set
-                  </button>
-                </div>
-              </div>
-
-              <div className="border border-dark-border rounded-lg p-4">
-                <label className="block text-sm font-medium mb-2">Active Prompt Set</label>
-                <select
-                  value={wwwyzzerddSettings.activePromptSetId || ''}
-                  onChange={(e) => setWwwyzzerddActivePromptSet(e.target.value || null)}
-                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                >
-                  <option value="">-- Select a prompt set --</option>
-                  {wwwyzzerddPromptSets.map((ps) => (
-                    <option key={ps.id} value={ps.id}>{ps.name}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-dark-muted mt-1">
-                  The active prompt set determines how wwwyzzerdd behaves when assisting with character creation.
-                </p>
-              </div>
-
-              {wwwyzzerddLoading ? (
-                <div className="text-center py-8 text-dark-muted">Loading prompt sets...</div>
-              ) : (
-                <div className="space-y-3">
-                  {wwwyzzerddPromptSets.map((ps) => (
-                    <div
-                      key={ps.id}
-                      className={`border rounded-lg p-4 ${
-                        ps.isDefault
-                          ? 'border-dark-border bg-dark-card/50'
-                          : 'border-dark-border hover:border-purple-500'
-                      } transition-colors`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h6 className="font-semibold">{ps.name}</h6>
-                            {ps.isDefault && (
-                              <span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
-                                Built-in
-                              </span>
-                            )}
-                          </div>
-                          {ps.description && (
-                            <p className="text-sm text-dark-muted mt-1">{ps.description}</p>
-                          )}
-                          <details className="mt-2">
-                            <summary className="text-xs text-dark-muted cursor-pointer hover:text-dark-text">
-                              Show prompts
-                            </summary>
-                            <div className="mt-2 space-y-2">
-                              <div>
-                                <span className="text-xs font-medium">Character Prompt:</span>
-                                <pre className="mt-1 text-xs bg-dark-bg p-2 rounded border border-dark-border whitespace-pre-wrap max-h-32 overflow-auto">
-                                  {ps.characterPrompt}
-                                </pre>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium">Lore Prompt:</span>
-                                <pre className="mt-1 text-xs bg-dark-bg p-2 rounded border border-dark-border whitespace-pre-wrap max-h-32 overflow-auto">
-                                  {ps.lorePrompt}
-                                </pre>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium">Personality:</span>
-                                <pre className="mt-1 text-xs bg-dark-bg p-2 rounded border border-dark-border whitespace-pre-wrap max-h-32 overflow-auto">
-                                  {ps.personality}
-                                </pre>
-                              </div>
-                            </div>
-                          </details>
-                        </div>
-                        <div className="flex gap-2 ml-4">
-                          <button
-                            onClick={() => handleCopyPromptSet(ps.id)}
-                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                            title="Create editable copy"
-                          >
-                            Copy
-                          </button>
-                          {!ps.isDefault && (
-                            <>
-                              <button
-                                onClick={() => setEditingPromptSet(ps)}
-                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeletePromptSet(ps.id)}
-                                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {wwwyzzerddPromptSets.length === 0 && (
-                    <div className="text-center py-8 text-dark-muted">
-                      No prompt sets found. Default sets will be created on first load.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Prompt Set Editor */}
-              {editingPromptSet && (
-                <div className="border border-purple-500 rounded-lg p-6 bg-dark-bg">
-                  <h4 className="text-lg font-semibold mb-4">
-                    {editingPromptSet.id ? 'Edit Prompt Set' : 'New Prompt Set'}
-                  </h4>
-
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Name *</label>
-                        <input
-                          type="text"
-                          value={editingPromptSet.name || ''}
-                          onChange={(e) =>
-                            setEditingPromptSet({ ...editingPromptSet, name: e.target.value })
-                          }
-                          placeholder="e.g., Creative Wizard"
-                          className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Description</label>
-                        <input
-                          type="text"
-                          value={editingPromptSet.description || ''}
-                          onChange={(e) =>
-                            setEditingPromptSet({ ...editingPromptSet, description: e.target.value })
-                          }
-                          placeholder="Brief description"
-                          className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Character Prompt *</label>
-                      <textarea
-                        value={editingPromptSet.characterPrompt || ''}
-                        onChange={(e) =>
-                          setEditingPromptSet({ ...editingPromptSet, characterPrompt: e.target.value })
-                        }
-                        placeholder="System prompt for character creation assistance..."
-                        rows={6}
-                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Lore Prompt *</label>
-                      <textarea
-                        value={editingPromptSet.lorePrompt || ''}
-                        onChange={(e) =>
-                          setEditingPromptSet({ ...editingPromptSet, lorePrompt: e.target.value })
-                        }
-                        placeholder="System prompt for lore/worldbuilding assistance..."
-                        rows={4}
-                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Personality *</label>
-                      <textarea
-                        value={editingPromptSet.personality || ''}
-                        onChange={(e) =>
-                          setEditingPromptSet({ ...editingPromptSet, personality: e.target.value })
-                        }
-                        placeholder="How wwwyzzerdd should speak and behave..."
-                        rows={3}
-                        className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
-                      />
-                    </div>
-
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => setEditingPromptSet(null)}
-                        className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSavePromptSet}
-                        className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'comfyui' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">ComfyUI Configuration</h3>
-                <p className="text-dark-muted">
-                  Configure ComfyUI integration settings, workflows, and prompt templates.
-                  <span className="text-yellow-400 ml-2">(Scaffolding - not yet connected)</span>
-                </p>
-              </div>
-
-              {comfyStatus && (
-                <div className={`p-2 rounded text-sm ${
-                  comfyStatus.includes('Failed') || comfyStatus.includes('required')
-                    ? 'bg-red-900/30 border border-red-700 text-red-100'
-                    : 'bg-green-900/20 border border-green-700 text-green-100'
-                }`}>
-                  {comfyStatus}
-                </div>
-              )}
-
-              {/* Server Configuration */}
-              <div className="border border-dark-border rounded-lg p-6 space-y-4">
-                <h4 className="font-semibold">Server Configuration</h4>
-                <div>
-                  <label className="block text-sm font-medium mb-1">ComfyUI Server URL</label>
-                  <input
-                    type="text"
-                    value={comfyUISettings.serverUrl}
-                    onChange={(e) => setComfyUIServerUrl(e.target.value)}
-                    placeholder="http://127.0.0.1:8188"
-                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                  />
-                  <p className="text-xs text-dark-muted mt-1">
-                    The address of your ComfyUI server (not connected yet - for future use)
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="comfyAutoSelectType"
-                      checked={comfyUISettings.autoSelectType}
-                      onChange={(e) => setComfyUIAutoSelectType(e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="comfyAutoSelectType" className="text-sm">
-                      Auto-select asset type from prompt
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="comfyAutoFilename"
-                      checked={comfyUISettings.autoGenerateFilename}
-                      onChange={(e) => setComfyUIAutoGenerateFilename(e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="comfyAutoFilename" className="text-sm">
-                      Auto-generate filenames
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Default Generation Settings */}
-              <div className="border border-dark-border rounded-lg p-6 space-y-4">
-                <h4 className="font-semibold">Default Generation Settings</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Sampler</label>
-                    <select
-                      value={comfyUISettings.defaultSampler}
-                      onChange={(e) => setComfyUIDefaults({ defaultSampler: e.target.value })}
-                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                    >
-                      <option value="euler">euler</option>
-                      <option value="euler_ancestral">euler_ancestral</option>
-                      <option value="heun">heun</option>
-                      <option value="dpm_2">dpm_2</option>
-                      <option value="dpm_2_ancestral">dpm_2_ancestral</option>
-                      <option value="lms">lms</option>
-                      <option value="ddim">ddim</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Scheduler</label>
-                    <select
-                      value={comfyUISettings.defaultScheduler}
-                      onChange={(e) => setComfyUIDefaults({ defaultScheduler: e.target.value })}
-                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                    >
-                      <option value="normal">normal</option>
-                      <option value="karras">karras</option>
-                      <option value="exponential">exponential</option>
-                      <option value="sgm_uniform">sgm_uniform</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Default Model</label>
-                    <input
-                      type="text"
-                      value={comfyUISettings.defaultModel}
-                      onChange={(e) => setComfyUIDefaults({ defaultModel: e.target.value })}
-                      placeholder="model.safetensors"
-                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Default Width</label>
-                    <input
-                      type="number"
-                      value={comfyUISettings.defaultWidth}
-                      onChange={(e) => setComfyUIDefaults({ defaultWidth: parseInt(e.target.value) || 512 })}
-                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Default Height</label>
-                    <input
-                      type="number"
-                      value={comfyUISettings.defaultHeight}
-                      onChange={(e) => setComfyUIDefaults({ defaultHeight: parseInt(e.target.value) || 768 })}
-                      className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Negative Prompt Prefix</label>
-                  <textarea
-                    value={comfyUISettings.negativePrefix}
-                    onChange={(e) => setComfyUIDefaults({ negativePrefix: e.target.value })}
-                    placeholder="blurry, low quality..."
-                    rows={2}
-                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Prompt Templates */}
-              <div className="border border-dark-border rounded-lg p-6 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-semibold">Prompt Templates</h4>
-                  <button
-                    onClick={() => setEditingComfyPrompt({
-                      name: '',
-                      description: '',
-                      type: 'character',
-                      prompt: '',
-                      negativePrompt: '',
-                    })}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                  >
-                    + New Template
-                  </button>
-                </div>
-
-                {comfyLoading ? (
-                  <div className="text-center py-4 text-dark-muted">Loading...</div>
-                ) : (
-                  <div className="space-y-2 max-h-64 overflow-auto">
-                    {comfyPromptTemplates.map((pt) => (
-                      <div
-                        key={pt.id}
-                        className={`border rounded p-3 ${
-                          pt.isDefault ? 'border-dark-border bg-dark-card/50' : 'border-dark-border'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{pt.name}</span>
-                              <span className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded">
-                                {pt.type}
-                              </span>
-                              {pt.isDefault && (
-                                <span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
-                                  Built-in
-                                </span>
-                              )}
-                            </div>
-                            {pt.description && (
-                              <p className="text-xs text-dark-muted mt-1">{pt.description}</p>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleCopyComfyPrompt(pt.id)}
-                              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                            >
-                              Copy
-                            </button>
-                            {!pt.isDefault && (
-                              <>
-                                <button
-                                  onClick={() => setEditingComfyPrompt(pt)}
-                                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteComfyPrompt(pt.id)}
-                                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                                >
-                                  Delete
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Prompt Template Editor */}
-                {editingComfyPrompt && (
-                  <div className="border border-green-500 rounded-lg p-4 bg-dark-bg mt-4">
-                    <h5 className="font-semibold mb-3">
-                      {editingComfyPrompt.id ? 'Edit Template' : 'New Template'}
-                    </h5>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Name *</label>
-                          <input
-                            type="text"
-                            value={editingComfyPrompt.name || ''}
-                            onChange={(e) =>
-                              setEditingComfyPrompt({ ...editingComfyPrompt, name: e.target.value })
-                            }
-                            className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Type *</label>
-                          <select
-                            value={editingComfyPrompt.type || 'character'}
-                            onChange={(e) =>
-                              setEditingComfyPrompt({ ...editingComfyPrompt, type: e.target.value as any })
-                            }
-                            className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
-                          >
-                            <option value="character">Character</option>
-                            <option value="scenario">Scenario</option>
-                            <option value="portrait">Portrait</option>
-                            <option value="background">Background</option>
-                            <option value="custom">Custom</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Prompt *</label>
-                        <textarea
-                          value={editingComfyPrompt.prompt || ''}
-                          onChange={(e) =>
-                            setEditingComfyPrompt({ ...editingComfyPrompt, prompt: e.target.value })
-                          }
-                          rows={4}
-                          className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Negative Prompt</label>
-                        <textarea
-                          value={editingComfyPrompt.negativePrompt || ''}
-                          onChange={(e) =>
-                            setEditingComfyPrompt({ ...editingComfyPrompt, negativePrompt: e.target.value })
-                          }
-                          rows={2}
-                          className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm font-mono"
-                        />
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => setEditingComfyPrompt(null)}
-                          className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveComfyPrompt}
-                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Workflows */}
-              <div className="border border-dark-border rounded-lg p-6 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-semibold">Workflows</h4>
-                  <div className="flex gap-2">
-                    <select
-                      value={comfyUISettings.activeWorkflowId || ''}
-                      onChange={(e) => setComfyUIActiveWorkflow(e.target.value || null)}
-                      className="bg-dark-card border border-dark-border rounded px-3 py-1 text-sm"
-                    >
-                      <option value="">-- Select active workflow --</option>
-                      {comfyWorkflows.map((wf) => (
-                        <option key={wf.id} value={wf.id}>{wf.name}</option>
-                      ))}
-                    </select>
-                    <label className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 cursor-pointer">
-                      Import
-                      <input
-                        type="file"
-                        accept=".json"
-                        onChange={handleImportComfyWorkflow}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="space-y-2 max-h-48 overflow-auto">
-                  {comfyWorkflows.map((wf) => (
-                    <div
-                      key={wf.id}
-                      className={`border rounded p-3 ${
-                        wf.isDefault ? 'border-dark-border bg-dark-card/50' : 'border-dark-border'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <span className="font-medium">{wf.name}</span>
-                          {wf.isDefault && (
-                            <span className="ml-2 px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
-                              Built-in
-                            </span>
-                          )}
-                          {wf.description && (
-                            <p className="text-xs text-dark-muted">{wf.description}</p>
-                          )}
-                        </div>
-                        <div className="flex gap-1">
-                          {!wf.isDefault && (
-                            <button
-                              onClick={() => handleDeleteComfyWorkflow(wf.id)}
-                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {comfyWorkflows.length === 0 && (
-                    <p className="text-sm text-dark-muted text-center py-4">
-                      No workflows. Import a ComfyUI workflow JSON file.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+            // Render the panel's component with Suspense
+            const PanelComponent = panel.component;
+            return (
+              <Suspense key={panel.id} fallback={<div className="text-dark-muted">Loading...</div>}>
+                <PanelComponent />
+              </Suspense>
+            );
+          })}
         </div>
 
         {/* Footer */}

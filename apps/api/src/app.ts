@@ -19,6 +19,8 @@ import { settingsRoutes } from './routes/settings.js';
 import { templateRoutes } from './routes/templates.js';
 import { wwwyzzerddRoutes } from './routes/wwwyzzerdd.js';
 import { comfyuiRoutes } from './routes/comfyui.js';
+import { webImportRoutes } from './routes/web-import.js';
+import { imageArchivalRoutes, userImagesRoutes } from './routes/image-archival.js';
 import type Database from 'better-sqlite3';
 
 // Extend Fastify instance type
@@ -29,7 +31,10 @@ declare module 'fastify' {
 }
 
 export async function build(opts: FastifyServerOptions = {}) {
-  const fastify = Fastify(opts);
+  const fastify = Fastify({
+    ...opts,
+    bodyLimit: 50 * 1024 * 1024, // 50MB for base64 PNG uploads
+  });
 
   // Initialize database
   const db = initDatabase(config.databasePath);
@@ -77,6 +82,12 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(templateRoutes, apiPrefix);
   await fastify.register(wwwyzzerddRoutes, apiPrefix);
   await fastify.register(comfyuiRoutes, apiPrefix);
+  await fastify.register(webImportRoutes, apiPrefix);
+  await fastify.register(imageArchivalRoutes, apiPrefix);
+
+  // Register user images route at root level (SillyTavern compatibility)
+  // This serves archived images at /user/images/:characterName/:filename
+  await fastify.register(userImagesRoutes);
 
   // Add hook to close database when server closes
   fastify.addHook('onClose', async () => {

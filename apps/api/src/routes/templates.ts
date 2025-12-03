@@ -17,6 +17,7 @@ const __dirname = dirname(__filename);
 const SETTINGS_DIR = join(__dirname, '../../data/settings/presets');
 const TEMPLATES_PATH = join(SETTINGS_DIR, 'templates.json');
 const SNIPPETS_PATH = join(SETTINGS_DIR, 'snippets.json');
+const ELARA_VOSS_PATH = join(SETTINGS_DIR, 'elara_voss.json');
 
 // Ensure directory exists
 function ensureDir() {
@@ -722,6 +723,13 @@ interface SnippetsFile {
   snippets: Snippet[];
 }
 
+// ELARA VOSS name entry type
+export interface ElaraVossName {
+  gender: 'male' | 'female' | 'neutral';
+  type: 'first' | 'last';
+  name: string;
+}
+
 function loadTemplates(): Template[] {
   ensureDir();
   if (!existsSync(TEMPLATES_PATH)) {
@@ -770,6 +778,35 @@ function saveSnippets(snippets: Snippet[]) {
     snippets,
   };
   writeFileSync(SNIPPETS_PATH, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// Default ELARA VOSS names (basic set)
+const DEFAULT_ELARA_VOSS_NAMES: ElaraVossName[] = [
+  { gender: 'male', type: 'first', name: 'Ace' },
+  { gender: 'female', type: 'first', name: 'Nova' },
+  { gender: 'neutral', type: 'last', name: 'Vega' },
+];
+
+function loadElaraVossNames(): ElaraVossName[] {
+  ensureDir();
+  if (!existsSync(ELARA_VOSS_PATH)) {
+    // Write defaults on first load
+    saveElaraVossNames(DEFAULT_ELARA_VOSS_NAMES);
+    return DEFAULT_ELARA_VOSS_NAMES;
+  }
+  try {
+    const data = readFileSync(ELARA_VOSS_PATH, 'utf-8');
+    const parsed = JSON.parse(data);
+    // Handle both array format and object format
+    return Array.isArray(parsed) ? parsed : (parsed.names || []);
+  } catch {
+    return DEFAULT_ELARA_VOSS_NAMES;
+  }
+}
+
+function saveElaraVossNames(names: ElaraVossName[]) {
+  ensureDir();
+  writeFileSync(ELARA_VOSS_PATH, JSON.stringify(names, null, 2), 'utf-8');
 }
 
 export async function templateRoutes(fastify: FastifyInstance) {
@@ -1080,5 +1117,104 @@ export async function templateRoutes(fastify: FastifyInstance) {
   fastify.post('/snippets/reset', async () => {
     saveSnippets(DEFAULT_SNIPPETS);
     return { success: true, snippets: DEFAULT_SNIPPETS };
+  });
+
+  // ========== ELARA VOSS NAMES ==========
+
+  // Get all ELARA VOSS names
+  fastify.get('/elara-voss/names', async () => {
+    const names = loadElaraVossNames();
+    return { names };
+  });
+
+  // Get names by gender
+  fastify.get<{ Params: { gender: string } }>('/elara-voss/names/:gender', async (request) => {
+    const names = loadElaraVossNames();
+    const { gender } = request.params;
+    const filtered = names.filter(n => n.gender === gender || (gender === 'neutral' && n.type === 'last'));
+    return { names: filtered };
+  });
+
+  // Import ELARA VOSS names (replace all)
+  fastify.post<{ Body: { names: ElaraVossName[]; merge?: boolean } }>(
+    '/elara-voss/names/import',
+    async (request, reply) => {
+      const { names: importedNames, merge } = request.body;
+
+      if (!Array.isArray(importedNames)) {
+        reply.code(400);
+        return { error: 'Invalid import format: names must be an array' };
+      }
+
+      // Validate entries
+      const validNames = importedNames.filter(n =>
+        n.name &&
+        typeof n.name === 'string' &&
+        ['male', 'female', 'neutral'].includes(n.gender) &&
+        ['first', 'last'].includes(n.type)
+      );
+
+      if (validNames.length === 0) {
+        reply.code(400);
+        return { error: 'No valid names found in import' };
+      }
+
+      if (merge) {
+        // Merge with existing, avoiding duplicates
+        const existing = loadElaraVossNames();
+        const existingSet = new Set(existing.map(n => `${n.gender}:${n.type}:${n.name}`));
+        const newNames = validNames.filter(n => !existingSet.has(`${n.gender}:${n.type}:${n.name}`));
+        saveElaraVossNames([...existing, ...newNames]);
+        return {
+          success: true,
+          imported: newNames.length,
+          total: existing.length + newNames.length,
+        };
+      } else {
+        // Replace all
+        saveElaraVossNames(validNames);
+        return {
+          success: true,
+          imported: validNames.length,
+          total: validNames.length,
+        };
+      }
+    }
+  );
+
+  // Export ELARA VOSS names
+  fastify.get('/elara-voss/names/export', async (_request, reply) => {
+    const names = loadElaraVossNames();
+
+    reply.header('Content-Type', 'application/json');
+    reply.header('Content-Disposition', 'attachment; filename="elara_voss_names.json"');
+
+    return names;
+  });
+
+  // Reset ELARA VOSS names to defaults
+  fastify.post('/elara-voss/names/reset', async () => {
+    saveElaraVossNames(DEFAULT_ELARA_VOSS_NAMES);
+    return { success: true, names: DEFAULT_ELARA_VOSS_NAMES };
+  });
+
+  // Get stats about names
+  fastify.get('/elara-voss/stats', async () => {
+    const names = loadElaraVossNames();
+    return {
+      total: names.length,
+      male: {
+        first: names.filter(n => n.gender === 'male' && n.type === 'first').length,
+        last: names.filter(n => n.gender === 'male' && n.type === 'last').length,
+      },
+      female: {
+        first: names.filter(n => n.gender === 'female' && n.type === 'first').length,
+        last: names.filter(n => n.gender === 'female' && n.type === 'last').length,
+      },
+      neutral: {
+        first: names.filter(n => n.gender === 'neutral' && n.type === 'first').length,
+        last: names.filter(n => n.gender === 'neutral' && n.type === 'last').length,
+      },
+    };
   });
 }

@@ -57,14 +57,28 @@
   - Save and load block templates
 - **Template System** - Reusable templates for common card structures (JED, JED+, Anime Character)
 - **Snippet Management** - Save and reuse text snippets with JED format sections
+- **ELARA VOSS** - Name replacement tool with customizable name database
+  - Replace placeholder character names throughout cards
+  - Import/export custom name databases (JSON format)
+  - Supports male, female, and neutral gender categories
 - **Card Grid View** - Browse and manage multiple cards with sorting and bulk operations
+- **Linked Image Archival** - Archive external images as local assets
+  - Parses markdown `![](url)` and HTML `<img>` tags
+  - Downloads and stores images locally with SillyTavern-compatible paths
+  - Preserves original URLs for JSON/PNG export
+  - Auto-snapshot backup before modifications
 
 ### Optional Modules
 
+- **Web Import** - One-click character imports from browser
+  - Browser userscript for Chub.ai, Wyvern, Character Tavern, Risu Realm
+  - Automatic asset downloading (expressions, gallery images, voice samples)
+  - Configurable image processing (WebP conversion, resizing)
 - **wwwyzzerdd** - AI-powered character generation wizard
   - Generate complete characters from simple prompts
   - Customizable prompt sets for different styles
   - Automatic lorebook generation
+- **SillyTavern Integration** - Direct push to SillyTavern with one click
 - **ComfyUI Integration** - AI image generation for character portraits (experimental)
 
 ## Quick Start
@@ -159,6 +173,26 @@ Card Architect is a monorepo with:
 - **Zustand** - State management
 - **IndexedDB** (idb) - Local persistence
 - **marked** - Markdown rendering
+
+### Module System
+
+Optional features are loaded as modules with auto-discovery using Vite's `import.meta.glob`:
+
+```
+/apps/web/src/modules/
+├── block-editor/     # Visual block-based card builder
+├── wwwyzzerdd/       # AI character wizard
+├── comfyui/          # Image generation (experimental)
+├── sillytavern/      # SillyTavern push integration
+└── webimport/        # Browser userscript integration
+```
+
+**Adding a new module:**
+1. Create `modules/{your-module}/index.ts`
+2. Export `register{YourModule}Module()` function
+3. That's it - auto-discovered on next build/refresh
+
+Feature flags are derived from folder names: `comfyui` → `comfyuiEnabled`
 
 ## Usage
 
@@ -316,6 +350,15 @@ POST   /api/rag/databases/:id/documents    # Upload document
 POST   /api/rag/databases/:id/text         # Add free text
 POST   /api/rag/databases/:id/lorebook     # Import lorebook
 GET    /api/rag/search                 # Semantic search
+```
+
+### Web Import
+```
+GET    /api/web-import/sites           # List supported sites
+GET    /api/web-import/settings        # Get import settings
+PATCH  /api/web-import/settings        # Update import settings
+GET    /api/web-import/userscript      # Download userscript
+POST   /api/web-import                 # Import card from URL
 ```
 
 ## License

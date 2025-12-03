@@ -160,6 +160,7 @@ export interface CardMeta {
   creator?: string;
   characterVersion?: string;
   rating?: 'SFW' | 'NSFW';
+  assetCount?: number;
 }
 
 /**
@@ -299,6 +300,7 @@ export interface CardAsset {
   order: number; // Display order
   isMain: boolean; // Is this the main asset for its type?
   tags?: string[]; // Asset tags (JSON array)
+  originalUrl?: string; // Original URL if this was an archived linked image
   createdAt: ISO8601;
   updatedAt: ISO8601;
 }

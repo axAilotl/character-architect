@@ -15,7 +15,7 @@ export function Header({ onBack }: HeaderProps) {
   const navigate = useNavigate();
   const { currentCard, isSaving, createNewCard } = useCardStore();
   const tokenCounts = useTokenStore((state) => state.tokenCounts);
-  const sillyTavernEnabled = useSettingsStore((state) => state.features?.sillyTavernEnabled ?? false);
+  const sillytavernEnabled = useSettingsStore((state) => state.features?.sillytavernEnabled ?? false);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
@@ -273,7 +273,7 @@ export function Header({ onBack }: HeaderProps) {
           </div>
         )}
 
-        {currentCard && sillyTavernEnabled && (
+        {currentCard && sillytavernEnabled && (
           <button
             onClick={handlePushToSillyTavern}
             className="btn-primary"

@@ -13,11 +13,15 @@ interface CreatorNotesSettings {
 interface FeatureFlags {
   blockEditorEnabled: boolean;
   wwwyzzerddEnabled: boolean;
-  comfyUIEnabled: boolean;
-  sillyTavernEnabled: boolean;
+  comfyuiEnabled: boolean;
+  sillytavernEnabled: boolean;
   assetsEnabled: boolean;
   focusedEnabled: boolean;
   diffEnabled: boolean;
+  webimportEnabled: boolean;
+  linkedImageArchivalEnabled: boolean;
+  // Dynamic module flags (for auto-discovered modules)
+  [key: string]: boolean;
 }
 
 interface WwwyzzerddSettings {
@@ -253,11 +257,15 @@ interface SettingsStore {
   // Feature flag actions
   setBlockEditorEnabled: (enabled: boolean) => void;
   setWwwyzzerddEnabled: (enabled: boolean) => void;
-  setComfyUIEnabled: (enabled: boolean) => void;
-  setSillyTavernEnabled: (enabled: boolean) => void;
+  setComfyuiEnabled: (enabled: boolean) => void;
+  setSillytavernEnabled: (enabled: boolean) => void;
   setAssetsEnabled: (enabled: boolean) => void;
   setFocusedEnabled: (enabled: boolean) => void;
   setDiffEnabled: (enabled: boolean) => void;
+  setWebimportEnabled: (enabled: boolean) => void;
+  setLinkedImageArchivalEnabled: (enabled: boolean) => void;
+  // Generic setter for dynamic module flags
+  setModuleEnabled: (moduleId: string, enabled: boolean) => void;
 
   // wwwyzzerdd actions
   setWwwyzzerddActivePromptSet: (id: string | null) => void;
@@ -308,11 +316,13 @@ const DEFAULT_EDITOR: EditorSettings = {
 const DEFAULT_FEATURES: FeatureFlags = {
   blockEditorEnabled: true, // Enabled by default
   wwwyzzerddEnabled: false,
-  comfyUIEnabled: false,
-  sillyTavernEnabled: false, // Disabled by default - needs configuration
+  comfyuiEnabled: false,
+  sillytavernEnabled: false, // Disabled by default - needs configuration
   assetsEnabled: true, // Enabled by default
   focusedEnabled: true, // Enabled by default
   diffEnabled: true, // Enabled by default
+  webimportEnabled: false, // Disabled by default - needs userscript
+  linkedImageArchivalEnabled: false, // Disabled by default - destructive operation
 };
 
 const DEFAULT_WWWYZZERDD: WwwyzzerddSettings = {
@@ -423,14 +433,14 @@ export const useSettingsStore = create<SettingsStore>()(
           features: { ...state.features, wwwyzzerddEnabled: enabled },
         })),
 
-      setComfyUIEnabled: (enabled) =>
+      setComfyuiEnabled: (enabled) =>
         set((state) => ({
-          features: { ...state.features, comfyUIEnabled: enabled },
+          features: { ...state.features, comfyuiEnabled: enabled },
         })),
 
-      setSillyTavernEnabled: (enabled) =>
+      setSillytavernEnabled: (enabled) =>
         set((state) => ({
-          features: { ...state.features, sillyTavernEnabled: enabled },
+          features: { ...state.features, sillytavernEnabled: enabled },
         })),
 
       setAssetsEnabled: (enabled) =>
@@ -447,6 +457,35 @@ export const useSettingsStore = create<SettingsStore>()(
         set((state) => ({
           features: { ...state.features, diffEnabled: enabled },
         })),
+
+      setWebimportEnabled: async (enabled) => {
+        set((state) => ({
+          features: { ...state.features, webimportEnabled: enabled },
+        }));
+        // Dynamically load the module when enabled
+        if (enabled) {
+          const { reloadModules } = await import('../lib/modules');
+          await reloadModules();
+        }
+      },
+
+      setLinkedImageArchivalEnabled: (enabled) =>
+        set((state) => ({
+          features: { ...state.features, linkedImageArchivalEnabled: enabled },
+        })),
+
+      // Generic setter for dynamic module flags
+      setModuleEnabled: async (moduleId, enabled) => {
+        const flagName = `${moduleId}Enabled`;
+        set((state) => ({
+          features: { ...state.features, [flagName]: enabled },
+        }));
+        // Dynamically load module when enabled
+        if (enabled) {
+          const { reloadModules } = await import('../lib/modules');
+          await reloadModules();
+        }
+      },
 
       // wwwyzzerdd actions
       setWwwyzzerddActivePromptSet: (activePromptSetId) =>

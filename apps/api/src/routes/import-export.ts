@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository, AssetRepository, CardAssetRepository } from '../db/repository.js';
+import { restoreOriginalUrls } from './image-archival.js';
 import {
   extractFromPNG,
   validatePNGSize,
@@ -1320,6 +1321,19 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           fastify.log.info({ cardId: request.params.id }, 'Converted Voxta macros to standard format for JSON export');
         }
 
+        // Restore original URLs for archived images (JSON export should use external URLs)
+        const cardAssets = cardAssetRepo.listByCard(request.params.id);
+        const archivedAssets = cardAssets
+          .filter(a => a.originalUrl)
+          .map(a => ({ assetId: a.assetId, ext: a.ext, originalUrl: a.originalUrl! }));
+
+        if (archivedAssets.length > 0) {
+          const characterName = (exportData.name as string) ||
+            ((exportData.data as Record<string, unknown>)?.name as string) || 'character';
+          exportData = restoreOriginalUrls(exportData, archivedAssets, characterName);
+          fastify.log.info({ cardId: request.params.id, count: archivedAssets.length }, 'Restored original URLs for JSON export');
+        }
+
         // Return the card data directly with pretty printing
         const jsonString = JSON.stringify(exportData, null, 2);
         return reply.send(jsonString);
@@ -1529,14 +1543,27 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           }
 
           // Convert Voxta macros to standard format if this is a Voxta card
-          let pngCardData = card.data;
+          let pngCardData = card.data as unknown as Record<string, unknown>;
           if (isVoxtaCard(card.data)) {
-            pngCardData = convertCardMacros(card.data as unknown as Record<string, unknown>, voxtaToStandard) as unknown as typeof card.data;
+            pngCardData = convertCardMacros(pngCardData, voxtaToStandard);
             fastify.log.info({ cardId: request.params.id }, 'Converted Voxta macros to standard format for PNG export');
           }
 
+          // Restore original URLs for archived images (PNG export should use external URLs)
+          const pngCardAssets = cardAssetRepo.listByCard(request.params.id);
+          const pngArchivedAssets = pngCardAssets
+            .filter(a => a.originalUrl)
+            .map(a => ({ assetId: a.assetId, ext: a.ext, originalUrl: a.originalUrl! }));
+
+          if (pngArchivedAssets.length > 0) {
+            const characterName = (pngCardData.name as string) ||
+              ((pngCardData.data as Record<string, unknown>)?.name as string) || 'character';
+            pngCardData = restoreOriginalUrls(pngCardData, pngArchivedAssets, characterName);
+            fastify.log.info({ cardId: request.params.id, count: pngArchivedAssets.length }, 'Restored original URLs for PNG export');
+          }
+
           // Embed card data into the PNG (using modified card with converted data)
-          const pngBuffer = await createCardPNG(baseImage, { ...card, data: pngCardData });
+          const pngBuffer = await createCardPNG(baseImage, { ...card, data: pngCardData as unknown as typeof card.data });
 
           // Return the PNG with appropriate headers
           reply.header('Content-Type', 'image/png');

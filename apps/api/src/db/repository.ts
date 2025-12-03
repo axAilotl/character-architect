@@ -9,15 +9,19 @@ export class CardRepository {
    * List all cards with optional filtering
    */
   list(query?: string, page = 1, limit = 50): Card[] {
-    let sql = 'SELECT * FROM cards';
+    let sql = `
+      SELECT c.*,
+             (SELECT COUNT(*) FROM card_assets WHERE card_id = c.id) as asset_count
+      FROM cards c
+    `;
     const params: unknown[] = [];
 
     if (query) {
-      sql += ' WHERE name LIKE ? OR tags LIKE ?';
+      sql += ' WHERE c.name LIKE ? OR c.tags LIKE ?';
       params.push(`%${query}%`, `%${query}%`);
     }
 
-    sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
+    sql += ' ORDER BY c.updated_at DESC LIMIT ? OFFSET ?';
     params.push(limit, (page - 1) * limit);
 
     const stmt = this.db.prepare(sql);
@@ -232,6 +236,7 @@ export class CardRepository {
       rating: 'SFW' | 'NSFW' | null;
       created_at: string;
       updated_at: string;
+      asset_count?: number;
     };
 
     return {
@@ -245,6 +250,7 @@ export class CardRepository {
         rating: r.rating || undefined,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
+        assetCount: r.asset_count,
       },
       data: JSON.parse(r.data),
     };
@@ -343,8 +349,8 @@ export class CardAssetRepository {
     const now = new Date().toISOString();
 
     const stmt = this.db.prepare(`
-      INSERT INTO card_assets (id, card_id, asset_id, type, name, ext, order_index, is_main, tags, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO card_assets (id, card_id, asset_id, type, name, ext, order_index, is_main, tags, original_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -357,6 +363,7 @@ export class CardAssetRepository {
       cardAsset.order,
       cardAsset.isMain ? 1 : 0,
       cardAsset.tags ? JSON.stringify(cardAsset.tags) : null,
+      cardAsset.originalUrl || null,
       now,
       now
     );
@@ -465,7 +472,7 @@ export class CardAssetRepository {
 
     const stmt = this.db.prepare(`
       UPDATE card_assets
-      SET type = ?, name = ?, ext = ?, order_index = ?, is_main = ?, tags = ?, updated_at = ?
+      SET type = ?, name = ?, ext = ?, order_index = ?, is_main = ?, tags = ?, original_url = ?, updated_at = ?
       WHERE id = ?
     `);
 
@@ -476,6 +483,7 @@ export class CardAssetRepository {
       merged.order,
       merged.isMain ? 1 : 0,
       merged.tags ? JSON.stringify(merged.tags) : null,
+      merged.originalUrl || null,
       merged.updatedAt,
       id
     );
@@ -524,6 +532,7 @@ export class CardAssetRepository {
       order_index: number;
       is_main: number;
       tags: string | null;
+      original_url: string | null;
       created_at: string;
       updated_at: string;
     };
@@ -538,6 +547,7 @@ export class CardAssetRepository {
       order: r.order_index,
       isMain: r.is_main === 1,
       tags: r.tags ? JSON.parse(r.tags) : undefined,
+      originalUrl: r.original_url || undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };
@@ -557,6 +567,7 @@ export class CardAssetRepository {
       order_index: number;
       is_main: number;
       tags: string | null;
+      original_url: string | null;
       created_at: string;
       updated_at: string;
       filename: string;
@@ -589,6 +600,7 @@ export class CardAssetRepository {
       order: r.order_index,
       isMain: r.is_main === 1,
       tags: r.tags ? JSON.parse(r.tags) : undefined,
+      originalUrl: r.original_url || undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       asset,

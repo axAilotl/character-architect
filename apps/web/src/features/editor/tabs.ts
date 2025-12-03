@@ -26,6 +26,14 @@ const DiffPanel = lazy(() =>
   import('./components/DiffPanel').then((m) => ({ default: m.DiffPanel }))
 );
 
+// Lazy-loaded settings panels
+const FocusedSettings = lazy(() =>
+  import('./settings/FocusedSettings').then((m) => ({ default: m.FocusedSettings }))
+);
+const DiffSettings = lazy(() =>
+  import('./settings/DiffSettings').then((m) => ({ default: m.DiffSettings }))
+);
+
 /**
  * Register all core editor tabs
  */
@@ -78,5 +86,31 @@ export function registerCoreTabs(): void {
     condition: () => useSettingsStore.getState().features?.diffEnabled ?? true,
   });
 
-  console.log('[CoreTabs] Registered 5 core editor tabs');
+  // ==================== Settings Panels ====================
+
+  // Focused settings panel
+  registry.registerSettingsPanel({
+    id: 'focused-settings',
+    label: 'Focused',
+    component: FocusedSettings,
+    row: 'modules',
+    color: 'cyan',
+    order: 10,
+    condition: () => useSettingsStore.getState().features?.focusedEnabled ?? true,
+  });
+
+  // Diff settings panel
+  registry.registerSettingsPanel({
+    id: 'diff-settings',
+    label: 'Diff',
+    component: DiffSettings,
+    row: 'modules',
+    color: 'amber',
+    order: 20,
+    condition: () => useSettingsStore.getState().features?.diffEnabled ?? true,
+  });
+
+  // Note: Web Import and SillyTavern settings are registered by their own modules
+
+  console.log('[CoreTabs] Registered 5 core editor tabs and 2 settings panels');
 }

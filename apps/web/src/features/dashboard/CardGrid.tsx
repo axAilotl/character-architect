@@ -8,7 +8,7 @@ interface CardGridProps {
   onCardClick: (cardId: string) => void;
 }
 
-type SortOption = 'added' | 'newest' | 'oldest' | 'name';
+type SortOption = 'edited' | 'newest' | 'oldest' | 'name';
 type FilterOption = 'all' | 'voxta' | 'charx' | 'v3' | 'v2';
 
 export function CardGrid({ onCardClick }: CardGridProps) {
@@ -18,7 +18,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<SortOption>('added');
+  const [sortBy, setSortBy] = useState<SortOption>('edited');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [showImportMenu, setShowImportMenu] = useState(false);
   const { importCard, importCardFromURL, createNewCard } = useCardStore();
@@ -295,6 +295,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   };
 
   const hasAssets = (card: Card) => {
+    // Check meta.assetCount (from database) first, then fall back to data.assets for V3
+    if (card.meta.assetCount !== undefined && card.meta.assetCount > 0) {
+      return true;
+    }
     const isV3 = card.meta.spec === 'v3';
     if (!isV3) return false;
     const data = extractCardData(card) as CCv3Data['data'];
@@ -302,6 +306,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   };
 
   const getAssetCount = (card: Card) => {
+    // Check meta.assetCount (from database) first, then fall back to data.assets for V3
+    if (card.meta.assetCount !== undefined && card.meta.assetCount > 0) {
+      return card.meta.assetCount;
+    }
     const isV3 = card.meta.spec === 'v3';
     if (!isV3) return 0;
     const data = extractCardData(card) as CCv3Data['data'];
@@ -371,7 +379,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           const nameB = getCardName(b).toLowerCase();
           return nameA.localeCompare(nameB);
         });
-      case 'added':
+      case 'edited':
       default:
         return sorted.sort((a, b) => new Date(b.meta.updatedAt).getTime() - new Date(a.meta.updatedAt).getTime());
     }
@@ -490,7 +498,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
                 className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
               >
-                <option value="added">Added</option>
+                <option value="edited">Last Edited</option>
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
                 <option value="name">Name</option>

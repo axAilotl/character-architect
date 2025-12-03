@@ -4,6 +4,14 @@ import type { Template, Snippet, TemplateCategory, SnippetCategory, FocusField }
 import { TemplateEditor } from './TemplateEditor';
 import { SnippetEditor } from './SnippetEditor';
 
+// ELARA VOSS stats type
+interface ElaraVossStats {
+  total: number;
+  male: { first: number; last: number };
+  female: { first: number; last: number };
+  neutral: { first: number; last: number };
+}
+
 interface TemplateSnippetPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,7 +22,7 @@ interface TemplateSnippetPanelProps {
   embedded?: boolean; // If true, doesn't render as modal (for embedding in settings)
 }
 
-type Tab = 'templates' | 'snippets';
+type Tab = 'templates' | 'snippets' | 'elara-voss';
 
 export function TemplateSnippetPanel({
   isOpen,
@@ -35,6 +43,12 @@ export function TemplateSnippetPanel({
   const [editingTemplate, setEditingTemplate] = useState<Template | undefined>(undefined);
   const [showSnippetEditor, setShowSnippetEditor] = useState(false);
   const [editingSnippet, setEditingSnippet] = useState<Snippet | undefined>(undefined);
+
+  // ELARA VOSS state
+  const [elaraVossStats, setElaraVossStats] = useState<ElaraVossStats | null>(null);
+  const [elaraVossLoading, setElaraVossLoading] = useState(false);
+  const [elaraVossStatus, setElaraVossStatus] = useState<string | null>(null);
+  const elaraVossImportRef = useRef<HTMLInputElement>(null);
 
   const templateImportRef = useRef<HTMLInputElement>(null);
   const snippetImportRef = useRef<HTMLInputElement>(null);
@@ -65,6 +79,81 @@ export function TemplateSnippetPanel({
       loadSnippets();
     }
   }, [isOpen, embedded, loadTemplates, loadSnippets]);
+
+  // Load ELARA VOSS stats when tab is active
+  const loadElaraVossStats = async () => {
+    setElaraVossLoading(true);
+    try {
+      const response = await fetch('/api/elara-voss/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setElaraVossStats(data);
+      }
+    } catch (err) {
+      console.error('Failed to load ELARA VOSS stats:', err);
+    } finally {
+      setElaraVossLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if ((isOpen || embedded) && activeTab === 'elara-voss') {
+      loadElaraVossStats();
+    }
+  }, [isOpen, embedded, activeTab]);
+
+  // ELARA VOSS import handler
+  const handleElaraVossImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setElaraVossStatus('Importing...');
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const names = Array.isArray(parsed) ? parsed : (parsed.names || []);
+
+      const response = await fetch('/api/elara-voss/names/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names, merge: false }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        setElaraVossStatus(`Imported ${result.imported} names`);
+        loadElaraVossStats();
+      } else {
+        setElaraVossStatus(`Import failed: ${result.error}`);
+      }
+    } catch (err: any) {
+      setElaraVossStatus(`Import error: ${err.message}`);
+    }
+
+    setTimeout(() => setElaraVossStatus(null), 5000);
+    e.target.value = '';
+  };
+
+  // ELARA VOSS export handler
+  const handleElaraVossExport = async () => {
+    window.location.href = '/api/elara-voss/names/export';
+  };
+
+  // ELARA VOSS reset handler
+  const handleElaraVossReset = async () => {
+    if (confirm('Reset ELARA VOSS names to defaults? This will remove all custom names.')) {
+      try {
+        const response = await fetch('/api/elara-voss/names/reset', { method: 'POST' });
+        if (response.ok) {
+          setElaraVossStatus('Reset to defaults');
+          loadElaraVossStats();
+        }
+      } catch (err: any) {
+        setElaraVossStatus(`Reset error: ${err.message}`);
+      }
+      setTimeout(() => setElaraVossStatus(null), 3000);
+    }
+  };
 
   if (!isOpen && !embedded) return null;
 
@@ -305,9 +394,24 @@ export function TemplateSnippetPanel({
           >
             Snippets
           </button>
+          <button
+            onClick={() => {
+              setActiveTab('elara-voss');
+              setSelectedTemplate(null);
+              setSelectedSnippet(null);
+            }}
+            className={`px-6 py-3 font-medium transition-colors ${
+              activeTab === 'elara-voss'
+                ? 'bg-dark-bg text-purple-400 border-b-2 border-purple-400'
+                : 'text-dark-muted hover:text-dark-text'
+            }`}
+          >
+            ELARA VOSS
+          </button>
         </div>
 
-        {/* Search and Filter */}
+        {/* Search and Filter - only for templates/snippets tabs */}
+        {activeTab !== 'elara-voss' && (
         <div className="p-4 border-b border-dark-border flex flex-col gap-3">
           <div className="flex gap-3">
             <input
@@ -387,8 +491,10 @@ export function TemplateSnippetPanel({
             />
           </div>
         </div>
+        )}
 
-        {/* Content Area */}
+        {/* Content Area - Templates/Snippets only */}
+        {activeTab !== 'elara-voss' && (
         <div className="flex-1 flex min-h-0">
           {/* List */}
           <div className="w-1/3 border-r border-dark-border overflow-y-auto">
@@ -538,6 +644,103 @@ export function TemplateSnippetPanel({
             )}
           </div>
         </div>
+        )}
+
+        {/* ELARA VOSS Content */}
+        {activeTab === 'elara-voss' && (
+          <div className="flex-1 p-6 overflow-y-auto">
+            <div className="max-w-2xl mx-auto space-y-6">
+              <div>
+                <h3 className="text-lg font-bold mb-2">ELARA VOSS Name Database</h3>
+                <p className="text-dark-muted">
+                  Manage the name database used by the ELARA VOSS name replacement tool.
+                  Import custom names or reset to defaults.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 items-center flex-wrap">
+                <button
+                  onClick={() => elaraVossImportRef.current?.click()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                  Import Names
+                </button>
+                <button
+                  onClick={handleElaraVossExport}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                  Export Names
+                </button>
+                <button
+                  onClick={handleElaraVossReset}
+                  className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                >
+                  Reset to Defaults
+                </button>
+                {elaraVossStatus && (
+                  <span className={`ml-2 text-sm ${elaraVossStatus.includes('failed') || elaraVossStatus.includes('error') ? 'text-red-400' : 'text-green-400'}`}>
+                    {elaraVossStatus}
+                  </span>
+                )}
+                <input
+                  type="file"
+                  ref={elaraVossImportRef}
+                  onChange={handleElaraVossImport}
+                  accept=".json"
+                  className="hidden"
+                />
+              </div>
+
+              {/* Stats */}
+              {elaraVossLoading ? (
+                <div className="text-center py-8 text-dark-muted">Loading...</div>
+              ) : elaraVossStats ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-dark-bg border border-dark-border rounded p-4 text-center">
+                    <div className="text-3xl font-bold text-purple-400">{elaraVossStats.total}</div>
+                    <div className="text-sm text-dark-muted">Total Names</div>
+                  </div>
+                  <div className="bg-dark-bg border border-dark-border rounded p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-400">{elaraVossStats.male.first}</div>
+                    <div className="text-sm text-dark-muted">Male First</div>
+                  </div>
+                  <div className="bg-dark-bg border border-dark-border rounded p-4 text-center">
+                    <div className="text-2xl font-bold text-pink-400">{elaraVossStats.female.first}</div>
+                    <div className="text-sm text-dark-muted">Female First</div>
+                  </div>
+                  <div className="bg-dark-bg border border-dark-border rounded p-4 text-center">
+                    <div className="text-2xl font-bold text-gray-400">{elaraVossStats.neutral.last}</div>
+                    <div className="text-sm text-dark-muted">Last Names</div>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Format Documentation */}
+              <div className="bg-dark-bg border border-dark-border rounded p-4">
+                <h4 className="font-semibold mb-2">JSON File Format</h4>
+                <p className="text-sm text-dark-muted mb-3">
+                  Import a JSON file containing an array of name objects with the following structure:
+                </p>
+                <pre className="bg-dark-surface p-3 rounded text-xs overflow-x-auto">
+{`[
+  { "gender": "male", "type": "first", "name": "Ace" },
+  { "gender": "female", "type": "first", "name": "Nova" },
+  { "gender": "neutral", "type": "last", "name": "Vega" }
+]`}
+                </pre>
+                <div className="mt-3 space-y-1 text-xs text-dark-muted">
+                  <p><strong>gender:</strong> "male" | "female" | "neutral"</p>
+                  <p><strong>type:</strong> "first" | "last"</p>
+                  <p><strong>name:</strong> The actual name string</p>
+                </div>
+                <p className="mt-3 text-xs text-amber-400">
+                  Note: "neutral" gender names with type "last" are used as surnames for all genders.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
   );
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCardStore } from '../../../store/card-store';
+import { useSettingsStore } from '../../../store/settings-store';
 import { api } from '../../../lib/api';
 import type { CardAssetWithDetails } from '@card-architect/schemas';
 
@@ -20,6 +21,7 @@ interface AssetGraph {
 
 export function AssetsPanel() {
   const currentCard = useCardStore((state) => state.currentCard);
+  const linkedImageArchivalEnabled = useSettingsStore((state) => state.features?.linkedImageArchivalEnabled ?? false);
   const [assets, setAssets] = useState<CardAssetWithDetails[]>([]);
   const [assetGraph, setAssetGraph] = useState<AssetGraph | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +30,16 @@ export function AssetsPanel() {
   const [dragOver, setDragOver] = useState(false);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Linked image archival state
+  const [archiveStatus, setArchiveStatus] = useState<{
+    externalImages: number;
+    archivedImages: number;
+    canArchive: boolean;
+    canRevert: boolean;
+  } | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [isReverting, setIsReverting] = useState(false);
 
   // Upload form state
   const [uploadType, setUploadType] = useState('icon');
@@ -62,9 +74,99 @@ export function AssetsPanel() {
     }
   }, [currentCard?.meta.id]);
 
+  const loadArchiveStatus = useCallback(async () => {
+    if (!currentCard || !linkedImageArchivalEnabled) return;
+
+    try {
+      const response = await fetch(`/api/cards/${currentCard.meta.id}/archive-status`);
+      if (response.ok) {
+        const status = await response.json();
+        setArchiveStatus(status);
+      }
+    } catch (err) {
+      console.error('Failed to load archive status:', err);
+    }
+  }, [currentCard?.meta.id, linkedImageArchivalEnabled]);
+
   useEffect(() => {
     loadAssets();
   }, [loadAssets]);
+
+  useEffect(() => {
+    loadArchiveStatus();
+  }, [loadArchiveStatus]);
+
+  const handleArchiveLinkedImages = async () => {
+    if (!currentCard) return;
+
+    const confirmed = confirm(
+      'This will archive all external images from first message and alternate greetings as local assets.\n\n' +
+      'A snapshot backup will be created automatically before any changes.\n\n' +
+      'Continue?'
+    );
+
+    if (!confirmed) return;
+
+    setIsArchiving(true);
+    try {
+      const response = await fetch(`/api/cards/${currentCard.meta.id}/archive-linked-images`, {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`Successfully archived ${result.archived} images.\n${result.skipped > 0 ? `${result.skipped} failed.` : ''}`);
+        await loadAssets();
+        await loadArchiveStatus();
+        // Reload the card to get updated content
+        await useCardStore.getState().loadCard(currentCard.meta.id);
+      } else {
+        alert(`Failed to archive images: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Failed to archive linked images:', err);
+      alert('Failed to archive linked images');
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const handleRevertArchivedImages = async () => {
+    if (!currentCard) return;
+
+    const confirmed = confirm(
+      'This will revert all archived images back to their original URLs.\n\n' +
+      'A snapshot backup will be created automatically before any changes.\n\n' +
+      'Continue?'
+    );
+
+    if (!confirmed) return;
+
+    setIsReverting(true);
+    try {
+      const response = await fetch(`/api/cards/${currentCard.meta.id}/revert-archived-images`, {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`Successfully reverted ${result.reverted} images to original URLs.`);
+        await loadAssets();
+        await loadArchiveStatus();
+        // Reload the card to get updated content
+        await useCardStore.getState().loadCard(currentCard.meta.id);
+      } else {
+        alert(`Failed to revert images: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Failed to revert archived images:', err);
+      alert('Failed to revert archived images');
+    } finally {
+      setIsReverting(false);
+    }
+  };
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0 || !currentCard) return;
@@ -275,6 +377,68 @@ export function AssetsPanel() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Linked Image Archival */}
+          {linkedImageArchivalEnabled && (
+            <div className="mb-4 p-3 bg-red-900/10 border border-red-900/30 rounded space-y-2">
+              <div className="text-xs font-semibold text-red-400 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Linked Image Archival
+              </div>
+              {archiveStatus && (
+                <div className="text-xs space-y-1">
+                  <div className="flex justify-between text-dark-muted">
+                    <span>External images:</span>
+                    <span className="font-medium text-dark-text">{archiveStatus.externalImages}</span>
+                  </div>
+                  <div className="flex justify-between text-dark-muted">
+                    <span>Archived images:</span>
+                    <span className="font-medium text-dark-text">{archiveStatus.archivedImages}</span>
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleArchiveLinkedImages}
+                  disabled={isArchiving || !archiveStatus?.canArchive}
+                  className="flex-1 px-2 py-1.5 text-xs bg-red-600 hover:bg-red-700 disabled:bg-red-900/30 disabled:text-red-400/50 text-white rounded transition-colors flex items-center justify-center gap-1"
+                  title={!archiveStatus?.canArchive ? 'No external images to archive' : 'Convert linked images to local assets'}
+                >
+                  {isArchiving ? (
+                    <>
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Archiving...
+                    </>
+                  ) : (
+                    <>Archive</>
+                  )}
+                </button>
+                <button
+                  onClick={handleRevertArchivedImages}
+                  disabled={isReverting || !archiveStatus?.canRevert}
+                  className="flex-1 px-2 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 disabled:bg-amber-900/30 disabled:text-amber-400/50 text-white rounded transition-colors flex items-center justify-center gap-1"
+                  title={!archiveStatus?.canRevert ? 'No archived images to revert' : 'Revert archived images to original URLs'}
+                >
+                  {isReverting ? (
+                    <>
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Reverting...
+                    </>
+                  ) : (
+                    <>Revert</>
+                  )}
+                </button>
+              </div>
             </div>
           )}
 

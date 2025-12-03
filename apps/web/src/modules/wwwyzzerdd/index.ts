@@ -2,17 +2,23 @@
  * wwwyzzerdd Module Registration
  *
  * AI-assisted character creation wizard.
- * Registers the wwwyzzerdd tab when enabled.
+ * Registers the wwwyzzerdd tab and settings panel when enabled.
  */
 
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
 
-// Lazy-load the component
+// Lazy-load the components
 const WwwyzzerddTab = lazy(() =>
   import('../../features/wwwyzzerdd/WwwyzzerddTab').then((m) => ({
     default: m.WwwyzzerddTab,
+  }))
+);
+
+const WwwyzzerddSettings = lazy(() =>
+  import('./settings/WwwyzzerddSettings').then((m) => ({
+    default: m.WwwyzzerddSettings,
   }))
 );
 
@@ -20,6 +26,7 @@ const WwwyzzerddTab = lazy(() =>
  * Register the wwwyzzerdd module
  */
 export function registerWwwyzzerddModule(): void {
+  // Register editor tab
   registry.registerTab({
     id: 'wwwyzzerdd',
     label: 'wwwyzzerdd',
@@ -30,7 +37,18 @@ export function registerWwwyzzerddModule(): void {
     condition: () => useSettingsStore.getState().features?.wwwyzzerddEnabled ?? false,
   });
 
-  console.log('[wwwyzzerdd] Module registered');
+  // Register settings panel
+  registry.registerSettingsPanel({
+    id: 'wwwyzzerdd',
+    label: 'wwwyzzerdd',
+    component: WwwyzzerddSettings,
+    row: 'modules',
+    color: 'purple',
+    order: 40,
+    condition: () => useSettingsStore.getState().features?.wwwyzzerddEnabled ?? false,
+  });
+
+  console.log('[wwwyzzerdd] Module registered (tab + settings)');
 }
 
 /**
@@ -38,5 +56,6 @@ export function registerWwwyzzerddModule(): void {
  */
 export function unregisterWwwyzzerddModule(): void {
   registry.unregisterTab('wwwyzzerdd');
+  registry.unregisterSettingsPanel('wwwyzzerdd');
   console.log('[wwwyzzerdd] Module unregistered');
 }

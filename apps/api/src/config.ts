@@ -10,6 +10,7 @@ const __dirname = dirname(__filename);
 export const config = {
   port: parseInt(process.env.PORT || '3456', 10),
   host: process.env.HOST || '0.0.0.0',
+  webPort: parseInt(process.env.WEB_PORT || '5173', 10),
   databasePath: process.env.DATABASE_PATH || join(__dirname, '../data/cards.db'),
   storagePath: process.env.STORAGE_PATH || join(__dirname, '../storage'),
   limits: {

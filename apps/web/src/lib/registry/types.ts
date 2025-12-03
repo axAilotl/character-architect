@@ -28,6 +28,10 @@ export interface SettingsPanelDefinition extends PluginContribution {
   label: string;
   icon?: ComponentType<{ className?: string }>;
   component: ComponentType | LazyExoticComponent<ComponentType<unknown>>;
+  /** Which row to display in: 'main' for top row, 'modules' for module settings row */
+  row?: 'main' | 'modules';
+  /** Color for tab highlight when active */
+  color?: 'blue' | 'purple' | 'green' | 'orange' | 'red' | 'pink' | 'cyan' | 'amber' | 'teal';
 }
 
 /**
