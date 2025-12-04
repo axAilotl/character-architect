@@ -109,7 +109,12 @@ export function buildCharx(
   for (const asset of assets) {
     const mimetype = getMimeTypeFromExt(asset.ext);
     const category = getCharxCategory(mimetype);
-    const safeName = sanitizeName(asset.name, asset.ext);
+    let safeName = sanitizeName(asset.name, asset.ext);
+
+    // Force main icon to be named 'main' for interoperability
+    if (asset.isMain && asset.type === 'icon') {
+      safeName = 'main';
+    }
 
     const assetPath = `assets/${asset.type}/${category}/${safeName}.${asset.ext}`;
 
@@ -138,7 +143,12 @@ function transformAssetUris(card: CCv3Data, assets: CharxWriteAsset[]): CCv3Data
   transformed.data.assets = assets.map((asset): AssetDescriptor => {
     const mimetype = getMimeTypeFromExt(asset.ext);
     const category = getCharxCategory(mimetype);
-    const safeName = sanitizeName(asset.name, asset.ext);
+    let safeName = sanitizeName(asset.name, asset.ext);
+
+    // Force main icon to be named 'main' for interoperability
+    if (asset.isMain && asset.type === 'icon') {
+      safeName = 'main';
+    }
 
     return {
       type: asset.type as AssetDescriptor['type'],

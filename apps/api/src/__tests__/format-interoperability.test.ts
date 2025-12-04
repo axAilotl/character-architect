@@ -1704,7 +1704,7 @@ here.`,
         createdCardIds.push(importedCard.meta.id);
 
         const originalName = getCardName(importedCard.data);
-        const originalAltGreetings = getAltGreetingsCount(importedCard.data);
+        // Note: Voxta format does NOT preserve alternate_greetings
 
         // Upload image for Voxta export
         const testImage = await createTestImage();
@@ -1908,7 +1908,7 @@ here.`,
         createdCardIds.push(importedCard.meta.id);
 
         const originalName = getCardName(importedCard.data);
-        const originalLorebookCount = getLorebookEntryCount(importedCard.data);
+        // Note: Voxta format limitation - lorebook may not round-trip fully
 
         // Export as Voxta
         const voxtaExportResponse = await app.inject({
@@ -1938,7 +1938,6 @@ here.`,
         createdCardIds.push(reImportedCard.meta.id);
 
         expect(getCardName(reImportedCard.data)).toBe(originalName);
-        // Note: Voxta format limitation - lorebook may not round-trip fully
       });
     });
 
@@ -2382,7 +2381,7 @@ here.`,
 
         const originalName = getCardName(originalCard.data);
         const originalLorebookCount = getLorebookEntryCount(originalCard.data);
-        const originalEntries = getLorebookEntries(originalCard.data);
+        // Note: lorebook entries may not round-trip through Voxta
         expect(originalLorebookCount).toBe(4);
 
         // Export as Voxta
@@ -2585,7 +2584,7 @@ here.`,
           scenario: originalData.scenario as string,
           first_mes: originalData.first_mes as string,
         };
-        const originalAltGreetings = getAltGreetings(originalCard.data);
+        // Note: Voxta format does NOT preserve alternate_greetings - this is a format limitation
 
         // Export as Voxta
         const voxtaExportResponse = await app.inject({
