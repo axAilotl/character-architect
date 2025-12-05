@@ -8,7 +8,6 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import { getDeploymentConfig } from '../../config/deployment';
 import type { ModuleDefinition } from '../../lib/registry/types';
 
 /**
@@ -39,13 +38,9 @@ const WwwyzzerddSettings = lazy(() =>
 
 /**
  * Check if wwwyzzerdd should be visible
- * Must be enabled AND not in light/static mode (requires LLM server)
+ * Works in all modes - uses client-side LLM in light/static mode
  */
 function isWwwyzzerddAvailable(): boolean {
-  const config = getDeploymentConfig();
-  if (config.mode === 'light' || config.mode === 'static') {
-    return false; // wwwyzzerdd requires LLM server integration
-  }
   return useSettingsStore.getState().features?.wwwyzzerddEnabled ?? false;
 }
 

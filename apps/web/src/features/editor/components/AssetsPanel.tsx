@@ -146,6 +146,12 @@ export function AssetsPanel() {
   const loadArchiveStatus = useCallback(async () => {
     if (!currentCard || !linkedImageArchivalEnabled) return;
 
+    // Archive status not available in light mode
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      return;
+    }
+
     try {
       const response = await fetch(`/api/cards/${currentCard.meta.id}/archive-status`);
       if (response.ok) {

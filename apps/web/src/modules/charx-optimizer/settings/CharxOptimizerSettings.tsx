@@ -52,8 +52,17 @@ export function CharxOptimizerSettings() {
   const loadSettings = async () => {
     const config = getDeploymentConfig();
     if (config.mode === 'light' || config.mode === 'static') {
-      // In light mode, just use defaults (optimization happens client-side)
-      setSettings(DEFAULT_SETTINGS);
+      // In light mode, load from localStorage or use defaults
+      try {
+        const stored = localStorage.getItem('ca-package-optimizer-settings');
+        if (stored) {
+          setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
+        } else {
+          setSettings(DEFAULT_SETTINGS);
+        }
+      } catch {
+        setSettings(DEFAULT_SETTINGS);
+      }
       setLoading(false);
       return;
     }
@@ -76,6 +85,20 @@ export function CharxOptimizerSettings() {
 
   const handleSaveSettings = async () => {
     if (!settings) return;
+
+    const config = getDeploymentConfig();
+
+    // In light mode, just save to localStorage
+    if (config.mode === 'light' || config.mode === 'static') {
+      try {
+        localStorage.setItem('ca-package-optimizer-settings', JSON.stringify(settings));
+        setStatus('Settings saved locally.');
+        setTimeout(() => setStatus(null), 3000);
+      } catch {
+        setStatus('Failed to save settings');
+      }
+      return;
+    }
 
     try {
       const response = await fetch('/api/package-optimizer/settings', {

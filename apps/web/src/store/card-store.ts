@@ -463,13 +463,9 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
     const config = getDeploymentConfig();
 
-    // Client-side mode: use client export
+    // Client-side mode: use client export (supports all formats now)
     if (config.mode === 'light' || config.mode === 'static') {
-      if (format === 'voxta') {
-        alert('Voxta export requires a server. JSON, PNG, and CHARX are available in light mode.');
-        return;
-      }
-      await exportCardClientSide(currentCard, format as 'json' | 'png' | 'charx');
+      await exportCardClientSide(currentCard, format as 'json' | 'png' | 'charx' | 'voxta');
       return;
     }
 

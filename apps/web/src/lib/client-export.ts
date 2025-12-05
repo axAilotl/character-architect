@@ -7,6 +7,7 @@
 
 import { embedIntoPNG } from '@card-architect/png';
 import { buildCharx, type CharxWriteAsset } from '@card-architect/charx';
+import { buildVoxtaPackage, type VoxtaWriteAsset } from '@card-architect/voxta';
 import type { Card, CCv2Data, CCv3Data } from '@card-architect/schemas';
 import { localDB } from './db';
 
@@ -146,6 +147,64 @@ export async function exportCardAsCHARX(card: Card): Promise<Blob> {
 }
 
 /**
+ * Export card as Voxta package (.voxpkg)
+ */
+export async function exportCardAsVoxta(card: Card): Promise<Blob> {
+  // Get card data - convert to V3 if needed
+  let v3Data: CCv3Data;
+  if (card.meta.spec === 'v3') {
+    v3Data = card.data as CCv3Data;
+  } else {
+    // Convert V2 to V3 for Voxta
+    const v2Data = card.data as CCv2Data;
+    v3Data = {
+      spec: 'chara_card_v3',
+      spec_version: '3.0',
+      data: {
+        ...v2Data,
+        creator: v2Data.creator || '',
+        character_version: v2Data.character_version || '1.0',
+        tags: v2Data.tags || [],
+      },
+    } as CCv3Data;
+  }
+
+  // Collect assets
+  const assets: VoxtaWriteAsset[] = [];
+
+  // Get the main icon image
+  let imageData = await localDB.getImage(card.meta.id, 'icon');
+  if (!imageData) {
+    imageData = await localDB.getImage(card.meta.id, 'thumbnail');
+  }
+
+  if (imageData) {
+    const buffer = dataURLToUint8Array(imageData);
+    // Detect format from data URL
+    let ext = 'png';
+    if (imageData.startsWith('data:image/webp')) ext = 'webp';
+    else if (imageData.startsWith('data:image/jpeg')) ext = 'jpg';
+
+    assets.push({
+      type: 'icon',
+      name: 'main',
+      ext,
+      data: buffer,
+    });
+  }
+
+  // Build Voxta package (takes CCv3Data directly, converts internally)
+  const result = buildVoxtaPackage(v3Data, assets);
+
+  // Convert to Blob
+  const arrayBuffer = new ArrayBuffer(result.buffer.length);
+  const uint8Result = new Uint8Array(arrayBuffer);
+  uint8Result.set(result.buffer as unknown as ArrayLike<number>);
+
+  return new Blob([uint8Result], { type: 'application/zip' });
+}
+
+/**
  * Download a blob as a file
  */
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -162,9 +221,12 @@ export function downloadBlob(blob: Blob, filename: string): void {
  */
 export async function exportCard(
   card: Card,
-  format: 'json' | 'png' | 'charx'
+  format: 'json' | 'png' | 'charx' | 'voxta'
 ): Promise<void> {
-  const filename = `${card.meta.name || 'character'}.${format}`;
+  let filename = `${card.meta.name || 'character'}.${format}`;
+  if (format === 'voxta') {
+    filename = `${card.meta.name || 'character'}.voxpkg`;
+  }
 
   if (format === 'json') {
     const blob = exportCardAsJSON(card);
@@ -174,6 +236,9 @@ export async function exportCard(
     downloadBlob(blob, filename);
   } else if (format === 'charx') {
     const blob = await exportCardAsCHARX(card);
+    downloadBlob(blob, filename);
+  } else if (format === 'voxta') {
+    const blob = await exportCardAsVoxta(card);
     downloadBlob(blob, filename);
   }
 }

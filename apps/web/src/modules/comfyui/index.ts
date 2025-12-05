@@ -38,9 +38,6 @@ const ComfyUISettings = lazy(() =>
 );
 
 /**
- * Register the ComfyUI module
- */
-/**
  * Check if ComfyUI should be visible
  * Must be enabled AND not in light/static mode (requires local ComfyUI server)
  */
@@ -52,7 +49,18 @@ function isComfyUIAvailable(): boolean {
   return useSettingsStore.getState().features?.comfyuiEnabled ?? false;
 }
 
+/**
+ * Register the ComfyUI module
+ * Note: In light/static mode, this module is NOT registered at all
+ */
 export function registerComfyuiModule(): void {
+  // Don't register in light/static mode - ComfyUI requires local server
+  const config = getDeploymentConfig();
+  if (config.mode === 'light' || config.mode === 'static') {
+    console.log('[comfyui] Skipping registration in light mode');
+    return;
+  }
+
   // Register editor tab
   registry.registerTab({
     id: 'comfyui',
