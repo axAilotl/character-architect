@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { useTokenStore } from '../../store/token-store';
 import { useSettingsStore } from '../../store/settings-store';
 import { SettingsModal } from './SettingsModal';
 import { api } from '../../lib/api';
 import { useNavigate } from 'react-router-dom';
+import { SillyTavernClient, shouldUseClientSidePush, type SillyTavernSettings } from '../../lib/sillytavern-client';
 
 interface HeaderProps {
   onBack: () => void;
@@ -20,6 +21,18 @@ export function Header({ onBack }: HeaderProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
   const [pushStatus, setPushStatus] = useState<{type: 'success' | 'error'; message: string} | null>(null);
+  const [stSettings, setStSettings] = useState<SillyTavernSettings | null>(null);
+
+  // Load SillyTavern settings for client-side push
+  useEffect(() => {
+    if (sillytavernEnabled) {
+      api.getSillyTavernSettings().then((result) => {
+        if (result.data?.settings) {
+          setStSettings(result.data.settings as SillyTavernSettings);
+        }
+      });
+    }
+  }, [sillytavernEnabled]);
 
   // Calculate permanent tokens (name + description + personality + scenario)
   const getPermanentTokens = () => {
@@ -109,28 +122,95 @@ export function Header({ onBack }: HeaderProps) {
       return;
     }
 
-    try {
-      const result = await api.pushToSillyTavern(currentCard.meta.id);
+    // Check if we should use client-side push (localhost ST)
+    const useClientSide = stSettings && shouldUseClientSidePush(stSettings);
+    console.log('[pushToST] Using client-side push:', useClientSide);
 
-      if (result.data?.success) {
-        setPushStatus({
-          type: 'success',
-          message: `Successfully pushed ${getCharacterName()} to SillyTavern!`
-        });
-        setTimeout(() => setPushStatus(null), 5000);
-      } else {
+    if (useClientSide && stSettings) {
+      // Client-side push: fetch image, generate PNG, push directly to ST
+      try {
+        // Fetch original image from server
+        const imageResponse = await fetch(`/api/cards/${currentCard.meta.id}/original-image`);
+        let imageBuffer: Uint8Array;
+
+        if (imageResponse.ok) {
+          const arrayBuffer = await imageResponse.arrayBuffer();
+          imageBuffer = new Uint8Array(arrayBuffer);
+        } else {
+          // Create a placeholder image if none exists
+          console.log('[pushToST] No image found, using placeholder');
+          // Use a simple 1x1 transparent PNG as placeholder
+          // Real PNG generation happens in createCardPNG
+          const placeholderResponse = await fetch('/placeholder-avatar.png');
+          if (placeholderResponse.ok) {
+            const arrayBuffer = await placeholderResponse.arrayBuffer();
+            imageBuffer = new Uint8Array(arrayBuffer);
+          } else {
+            // Minimal valid PNG (1x1 gray pixel)
+            imageBuffer = new Uint8Array([
+              0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+              0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+              0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+              0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+              0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, // IDAT chunk
+              0x54, 0x08, 0xD7, 0x63, 0x60, 0x60, 0x60, 0x00,
+              0x00, 0x00, 0x04, 0x00, 0x01, 0x5C, 0xCD, 0xFF,
+              0xA2, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, // IEND chunk
+              0x44, 0xAE, 0x42, 0x60, 0x82
+            ]);
+          }
+        }
+
+        // Use client-side push
+        const client = new SillyTavernClient(stSettings);
+        const result = await client.push(currentCard, imageBuffer);
+
+        if (result.success) {
+          setPushStatus({
+            type: 'success',
+            message: `Successfully pushed ${getCharacterName()} to SillyTavern!`
+          });
+          setTimeout(() => setPushStatus(null), 5000);
+        } else {
+          setPushStatus({
+            type: 'error',
+            message: result.error || 'Failed to push to SillyTavern'
+          });
+          setTimeout(() => setPushStatus(null), 8000);
+        }
+      } catch (error: any) {
+        console.error('[pushToST] Client-side push failed:', error);
         setPushStatus({
           type: 'error',
-          message: result.error || result.data?.error || 'Failed to push to SillyTavern'
+          message: error?.message || 'Failed to push to SillyTavern'
         });
         setTimeout(() => setPushStatus(null), 8000);
       }
-    } catch (error: any) {
-      setPushStatus({
-        type: 'error',
-        message: error?.message || 'Failed to push to SillyTavern'
-      });
-      setTimeout(() => setPushStatus(null), 8000);
+    } else {
+      // Server-side push (fallback for non-localhost or when settings not loaded)
+      try {
+        const result = await api.pushToSillyTavern(currentCard.meta.id);
+
+        if (result.data?.success) {
+          setPushStatus({
+            type: 'success',
+            message: `Successfully pushed ${getCharacterName()} to SillyTavern!`
+          });
+          setTimeout(() => setPushStatus(null), 5000);
+        } else {
+          setPushStatus({
+            type: 'error',
+            message: result.error || result.data?.error || 'Failed to push to SillyTavern'
+          });
+          setTimeout(() => setPushStatus(null), 8000);
+        }
+      } catch (error: any) {
+        setPushStatus({
+          type: 'error',
+          message: error?.message || 'Failed to push to SillyTavern'
+        });
+        setTimeout(() => setPushStatus(null), 8000);
+      }
     }
   };
 

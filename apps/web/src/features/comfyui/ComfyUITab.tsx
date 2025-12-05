@@ -134,7 +134,8 @@ export function ComfyUITab() {
     sillytavern: { items: Array<{ filename: string; prompt: string }> };
     voxta: { items: Array<{ filename: string; prompt: string }> };
   } | null>(null);
-  const [emotionSourceType, setEmotionSourceType] = useState<'icon' | 'upload'>('icon');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_emotionSourceType, _setEmotionSourceType] = useState<'icon' | 'upload'>('icon');
   const [emotionImagesPerExpression, setEmotionImagesPerExpression] = useState(() => {
     if (typeof window !== 'undefined') {
       return parseInt(localStorage.getItem('comfyui-emotion-per-expression') || '1') || 1;
@@ -1016,7 +1017,7 @@ export function ComfyUITab() {
                   </div>
                 </div>
                 <div className="aspect-square bg-black/30 rounded-lg flex items-center justify-center overflow-hidden mb-2">
-                  {emotionSourceImage || currentCard?.meta.icon ? (
+                  {emotionSourceImage || currentCard?.meta?.id ? (
                     <img
                       src={emotionSourceImage || `/api/cards/${currentCard?.meta.id}/icon`}
                       alt="Source"

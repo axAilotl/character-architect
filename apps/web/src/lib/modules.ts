@@ -9,11 +9,17 @@
  * - Feature flag: {camelCaseId}Enabled (e.g., blockEditorEnabled)
  * - Register function: register{PascalCaseId}Module (e.g., registerBlockEditorModule)
  * - Metadata export: MODULE_METADATA (ModuleDefinition)
+ *
+ * Deployment modes affect default module states:
+ * - 'full': All modules enabled by default
+ * - 'light': ComfyUI disabled (no server-side image gen)
+ * - 'static': ComfyUI, webimport, wwwyzzerdd disabled
  */
 
 import { useSettingsStore } from '../store/settings-store';
 import { registry } from './registry';
 import type { ModuleDefinition } from './registry/types';
+import { getModuleDefault, deploymentConfig } from '../config/deployment';
 
 /**
  * Auto-discover all modules using Vite's glob import
@@ -118,10 +124,17 @@ async function loadOptionalModules(): Promise<void> {
   const enabledModules = modules.filter((module) => {
     if (loadedModules.has(module.id)) return false;
 
-    // Check feature flag, falling back to module's default if not set
+    // Check feature flag, falling back to deployment config then module's default
     const flagValue = features[module.featureFlag];
     if (flagValue !== undefined) {
       return flagValue === true;
+    }
+
+    // Check deployment config for module defaults
+    const deploymentDefault = getModuleDefault(module.id);
+    if (deploymentDefault === false) {
+      // Deployment config explicitly disables this module
+      return false;
     }
 
     // Use module's default from metadata
@@ -159,6 +172,7 @@ async function loadOptionalModules(): Promise<void> {
  */
 export async function initializeModules(): Promise<void> {
   console.log('[Modules] Initializing...');
+  console.log('[Modules] Deployment mode:', deploymentConfig.mode);
   console.log('[Modules] Discovered:', getDiscoveredModules().map((m) => m.id).join(', '));
 
   // Register all module metadata first (for Settings toggles)

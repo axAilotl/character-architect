@@ -1,0 +1,182 @@
+/**
+ * Deployment Configuration
+ *
+ * This file defines what features are available in different deployment modes.
+ * The mode is determined by the VITE_DEPLOYMENT_MODE environment variable.
+ *
+ * Modes:
+ * - 'full': All features enabled (local/self-hosted)
+ * - 'light': Minimal server, most features client-side (cheap VPS)
+ * - 'static': No server at all (Cloudflare Pages, GitHub Pages)
+ */
+
+export type DeploymentMode = 'full' | 'light' | 'static';
+
+export interface DeploymentConfig {
+  mode: DeploymentMode;
+
+  /** Features that require a server backend */
+  serverFeatures: {
+    /** Web import via userscript (still works - client fetches, server processes) */
+    webImport: boolean;
+    /** Server-side RAG (if false, use client-side Transformers.js) */
+    serverRag: boolean;
+    /** Server-side LLM proxy (if false, use direct browser calls) */
+    serverLlm: boolean;
+    /** ComfyUI integration (requires local ComfyUI server) */
+    comfyui: boolean;
+    /** Server-side image optimization with Sharp */
+    serverImageOptimization: boolean;
+  };
+
+  /** Features that can run client-side */
+  clientFeatures: {
+    /** SillyTavern push (works client-side for localhost) */
+    sillyTavernPush: boolean;
+    /** Client-side RAG with Transformers.js + WebGPU */
+    clientRag: boolean;
+    /** Direct LLM calls (OpenRouter, Anthropic with CORS header) */
+    clientLlm: boolean;
+    /** Client-side image processing (Canvas API) */
+    clientImageOptimization: boolean;
+  };
+
+  /** Module defaults - which modules are enabled by default */
+  moduleDefaults: {
+    blockEditor: boolean;
+    wwwyzzerdd: boolean;
+    comfyui: boolean;
+    sillytavern: boolean;
+    webimport: boolean;
+    charxOptimizer: boolean;
+  };
+}
+
+/**
+ * Full deployment - all features, self-hosted
+ */
+const FULL_CONFIG: DeploymentConfig = {
+  mode: 'full',
+  serverFeatures: {
+    webImport: true,
+    serverRag: true,
+    serverLlm: true,
+    comfyui: true,
+    serverImageOptimization: true,
+  },
+  clientFeatures: {
+    sillyTavernPush: true,
+    clientRag: true,
+    clientLlm: true,
+    clientImageOptimization: true,
+  },
+  moduleDefaults: {
+    blockEditor: true,
+    wwwyzzerdd: true,
+    comfyui: true,
+    sillytavern: true,
+    webimport: true,
+    charxOptimizer: true,
+  },
+};
+
+/**
+ * Light deployment - cheap VPS, minimal server
+ */
+const LIGHT_CONFIG: DeploymentConfig = {
+  mode: 'light',
+  serverFeatures: {
+    webImport: true, // Still works - client fetches everything
+    serverRag: false, // Use client-side
+    serverLlm: false, // Use direct browser calls
+    comfyui: false, // No ComfyUI on VPS
+    serverImageOptimization: false, // Use Canvas API
+  },
+  clientFeatures: {
+    sillyTavernPush: true,
+    clientRag: true,
+    clientLlm: true,
+    clientImageOptimization: true,
+  },
+  moduleDefaults: {
+    blockEditor: true,
+    wwwyzzerdd: true,
+    comfyui: false, // Disabled - no ComfyUI server
+    sillytavern: true,
+    webimport: true,
+    charxOptimizer: true,
+  },
+};
+
+/**
+ * Static deployment - no server, Cloudflare/GitHub Pages
+ */
+const STATIC_CONFIG: DeploymentConfig = {
+  mode: 'static',
+  serverFeatures: {
+    webImport: false, // No server to process
+    serverRag: false,
+    serverLlm: false,
+    comfyui: false,
+    serverImageOptimization: false,
+  },
+  clientFeatures: {
+    sillyTavernPush: true, // Works for localhost ST
+    clientRag: true, // Transformers.js
+    clientLlm: true, // OpenRouter/Anthropic direct
+    clientImageOptimization: true,
+  },
+  moduleDefaults: {
+    blockEditor: true,
+    wwwyzzerdd: false, // Needs LLM which may not be configured
+    comfyui: false,
+    sillytavern: true,
+    webimport: false, // No server
+    charxOptimizer: true,
+  },
+};
+
+/**
+ * Get deployment configuration based on environment
+ */
+export function getDeploymentConfig(): DeploymentConfig {
+  const mode = (import.meta.env.VITE_DEPLOYMENT_MODE as DeploymentMode) || 'full';
+
+  switch (mode) {
+    case 'light':
+      return LIGHT_CONFIG;
+    case 'static':
+      return STATIC_CONFIG;
+    case 'full':
+    default:
+      return FULL_CONFIG;
+  }
+}
+
+/**
+ * Check if a server feature is available
+ */
+export function isServerFeatureAvailable(feature: keyof DeploymentConfig['serverFeatures']): boolean {
+  return getDeploymentConfig().serverFeatures[feature];
+}
+
+/**
+ * Check if a client feature is available
+ */
+export function isClientFeatureAvailable(feature: keyof DeploymentConfig['clientFeatures']): boolean {
+  return getDeploymentConfig().clientFeatures[feature];
+}
+
+/**
+ * Get default module enabled state
+ */
+export function getModuleDefault(moduleId: string): boolean {
+  const config = getDeploymentConfig();
+  const key = moduleId.replace(/-/g, '') as keyof typeof config.moduleDefaults;
+  return config.moduleDefaults[key] ?? true;
+}
+
+/**
+ * Export the current config for debugging
+ */
+export const deploymentConfig = getDeploymentConfig();
