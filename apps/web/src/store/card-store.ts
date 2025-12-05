@@ -4,6 +4,8 @@ import { api } from '../lib/api';
 import { localDB } from '../lib/db';
 import { extractCardData } from '../lib/card-utils';
 import { useTokenStore } from './token-store';
+import { getDeploymentConfig } from '../config/deployment';
+import { importCardClientSide } from '../lib/client-import';
 
 export { extractCardData };
 
@@ -166,16 +168,33 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
   },
 
-  // Save card to API
+  // Save card to API or IndexedDB
   saveCard: async () => {
     const { currentCard } = get();
     if (!currentCard) {
       return;
     }
 
+    const config = getDeploymentConfig();
     set({ isSaving: true });
 
     try {
+      // Client-side mode: save to IndexedDB
+      if (config.mode === 'light' || config.mode === 'static') {
+        const cardToSave = currentCard.meta.id
+          ? currentCard
+          : { ...currentCard, meta: { ...currentCard.meta, id: crypto.randomUUID() } };
+
+        await localDB.saveCard(cardToSave);
+
+        if (!currentCard.meta.id) {
+          set({ currentCard: cardToSave });
+        }
+        set({ isDirty: false });
+        return;
+      }
+
+      // Server mode: save via API
       if (currentCard.meta.id) {
         // Update existing card
         const result = await api.updateCard(currentCard.meta.id, currentCard);
@@ -203,8 +222,21 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
   },
 
-  // Load card from API
+  // Load card from API or IndexedDB
   loadCard: async (id) => {
+    const config = getDeploymentConfig();
+
+    // Client-side mode: load from IndexedDB
+    if (config.mode === 'light' || config.mode === 'static') {
+      const card = await localDB.getCard(id);
+      if (card) {
+        set({ currentCard: card, isDirty: false });
+        useTokenStore.getState().updateTokenCounts(card);
+      }
+      return;
+    }
+
+    // Server mode: load from API
     const { data, error } = await api.getCard(id);
     if (error) {
       console.error('Failed to load card:', error);
@@ -263,6 +295,27 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
   // Import card
   importCard: async (file) => {
+    const config = getDeploymentConfig();
+
+    // Use client-side import for light/static modes
+    if (config.mode === 'light' || config.mode === 'static') {
+      try {
+        const result = await importCardClientSide(file);
+        const card = result.card;
+
+        // Save to IndexedDB for persistence
+        await localDB.saveCard(card);
+
+        set({ currentCard: card, isDirty: false });
+        useTokenStore.getState().updateTokenCounts(card);
+        return card.meta.id;
+      } catch (err) {
+        console.error('Client-side import failed:', err);
+        return null;
+      }
+    }
+
+    // Use server API for full mode
     const { data, error } = await api.importCard(file);
     if (error) {
       return null;

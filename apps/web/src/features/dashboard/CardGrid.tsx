@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { api } from '../../lib/api';
+import { localDB } from '../../lib/db';
+import { getDeploymentConfig } from '../../config/deployment';
 import type { Card, CCv3Data } from '@card-architect/schemas';
 import { SettingsModal } from '../../components/shared/SettingsModal';
 
@@ -30,11 +32,20 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const loadCards = async () => {
     setLoading(true);
     try {
-      const response = await api.listCards();
-      if (response.data) {
-        setCards(response.data);
-      } else if (response.error) {
-        console.error('API error:', response.error);
+      const config = getDeploymentConfig();
+
+      // Client-side mode: load from IndexedDB
+      if (config.mode === 'light' || config.mode === 'static') {
+        const localCards = await localDB.listCards();
+        setCards(localCards);
+      } else {
+        // Server mode: load from API
+        const response = await api.listCards();
+        if (response.data) {
+          setCards(response.data);
+        } else if (response.error) {
+          console.error('API error:', response.error);
+        }
       }
     } catch (error) {
       console.error('Failed to load cards:', error);
@@ -48,17 +59,31 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     if (!confirm('Are you sure you want to delete this card?')) return;
 
     try {
-      const response = await api.deleteCard(cardId);
-      if (response.error) {
-        console.error('Failed to delete card:', response.error);
-        alert('Failed to delete card: ' + response.error);
-      } else {
+      const config = getDeploymentConfig();
+
+      if (config.mode === 'light' || config.mode === 'static') {
+        // Client-side mode: delete from IndexedDB
+        await localDB.deleteCard(cardId);
         setCards(cards.filter((c) => c.meta.id !== cardId));
         setSelectedCards(prev => {
           const next = new Set(prev);
           next.delete(cardId);
           return next;
         });
+      } else {
+        // Server mode: delete via API
+        const response = await api.deleteCard(cardId);
+        if (response.error) {
+          console.error('Failed to delete card:', response.error);
+          alert('Failed to delete card: ' + response.error);
+        } else {
+          setCards(cards.filter((c) => c.meta.id !== cardId));
+          setSelectedCards(prev => {
+            const next = new Set(prev);
+            next.delete(cardId);
+            return next;
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to delete card:', error);

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { localDB } from '../lib/db';
+import { getDeploymentConfig } from '../config/deployment';
 import { useCardStore } from '../store/card-store';
 import type { Card } from '@card-architect/schemas';
 
@@ -15,9 +17,16 @@ export function Sidebar() {
 
   const loadCards = async () => {
     setLoading(true);
-    const { data } = await api.listCards();
-    if (data) {
-      setCards(data);
+    const config = getDeploymentConfig();
+
+    if (config.mode === 'light' || config.mode === 'static') {
+      const localCards = await localDB.listCards();
+      setCards(localCards);
+    } else {
+      const { data } = await api.listCards();
+      if (data) {
+        setCards(data);
+      }
     }
     setLoading(false);
   };
