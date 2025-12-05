@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
 import { extractCardData } from '../lib/card-utils';
+import { getDeploymentConfig } from '../config/deployment';
+import { tokenizerRegistry } from '@card-architect/tokenizers';
 import type { Card } from '@card-architect/schemas';
 
 interface TokenCounts {
@@ -66,6 +68,30 @@ export const useTokenStore = create<TokenStore>((set, get) => ({
       payload.lorebook = cardData.character_book.entries.map((e) => e.content).join('\n');
     }
 
+    const config = getDeploymentConfig();
+
+    // Client-side tokenization for light/static modes
+    if (config.mode === 'light' || config.mode === 'static') {
+      const tokenizer = tokenizerRegistry.get(tokenizerModel);
+      if (!tokenizer) {
+        console.error('Tokenizer not found:', tokenizerModel);
+        return;
+      }
+
+      const fields: Record<string, number> = {};
+      let total = 0;
+
+      for (const [key, value] of Object.entries(payload)) {
+        const count = tokenizer.estimate(value);
+        fields[key] = count;
+        total += count;
+      }
+
+      set({ tokenCounts: { ...fields, total } });
+      return;
+    }
+
+    // Server-side tokenization for full mode
     const { data, error } = await api.tokenize({ model: tokenizerModel, payload });
     if (error) {
       console.error('Failed to tokenize:', error);

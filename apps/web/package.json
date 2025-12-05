@@ -12,6 +12,7 @@
     "@card-architect/schemas": "*",
     "@card-architect/png": "*",
     "@card-architect/charx": "*",
+    "@card-architect/tokenizers": "*",
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/lang-markdown": "^6.2.4",
     "@dnd-kit/core": "^6.3.1",
