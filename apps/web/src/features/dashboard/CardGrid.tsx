@@ -259,8 +259,11 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
             const result = await importCardClientSide(file);
             await localDB.saveCard(result.card);
-            if (result.imageDataUrl) {
-              await localDB.saveImage(result.card.meta.id, 'thumbnail', result.imageDataUrl);
+            if (result.fullImageDataUrl) {
+              await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+            }
+            if (result.thumbnailDataUrl) {
+              await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
             }
             successCount++;
           } catch (err) {

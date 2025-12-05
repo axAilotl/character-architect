@@ -305,18 +305,19 @@ export const useCardStore = create<CardStore>((set, get) => ({
         console.log('[importCard] Using client-side import');
         const result = await importCardClientSide(file);
         const card = result.card;
-        console.log('[importCard] Parsed card:', card.meta.name, 'hasImage:', !!result.imageDataUrl);
+        console.log('[importCard] Parsed card:', card.meta.name);
 
         // Save to IndexedDB for persistence
         await localDB.saveCard(card);
-        console.log('[importCard] Saved card to IndexedDB');
 
-        // Save card image if available
-        if (result.imageDataUrl) {
-          await localDB.saveImage(card.meta.id, 'thumbnail', result.imageDataUrl);
-          console.log('[importCard] Saved thumbnail to IndexedDB, size:', result.imageDataUrl.length);
-        } else {
-          console.warn('[importCard] No image data available for card');
+        // Save full image for export (icon) and thumbnail for display
+        if (result.fullImageDataUrl) {
+          await localDB.saveImage(card.meta.id, 'icon', result.fullImageDataUrl);
+          console.log('[importCard] Saved full image (icon), size:', result.fullImageDataUrl.length);
+        }
+        if (result.thumbnailDataUrl) {
+          await localDB.saveImage(card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+          console.log('[importCard] Saved thumbnail, size:', result.thumbnailDataUrl.length);
         }
 
         set({ currentCard: card, isDirty: false });

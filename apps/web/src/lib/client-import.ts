@@ -11,7 +11,8 @@ import type { Card, CCv2Data, CCv3Data } from '@card-architect/schemas';
 
 export interface ClientImportResult {
   card: Card;
-  imageDataUrl?: string; // PNG image as data URL for storage
+  fullImageDataUrl?: string; // Original PNG for export
+  thumbnailDataUrl?: string; // Small WebP for display
   warnings?: string[];
 }
 
@@ -194,20 +195,21 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
       const charxData = extractCharx(buffer);
       const card = createCard(charxData.card, 'v3');
 
-      // Try to extract icon/thumbnail from assets
-      let imageDataUrl: string | undefined;
+      // Try to extract icon from assets
+      let fullImageDataUrl: string | undefined;
+      let thumbnailDataUrl: string | undefined;
       const iconAsset = charxData.assets.find(
         (a) => a.descriptor.type === 'icon' || a.path.includes('icon') || a.path.includes('avatar')
       );
       if (iconAsset?.buffer) {
         const ext = iconAsset.descriptor.ext || 'png';
         const mimeType = ext === 'webp' ? 'image/webp' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
-        const fullImageUrl = uint8ArrayToDataURL(iconAsset.buffer, mimeType);
-        // Create smaller WebP thumbnail
+        fullImageDataUrl = uint8ArrayToDataURL(iconAsset.buffer, mimeType);
+        // Create smaller WebP thumbnail for display
         try {
-          imageDataUrl = await createThumbnail(fullImageUrl);
+          thumbnailDataUrl = await createThumbnail(fullImageDataUrl);
         } catch {
-          imageDataUrl = fullImageUrl; // Fallback to full image if thumbnail fails
+          thumbnailDataUrl = fullImageDataUrl; // Fallback if thumbnail fails
         }
       }
 
@@ -216,7 +218,7 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
         warnings.push(`${charxData.assets.length - (iconAsset ? 1 : 0)} additional assets not imported (client-side mode)`);
       }
 
-      return { card, imageDataUrl, warnings: warnings.length > 0 ? warnings : undefined };
+      return { card, fullImageDataUrl, thumbnailDataUrl, warnings: warnings.length > 0 ? warnings : undefined };
     } catch (err) {
       throw new Error(`Failed to parse CHARX: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -230,21 +232,19 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
     }
 
     const card = createCard(result.data, result.spec);
-    // Convert PNG buffer to data URL, then create smaller WebP thumbnail
-    const fullImageUrl = uint8ArrayToDataURL(buffer, 'image/png');
-    console.log('[client-import] Full image data URL length:', fullImageUrl.length);
-    console.log('[client-import] Calling createThumbnail...');
-    let imageDataUrl: string;
+    // Keep full PNG for export, create small WebP thumbnail for display
+    const fullImageDataUrl = uint8ArrayToDataURL(buffer, 'image/png');
+    console.log('[client-import] Full PNG size:', fullImageDataUrl.length);
+
+    let thumbnailDataUrl: string;
     try {
-      imageDataUrl = await createThumbnail(fullImageUrl);
-      console.log('[client-import] Thumbnail created, size:', imageDataUrl.length);
-      console.log('[client-import] Thumbnail format:', imageDataUrl.substring(0, 30));
+      thumbnailDataUrl = await createThumbnail(fullImageDataUrl);
+      console.log('[client-import] Thumbnail size:', thumbnailDataUrl.length);
     } catch (err) {
       console.error('[client-import] Thumbnail creation failed:', err);
-      console.error('[client-import] Error details:', err instanceof Error ? err.stack : String(err));
-      imageDataUrl = fullImageUrl; // Fallback to full image if thumbnail fails
+      thumbnailDataUrl = fullImageDataUrl; // Fallback to full image
     }
-    return { card, imageDataUrl, warnings: warnings.length > 0 ? warnings : undefined };
+    return { card, fullImageDataUrl, thumbnailDataUrl, warnings: warnings.length > 0 ? warnings : undefined };
   }
 
   if (fileName.endsWith('.json')) {

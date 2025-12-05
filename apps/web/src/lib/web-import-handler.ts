@@ -177,7 +177,8 @@ export async function processPendingWebImport(): Promise<WebImportResult> {
 
   try {
     let card: Card;
-    let imageDataUrl: string | undefined;
+    let fullImageDataUrl: string | undefined;
+    let thumbnailDataUrl: string | undefined;
 
     if (pending.pngBase64) {
       // PNG with embedded character data (Risu, Character Tavern, Wyvern)
@@ -193,11 +194,13 @@ export async function processPendingWebImport(): Promise<WebImportResult> {
       }
 
       card = createCard(result.data, result.spec);
-      // Create smaller WebP thumbnail from full image
+      // Keep full PNG for export
+      fullImageDataUrl = pending.pngBase64;
+      // Create smaller WebP thumbnail for display
       try {
-        imageDataUrl = await createThumbnail(pending.pngBase64);
+        thumbnailDataUrl = await createThumbnail(pending.pngBase64);
       } catch {
-        imageDataUrl = pending.pngBase64; // Fallback to full image
+        thumbnailDataUrl = pending.pngBase64; // Fallback to full image
       }
 
     } else if (pending.cardData) {
@@ -209,11 +212,13 @@ export async function processPendingWebImport(): Promise<WebImportResult> {
       card = createCard(data, isV3 ? 'v3' : 'v2');
 
       if (pending.avatarBase64) {
-        // Create smaller WebP thumbnail from avatar
+        // Keep full image for export
+        fullImageDataUrl = pending.avatarBase64;
+        // Create smaller WebP thumbnail for display
         try {
-          imageDataUrl = await createThumbnail(pending.avatarBase64);
+          thumbnailDataUrl = await createThumbnail(pending.avatarBase64);
         } catch {
-          imageDataUrl = pending.avatarBase64; // Fallback to full image
+          thumbnailDataUrl = pending.avatarBase64; // Fallback to full image
         }
       }
 
@@ -224,9 +229,12 @@ export async function processPendingWebImport(): Promise<WebImportResult> {
     // Save card to IndexedDB
     await localDB.saveCard(card);
 
-    // Save thumbnail if available
-    if (imageDataUrl) {
-      await localDB.saveImage(card.meta.id, 'thumbnail', imageDataUrl);
+    // Save full image for export (icon) and thumbnail for display
+    if (fullImageDataUrl) {
+      await localDB.saveImage(card.meta.id, 'icon', fullImageDataUrl);
+    }
+    if (thumbnailDataUrl) {
+      await localDB.saveImage(card.meta.id, 'thumbnail', thumbnailDataUrl);
     }
 
     return {
