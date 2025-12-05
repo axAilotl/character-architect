@@ -1,0 +1,14 @@
+# Cloudflare Pages configuration for Card Architect
+# Deploy via GitHub integration: Settings > Pages > Connect to Git
+
+name = "card-architect"
+compatibility_date = "2024-12-01"
+pages_build_output_dir = "apps/web/dist"
+
+# Build configuration for Cloudflare Pages
+[build]
+command = "VITE_DEPLOYMENT_MODE=light npm run build:packages && VITE_DEPLOYMENT_MODE=light npm run build:web"
+
+[build.environment]
+NODE_VERSION = "20"
+VITE_DEPLOYMENT_MODE = "light"
