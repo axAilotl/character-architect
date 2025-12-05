@@ -119,10 +119,6 @@ export function Header({ onBack }: HeaderProps) {
 
   const handleImportURL = async () => {
     setShowImportMenu(false);
-    if (isLightMode) {
-      alert('URL import requires a server. Please use file import or the userscript instead.');
-      return;
-    }
     const url = prompt('Enter the URL to the character card (PNG, JSON, or CHARX file):');
     if (url && url.trim()) {
       const id = await useCardStore.getState().importCardFromURL(url.trim());

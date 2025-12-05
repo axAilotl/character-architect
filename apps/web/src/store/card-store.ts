@@ -5,7 +5,7 @@ import { localDB } from '../lib/db';
 import { extractCardData } from '../lib/card-utils';
 import { useTokenStore } from './token-store';
 import { getDeploymentConfig } from '../config/deployment';
-import { importCardClientSide, importVoxtaPackageClientSide } from '../lib/client-import';
+import { importCardClientSide, importVoxtaPackageClientSide, importCardFromURLClientSide } from '../lib/client-import';
 import { exportCard as exportCardClientSide } from '../lib/client-export';
 
 export { extractCardData };
@@ -427,23 +427,40 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
   importCardFromURL: async (url) => {
     const config = getDeploymentConfig();
-    if (config.mode === 'light' || config.mode === 'static') {
-      alert('URL import is not supported in light mode. Please use file import or the userscript instead.');
+
+    try {
+      if (config.mode === 'light' || config.mode === 'static') {
+        // Client-side URL import
+        const result = await importCardFromURLClientSide(url);
+        await localDB.saveCard(result.card);
+        if (result.fullImageDataUrl) {
+          await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+        }
+        if (result.thumbnailDataUrl) {
+          await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+        }
+        set({ currentCard: result.card, isDirty: false });
+        useTokenStore.getState().updateTokenCounts(result.card);
+        return result.card.meta.id;
+      }
+
+      // Server mode
+      const { data, error } = await api.importCardFromURL(url);
+      if (error) {
+        alert(`Failed to import card: ${error}`);
+        return null;
+      }
+
+      if (data && data.card) {
+        set({ currentCard: data.card, isDirty: false });
+        useTokenStore.getState().updateTokenCounts(data.card);
+        return data.card.meta.id;
+      }
+      return null;
+    } catch (err) {
+      alert(`Failed to import card: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
-
-    const { data, error } = await api.importCardFromURL(url);
-    if (error) {
-      alert(`Failed to import card: ${error}`);
-      return null;
-    }
-
-    if (data && data.card) {
-      set({ currentCard: data.card, isDirty: false });
-      useTokenStore.getState().updateTokenCounts(data.card);
-      return data.card.meta.id;
-    }
-    return null;
   },
 
   // Export card
