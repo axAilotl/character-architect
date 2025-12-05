@@ -3,7 +3,7 @@ import { useCardStore, extractCardData } from '../../store/card-store';
 import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
-import { importCardClientSide, importCardFromURLClientSide } from '../../lib/client-import';
+import { importCardClientSide, importCardFromURLClientSide, importVoxtaPackageClientSide } from '../../lib/client-import';
 import { exportCard as exportCardClientSide } from '../../lib/client-export';
 import type { Card, CCv3Data } from '@card-architect/schemas';
 import { SettingsModal } from '../../components/shared/SettingsModal';
@@ -224,11 +224,35 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
         if (file.name.endsWith('.voxpkg')) {
           if (config.mode === 'light' || config.mode === 'static') {
-            alert('Voxta package import is not supported in light mode');
-            e.target.value = '';
-            return;
+            // Client-side Voxta import
+            const buffer = await file.arrayBuffer();
+            const results = await importVoxtaPackageClientSide(new Uint8Array(buffer));
+
+            if (results.length === 0) {
+              alert('Voxta package contains no characters');
+              e.target.value = '';
+              return;
+            }
+
+            // Import all characters from the package
+            for (const result of results) {
+              await localDB.saveCard(result.card);
+              if (result.fullImageDataUrl) {
+                await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+              }
+              if (result.thumbnailDataUrl) {
+                await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+              }
+            }
+
+            if (results.length > 1) {
+              alert(`Imported ${results.length} characters from Voxta package`);
+            }
+
+            id = results[0].card.meta.id;
+          } else {
+            id = await useCardStore.getState().importVoxtaPackage(file);
           }
-          id = await useCardStore.getState().importVoxtaPackage(file);
         } else {
           id = await importCard(file);
         }
@@ -252,8 +276,20 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           const file = files[i];
           try {
             if (file.name.endsWith('.voxpkg')) {
-              failures.push({ filename: file.name, error: 'Voxta packages not supported in light mode' });
-              failCount++;
+              // Client-side Voxta import for bulk
+              const buffer = await file.arrayBuffer();
+              const results = await importVoxtaPackageClientSide(new Uint8Array(buffer));
+
+              for (const result of results) {
+                await localDB.saveCard(result.card);
+                if (result.fullImageDataUrl) {
+                  await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+                }
+                if (result.thumbnailDataUrl) {
+                  await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+                }
+                successCount++;
+              }
               continue;
             }
 
