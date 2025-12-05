@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../../store/settings-store';
+import { getDeploymentConfig } from '../../../config/deployment';
 
 interface WwwyzzerddPromptSet {
   id: string;
@@ -31,6 +32,13 @@ export function WwwyzzerddSettings() {
   }, []);
 
   const loadPromptSets = async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      setStatus('wwwyzzerdd prompt sets require a server. Run Card Architect locally to customize prompts.');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setStatus(null);
     try {

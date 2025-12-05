@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useCardStore } from '../../store/card-store';
-import { getDeploymentConfig } from '../../config/deployment';
 
 export function SnapshotButton() {
   const { currentCard, createSnapshot } = useCardStore();
@@ -8,11 +7,7 @@ export function SnapshotButton() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [message, setMessage] = useState('');
 
-  const config = getDeploymentConfig();
-
-  // Hide snapshots in light mode (no server)
-  if (config.mode === 'light' || config.mode === 'static') return null;
-
+  // Snapshots now work in all modes (server API or IndexedDB)
   if (!currentCard || !currentCard.meta.id) return null;
 
   const handleCreateSnapshot = async () => {

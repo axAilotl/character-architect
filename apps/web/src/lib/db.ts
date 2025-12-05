@@ -2,10 +2,11 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { Card } from '@card-architect/schemas';
 
 const DB_NAME = 'card-architect';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const DRAFTS_STORE = 'drafts';
 const CARDS_STORE = 'cards';
 const IMAGES_STORE = 'images';
+const VERSIONS_STORE = 'versions';
 
 interface DraftCard {
   id: string;
@@ -17,6 +18,15 @@ interface StoredImage {
   cardId: string;
   type: 'thumbnail' | 'icon' | 'background' | 'asset';
   data: string; // base64 or data URL
+}
+
+export interface StoredVersion {
+  id: string;
+  cardId: string;
+  versionNumber: number;
+  message?: string;
+  data: Card['data'];
+  createdAt: string;
 }
 
 class LocalDB {
@@ -39,6 +49,12 @@ class LocalDB {
         if (oldVersion < 3 && !db.objectStoreNames.contains(IMAGES_STORE)) {
           const store = db.createObjectStore(IMAGES_STORE, { keyPath: ['cardId', 'type'] });
           store.createIndex('cardId', 'cardId');
+        }
+        // Version 4: versions store for client-side snapshots
+        if (oldVersion < 4 && !db.objectStoreNames.contains(VERSIONS_STORE)) {
+          const store = db.createObjectStore(VERSIONS_STORE, { keyPath: 'id' });
+          store.createIndex('cardId', 'cardId');
+          store.createIndex('cardId_versionNumber', ['cardId', 'versionNumber']);
         }
       },
     });
@@ -108,6 +124,49 @@ class LocalDB {
   async deleteCardImages(cardId: string) {
     if (!this.db) await this.init();
     const tx = this.db!.transaction(IMAGES_STORE, 'readwrite');
+    const index = tx.store.index('cardId');
+    const keys = await index.getAllKeys(cardId);
+    for (const key of keys) {
+      await tx.store.delete(key);
+    }
+    await tx.done;
+  }
+
+  // Versions store (for client-side snapshots)
+  async saveVersion(version: StoredVersion) {
+    if (!this.db) await this.init();
+    await this.db!.put(VERSIONS_STORE, version);
+  }
+
+  async getVersion(id: string): Promise<StoredVersion | null> {
+    if (!this.db) await this.init();
+    return (await this.db!.get(VERSIONS_STORE, id)) || null;
+  }
+
+  async getVersionsByCard(cardId: string): Promise<StoredVersion[]> {
+    if (!this.db) await this.init();
+    const tx = this.db!.transaction(VERSIONS_STORE, 'readonly');
+    const index = tx.store.index('cardId');
+    const versions = await index.getAll(cardId);
+    await tx.done;
+    // Sort by version number descending (newest first)
+    return versions.sort((a, b) => b.versionNumber - a.versionNumber);
+  }
+
+  async getNextVersionNumber(cardId: string): Promise<number> {
+    const versions = await this.getVersionsByCard(cardId);
+    if (versions.length === 0) return 1;
+    return Math.max(...versions.map(v => v.versionNumber)) + 1;
+  }
+
+  async deleteVersion(id: string) {
+    if (!this.db) await this.init();
+    await this.db!.delete(VERSIONS_STORE, id);
+  }
+
+  async deleteCardVersions(cardId: string) {
+    if (!this.db) await this.init();
+    const tx = this.db!.transaction(VERSIONS_STORE, 'readwrite');
     const index = tx.store.index('cardId');
     const keys = await index.getAllKeys(cardId);
     for (const key of keys) {

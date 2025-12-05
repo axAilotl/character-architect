@@ -149,6 +149,12 @@ export function EditPanel() {
       return;
     }
 
+    // Light mode check - AI features require server
+    if (isLightMode) {
+      alert('AI tag generation requires running Card Architect locally with an LLM provider configured.');
+      return;
+    }
+
     let activeProvider = llmSettings.providers.find((p) => p.id === llmSettings.activeProviderId);
     if (!activeProvider && llmSettings.providers.length > 0) {
       activeProvider = llmSettings.providers[0];
@@ -201,6 +207,12 @@ export function EditPanel() {
   const handleGenerateTagline = async () => {
     if (!cardData.description) {
       alert('Please add a description first to generate a tagline.');
+      return;
+    }
+
+    // Light mode check - AI features require server
+    if (isLightMode) {
+      alert('AI tagline generation requires running Card Architect locally with an LLM provider configured.');
       return;
     }
 

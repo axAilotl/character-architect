@@ -8,6 +8,7 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
+import { getDeploymentConfig } from '../../config/deployment';
 import type { ModuleDefinition } from '../../lib/registry/types';
 
 /**
@@ -37,6 +38,18 @@ const WwwyzzerddSettings = lazy(() =>
 );
 
 /**
+ * Check if wwwyzzerdd should be visible
+ * Must be enabled AND not in light/static mode (requires LLM server)
+ */
+function isWwwyzzerddAvailable(): boolean {
+  const config = getDeploymentConfig();
+  if (config.mode === 'light' || config.mode === 'static') {
+    return false; // wwwyzzerdd requires LLM server integration
+  }
+  return useSettingsStore.getState().features?.wwwyzzerddEnabled ?? false;
+}
+
+/**
  * Register the wwwyzzerdd module
  */
 export function registerWwwyzzerddModule(): void {
@@ -48,7 +61,7 @@ export function registerWwwyzzerddModule(): void {
     color: 'purple',
     order: 30, // After Edit (0), Assets (10), Focused (20)
     contexts: ['card'],
-    condition: () => useSettingsStore.getState().features?.wwwyzzerddEnabled ?? false,
+    condition: isWwwyzzerddAvailable,
   });
 
   // Register settings panel
@@ -59,7 +72,7 @@ export function registerWwwyzzerddModule(): void {
     row: 'modules',
     color: 'purple',
     order: 40,
-    condition: () => useSettingsStore.getState().features?.wwwyzzerddEnabled ?? false,
+    condition: isWwwyzzerddAvailable,
   });
 
   console.log('[wwwyzzerdd] Module registered (tab + settings)');

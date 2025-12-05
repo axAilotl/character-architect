@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { getDeploymentConfig } from '../../../config/deployment';
 
 interface PackageExportSettings {
   convertToWebp: boolean;
@@ -49,6 +50,14 @@ export function CharxOptimizerSettings() {
   }, []);
 
   const loadSettings = async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      // In light mode, just use defaults (optimization happens client-side)
+      setSettings(DEFAULT_SETTINGS);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setStatus(null);
     try {

@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useSettingsStore } from '../store/settings-store';
 import { useCardStore } from '../store/card-store';
-import { getDeploymentConfig } from '../config/deployment';
 
 /**
  * Hook that automatically creates snapshots at configured intervals
  * when a card is loaded and has unsaved changes.
+ * Works in all modes (server API or IndexedDB).
  */
 export function useAutoSnapshot() {
   const { autoSnapshot } = useSettingsStore();
@@ -20,12 +20,6 @@ export function useAutoSnapshot() {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
-    }
-
-    // Don't set up auto-snapshot in light mode (no server)
-    const config = getDeploymentConfig();
-    if (config.mode === 'light' || config.mode === 'static') {
-      return;
     }
 
     // Don't set up auto-snapshot if disabled or no card is loaded

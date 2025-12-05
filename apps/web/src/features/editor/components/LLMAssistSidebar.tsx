@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLLMStore } from '../../../store/llm-store';
 import { api } from '../../../lib/api';
+import { getDeploymentConfig } from '../../../config/deployment';
 import type {
   FieldContext,
   CCFieldName,
@@ -281,6 +282,32 @@ export function LLMAssistSidebar({
   };
 
   if (!isOpen) return null;
+
+  // Light mode check - LLM Assist requires server for RAG and advanced features
+  const config = getDeploymentConfig();
+  if (config.mode === 'light' || config.mode === 'static') {
+    return (
+      <div
+        className="absolute top-0 right-0 bottom-0 bg-slate-800 border-l border-dark-border shadow-2xl z-40 flex flex-col w-[500px]"
+      >
+        <div className="p-4 border-b border-dark-border flex justify-between items-center">
+          <h3 className="text-lg font-bold">LLM Assist</h3>
+          <button onClick={onClose} className="text-dark-muted hover:text-dark-text transition-colors">✕</button>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center text-dark-muted">
+            <h4 className="text-lg font-semibold mb-2">AI Editing Requires Server</h4>
+            <p className="text-sm mb-4">
+              LLM Assist with RAG and advanced features requires running Card Architect locally.
+            </p>
+            <p className="text-xs text-dark-muted/70">
+              You can still configure CORS-enabled LLM providers (OpenRouter, Anthropic Direct, local LLMs) in Settings for future use.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

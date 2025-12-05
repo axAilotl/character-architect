@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { useSettingsStore } from '../../store/settings-store';
 import { useLLMStore } from '../../store/llm-store';
+import { getDeploymentConfig } from '../../config/deployment';
 
 type SubTab = 'general' | 'emotions';
 
@@ -588,6 +589,24 @@ export function ComfyUITab() {
           <div className="text-6xl mb-4">&#127912;</div>
           <h2 className="text-xl font-semibold mb-2">No Card Loaded</h2>
           <p>Create or load a character card to use ComfyUI integration.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Light mode check - ComfyUI requires server
+  const config = getDeploymentConfig();
+  if (config.mode === 'light' || config.mode === 'static') {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center text-dark-muted max-w-md">
+          <h2 className="text-xl font-semibold mb-2">ComfyUI Integration</h2>
+          <p className="mb-4">
+            ComfyUI integration requires running Card Architect locally with a backend server.
+          </p>
+          <p className="text-sm">
+            This feature connects to your local ComfyUI instance to generate images for your character cards.
+          </p>
         </div>
       </div>
     );

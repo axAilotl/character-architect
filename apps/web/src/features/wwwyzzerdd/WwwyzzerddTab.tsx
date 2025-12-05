@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { useSettingsStore } from '../../store/settings-store';
 import { useLLMStore } from '../../store/llm-store';
+import { getDeploymentConfig } from '../../config/deployment';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -397,6 +398,24 @@ Tell me your preferences and describe the character you'd like to create!`;
           <div className="text-6xl mb-4">&#129497;</div>
           <h2 className="text-xl font-semibold mb-2">No Card Loaded</h2>
           <p>Create or load a character card to use wwwyzzerdd.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Light mode check - wwwyzzerdd requires LLM server
+  const config = getDeploymentConfig();
+  if (config.mode === 'light' || config.mode === 'static') {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center text-dark-muted max-w-md">
+          <h2 className="text-xl font-semibold mb-2">wwwyzzerdd AI Assistant</h2>
+          <p className="mb-4">
+            The AI character creation wizard requires running Card Architect locally with LLM integration configured.
+          </p>
+          <p className="text-sm">
+            Run Card Architect with a backend server and configure an LLM provider in Settings to use this feature.
+          </p>
         </div>
       </div>
     );

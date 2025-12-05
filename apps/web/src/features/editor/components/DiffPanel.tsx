@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useCardStore } from '../../../store/card-store';
 import { api } from '../../../lib/api';
+import { localDB, type StoredVersion } from '../../../lib/db';
 import { DiffViewer } from '../../../components/ui/DiffViewer';
-import type { CardVersion, DiffOperation } from '@card-architect/schemas';
+import { getDeploymentConfig } from '../../../config/deployment';
+import type { DiffOperation } from '@card-architect/schemas';
 
 // Simple diff computation on the client
 function computeSimpleDiff(original: string, revised: string): DiffOperation[] {
@@ -34,10 +36,34 @@ function computeSimpleDiff(original: string, revised: string): DiffOperation[] {
   return diff;
 }
 
+// Type that works for both API and IndexedDB versions
+type UnifiedVersion = {
+  id: string;
+  version: number;
+  message?: string;
+  data: any;
+  createdAt: string;
+};
+
+// Convert StoredVersion to UnifiedVersion
+function storedToUnified(stored: StoredVersion): UnifiedVersion {
+  return {
+    id: stored.id,
+    version: stored.versionNumber,
+    message: stored.message,
+    data: stored.data,
+    createdAt: stored.createdAt,
+  };
+}
+
 export function DiffPanel() {
   const currentCard = useCardStore((state) => state.currentCard);
-  const [versions, setVersions] = useState<CardVersion[]>([]);
-  const [selectedVersion, setSelectedVersion] = useState<CardVersion | null>(null);
+  const setCurrentCard = useCardStore((state) => state.setCurrentCard);
+  const [versions, setVersions] = useState<UnifiedVersion[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<UnifiedVersion | null>(null);
+
+  const config = getDeploymentConfig();
+  const isClientMode = config.mode === 'light' || config.mode === 'static';
 
   useEffect(() => {
     if (currentCard?.meta.id) {
@@ -48,9 +74,14 @@ export function DiffPanel() {
   const loadVersions = async () => {
     if (!currentCard?.meta.id) return;
 
-    const { data } = await api.listVersions(currentCard.meta.id);
-    if (data) {
-      setVersions(data as CardVersion[]);
+    if (isClientMode) {
+      const stored = await localDB.getVersionsByCard(currentCard.meta.id);
+      setVersions(stored.map(storedToUnified));
+    } else {
+      const { data } = await api.listVersions(currentCard.meta.id);
+      if (data) {
+        setVersions(data as UnifiedVersion[]);
+      }
     }
   };
 
@@ -58,11 +89,60 @@ export function DiffPanel() {
     if (!currentCard?.meta.id) return;
 
     const message = prompt('Snapshot message (optional):');
-    await api.createVersion(currentCard.meta.id, message || undefined);
+
+    if (isClientMode) {
+      const versionNumber = await localDB.getNextVersionNumber(currentCard.meta.id);
+      const version: StoredVersion = {
+        id: crypto.randomUUID(),
+        cardId: currentCard.meta.id,
+        versionNumber,
+        message: message || undefined,
+        data: currentCard.data,
+        createdAt: new Date().toISOString(),
+      };
+      await localDB.saveVersion(version);
+    } else {
+      await api.createVersion(currentCard.meta.id, message || undefined);
+    }
     loadVersions();
   };
 
-  const handleVersionClick = (version: CardVersion) => {
+  const handleRestore = async (version: UnifiedVersion) => {
+    if (!currentCard?.meta.id) return;
+    if (!confirm(`Restore to Version ${version.version}?`)) return;
+
+    if (isClientMode) {
+      // Restore by updating the card with the version's data
+      const restoredCard = {
+        ...currentCard,
+        data: version.data,
+        meta: {
+          ...currentCard.meta,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      await localDB.saveCard(restoredCard);
+      setCurrentCard(restoredCard);
+      setSelectedVersion(null);
+    } else {
+      await api.restoreVersion(currentCard.meta.id, version.id);
+      window.location.reload();
+    }
+  };
+
+  const handleDelete = async (version: UnifiedVersion) => {
+    if (!currentCard?.meta.id) return;
+    if (!confirm('Delete this snapshot? This cannot be undone.')) return;
+
+    if (isClientMode) {
+      await localDB.deleteVersion(version.id);
+    } else {
+      await api.deleteVersion(currentCard.meta.id, version.id);
+    }
+    loadVersions();
+  };
+
+  const handleVersionClick = (version: UnifiedVersion) => {
     if (selectedVersion?.id === version.id) {
       setSelectedVersion(null);
     } else {
@@ -86,12 +166,7 @@ export function DiffPanel() {
           </h3>
           <div className="flex gap-2">
             <button
-              onClick={async () => {
-                if (confirm(`Restore to Version ${selectedVersion.version}?`)) {
-                  await api.restoreVersion(currentCard.meta.id, selectedVersion.id);
-                  window.location.reload();
-                }
-              }}
+              onClick={() => handleRestore(selectedVersion)}
               className="btn-primary"
             >
               Restore This Version
@@ -153,24 +228,18 @@ export function DiffPanel() {
                     Compare
                   </button>
                   <button
-                    onClick={async (e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm('Restore this version?')) {
-                        await api.restoreVersion(currentCard.meta.id, version.id);
-                        window.location.reload();
-                      }
+                      handleRestore(version);
                     }}
                     className="btn-secondary"
                   >
                     Restore
                   </button>
                   <button
-                    onClick={async (e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm('Delete this snapshot? This cannot be undone.')) {
-                        await api.deleteVersion(currentCard.meta.id, version.id);
-                        loadVersions();
-                      }
+                      handleDelete(version);
                     }}
                     className="btn-secondary text-red-400 hover:text-red-300 hover:border-red-400"
                   >

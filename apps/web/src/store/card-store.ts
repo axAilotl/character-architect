@@ -153,11 +153,28 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { currentCard } = get();
     if (!currentCard || !currentCard.meta.id) return;
 
+    const config = getDeploymentConfig();
+
     try {
       // Save current changes first
       await get().saveCard();
 
-      // Create version snapshot
+      // Client-side mode: save to IndexedDB
+      if (config.mode === 'light' || config.mode === 'static') {
+        const versionNumber = await localDB.getNextVersionNumber(currentCard.meta.id);
+        const version = {
+          id: crypto.randomUUID(),
+          cardId: currentCard.meta.id,
+          versionNumber,
+          message,
+          data: currentCard.data,
+          createdAt: new Date().toISOString(),
+        };
+        await localDB.saveVersion(version);
+        return;
+      }
+
+      // Server mode: create version via API
       const { error } = await api.createVersion(currentCard.meta.id, message);
       if (error) {
         console.error('Failed to create snapshot:', error);

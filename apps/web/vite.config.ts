@@ -7,25 +7,116 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt'],
+      includeAssets: [
+        'favicon.ico',
+        'robots.txt',
+        'logo.png',
+        'logo-*.png',
+        'apple-touch-icon.png',
+        'userscript.js',
+      ],
       manifest: {
         name: 'Card Architect',
         short_name: 'CardArch',
-        description: 'CCv2/CCv3 character card editor',
+        description: 'CCv2/CCv3 character card editor with offline support',
         theme_color: '#1e293b',
         background_color: '#0f172a',
         display: 'standalone',
+        orientation: 'any',
+        start_url: '/',
+        scope: '/',
+        categories: ['utilities', 'productivity'],
         icons: [
           {
-            src: '/logo.png',
+            src: '/logo-48.png',
+            sizes: '48x48',
+            type: 'image/png',
+          },
+          {
+            src: '/logo-72.png',
+            sizes: '72x72',
+            type: 'image/png',
+          },
+          {
+            src: '/logo-96.png',
+            sizes: '96x96',
+            type: 'image/png',
+          },
+          {
+            src: '/logo-144.png',
+            sizes: '144x144',
+            type: 'image/png',
+          },
+          {
+            src: '/logo-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/logo-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable',
+          },
+          {
+            src: '/logo-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Precache all app assets for offline use
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Runtime caching strategies
+        runtimeCaching: [
+          {
+            // Cache Google Fonts stylesheets
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            // Cache Google Fonts webfont files
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gstatic-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            // Cache images with a cache-first strategy
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+        ],
+        // Handle navigation requests (SPA)
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],

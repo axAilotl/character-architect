@@ -8,6 +8,7 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
+import { getDeploymentConfig } from '../../config/deployment';
 import type { ModuleDefinition } from '../../lib/registry/types';
 
 /**
@@ -39,6 +40,18 @@ const ComfyUISettings = lazy(() =>
 /**
  * Register the ComfyUI module
  */
+/**
+ * Check if ComfyUI should be visible
+ * Must be enabled AND not in light/static mode (requires local ComfyUI server)
+ */
+function isComfyUIAvailable(): boolean {
+  const config = getDeploymentConfig();
+  if (config.mode === 'light' || config.mode === 'static') {
+    return false; // ComfyUI requires local server
+  }
+  return useSettingsStore.getState().features?.comfyuiEnabled ?? false;
+}
+
 export function registerComfyuiModule(): void {
   // Register editor tab
   registry.registerTab({
@@ -48,7 +61,7 @@ export function registerComfyuiModule(): void {
     color: 'green',
     order: 40, // After wwwyzzerdd (30)
     contexts: ['card'],
-    condition: () => useSettingsStore.getState().features?.comfyuiEnabled ?? false,
+    condition: isComfyUIAvailable,
   });
 
   // Register settings panel
@@ -59,7 +72,7 @@ export function registerComfyuiModule(): void {
     row: 'modules',
     color: 'green',
     order: 50,
-    condition: () => useSettingsStore.getState().features?.comfyuiEnabled ?? false,
+    condition: isComfyUIAvailable,
   });
 
   console.log('[comfyui] Module registered (tab + settings)');

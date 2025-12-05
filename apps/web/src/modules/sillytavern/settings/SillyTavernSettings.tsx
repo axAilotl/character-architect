@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '../../../lib/api';
+import { getDeploymentConfig } from '../../../config/deployment';
 
 export function SillyTavernSettings() {
   const [stEnabled, setStEnabled] = useState(false);
@@ -17,6 +18,13 @@ export function SillyTavernSettings() {
 
   useEffect(() => {
     const loadStSettings = async () => {
+      const config = getDeploymentConfig();
+      if (config.mode === 'light' || config.mode === 'static') {
+        setStStatus('SillyTavern push requires a server. Run Card Architect locally to use this feature.');
+        setStLoading(false);
+        return;
+      }
+
       setStLoading(true);
       const result = await api.getSillyTavernSettings();
       setStLoading(false);

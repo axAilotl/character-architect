@@ -1,6 +1,9 @@
 /**
  * LLM Settings Store
  * Manages provider configurations and RAG settings
+ *
+ * In light/static mode, uses client-side LLM via localStorage
+ * In full mode, uses server-side API
  */
 
 import { create } from 'zustand';
@@ -11,6 +14,16 @@ import type {
   RagDatabaseDetail,
 } from '@card-architect/schemas';
 import { api } from '../lib/api';
+import { getDeploymentConfig } from '../config/deployment';
+import {
+  loadClientLLMProviders,
+  saveClientLLMProviders,
+  loadActiveProvider,
+  saveActiveProvider,
+  testClientLLMConnection,
+  fetchClientLLMModels,
+  type ClientLLMProvider,
+} from '../lib/client-llm';
 
 interface LLMStore {
   settings: LLMSettings;
@@ -80,8 +93,43 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
   ragError: null,
   modelCache: {},
 
-  // Load settings from API
+  // Load settings from API or localStorage
   loadSettings: async () => {
+    const config = getDeploymentConfig();
+
+    // Light/static mode: load from localStorage
+    if (config.mode === 'light' || config.mode === 'static') {
+      const clientProviders = loadClientLLMProviders();
+      const activeId = loadActiveProvider();
+
+      // Convert client providers to ProviderConfig format
+      const providers: ProviderConfig[] = clientProviders.map(p => ({
+        id: p.id,
+        label: p.name,
+        kind: p.kind === 'openrouter' ? 'openai-compatible' : p.kind,
+        baseURL: p.baseURL,
+        apiKey: p.apiKey,
+        defaultModel: p.defaultModel,
+        temperature: p.temperature,
+        maxTokens: p.maxTokens,
+        // Mark as client-side provider (stored in extended fields)
+        clientSide: true,
+        clientKind: p.kind,
+      } as ProviderConfig & { clientSide: boolean; clientKind: string }));
+
+      set({
+        settings: {
+          ...get().settings,
+          providers,
+          activeProviderId: activeId || undefined,
+        },
+        isLoading: false,
+        error: null,
+      });
+      return;
+    }
+
+    // Full mode: load from server
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(`${api.baseURL}/llm/settings`);
@@ -93,15 +141,41 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
     }
   },
 
-  // Save settings to API
+  // Save settings to API or localStorage
   saveSettings: async (updates) => {
+    const config = getDeploymentConfig();
     const { settings } = get();
+
     const newSettings = {
       ...settings,
       ...updates,
       rag: updates.rag ? { ...settings.rag, ...updates.rag } : settings.rag,
     };
 
+    // Light/static mode: save to localStorage
+    if (config.mode === 'light' || config.mode === 'static') {
+      // Convert ProviderConfig back to ClientLLMProvider format
+      const clientProviders: ClientLLMProvider[] = newSettings.providers.map(p => ({
+        id: p.id,
+        name: p.label,
+        kind: (p as any).clientKind || (p.kind === 'anthropic' ? 'anthropic' : 'openai-compatible'),
+        baseURL: p.baseURL || '',
+        apiKey: p.apiKey || '',
+        defaultModel: p.defaultModel || '',
+        temperature: p.temperature,
+        maxTokens: p.maxTokens,
+      }));
+
+      saveClientLLMProviders(clientProviders);
+      if (newSettings.activeProviderId) {
+        saveActiveProvider(newSettings.activeProviderId);
+      }
+
+      set({ settings: newSettings, isLoading: false });
+      return;
+    }
+
+    // Full mode: save to server
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(`${api.baseURL}/llm/settings`, {
@@ -149,6 +223,31 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
 
   // Test provider connection
   testConnection: async (providerId) => {
+    const config = getDeploymentConfig();
+    const { settings } = get();
+    const provider = settings.providers.find(p => p.id === providerId);
+
+    if (!provider) {
+      return { success: false, error: 'Provider not found' };
+    }
+
+    // Light/static mode: test directly from browser
+    if (config.mode === 'light' || config.mode === 'static') {
+      const clientProvider: ClientLLMProvider = {
+        id: provider.id,
+        name: provider.label,
+        kind: (provider as any).clientKind || (provider.kind === 'anthropic' ? 'anthropic' : 'openai-compatible'),
+        baseURL: provider.baseURL || '',
+        apiKey: provider.apiKey || '',
+        defaultModel: provider.defaultModel || '',
+        temperature: provider.temperature,
+        maxTokens: provider.maxTokens,
+      };
+
+      return testClientLLMConnection(clientProvider);
+    }
+
+    // Full mode: test via server
     try {
       const response = await fetch(`${api.baseURL}/llm/test-connection`, {
         method: 'POST',
@@ -165,6 +264,12 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
 
   // RAG operations
   loadRagDatabases: async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      set({ ragIsLoading: false, ragError: null });
+      return;
+    }
+
     set({ ragIsLoading: true, ragError: null });
     const { data, error } = await api.listRagDatabases();
     if (error || !data) {
@@ -318,6 +423,7 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
 
   // Fetch models for a provider and cache them
   fetchModelsForProvider: async (providerId) => {
+    const config = getDeploymentConfig();
     const { settings } = get();
     const provider = settings.providers.find((p) => p.id === providerId);
 
@@ -329,6 +435,32 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
       return { success: false, error: 'Provider missing baseURL or apiKey' };
     }
 
+    // Light/static mode: fetch directly from browser
+    if (config.mode === 'light' || config.mode === 'static') {
+      const clientProvider: ClientLLMProvider = {
+        id: provider.id,
+        name: provider.label,
+        kind: (provider as any).clientKind || (provider.kind === 'anthropic' ? 'anthropic' : 'openai-compatible'),
+        baseURL: provider.baseURL || '',
+        apiKey: provider.apiKey || '',
+        defaultModel: provider.defaultModel || '',
+        temperature: provider.temperature,
+        maxTokens: provider.maxTokens,
+      };
+
+      const result = await fetchClientLLMModels(clientProvider);
+
+      if (result.success && result.models && result.models.length > 0) {
+        // Cache the models
+        set((state) => ({
+          modelCache: { ...state.modelCache, [providerId]: result.models! },
+        }));
+      }
+
+      return result;
+    }
+
+    // Full mode: fetch via server or directly
     try {
       let headers: Record<string, string> = {};
       let url = `${provider.baseURL.replace(/\/$/, '')}/v1/models`;

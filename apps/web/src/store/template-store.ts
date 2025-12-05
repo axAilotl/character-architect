@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Template, Snippet, UUID } from '@card-architect/schemas';
 import { api } from '../lib/api';
+import { getDeploymentConfig } from '../config/deployment';
 
 interface TemplateStore {
   templates: Template[];
@@ -43,6 +44,13 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
 
   // Load templates from API
   loadTemplates: async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      // Templates require server - skip in light mode
+      set({ isLoading: false, error: null });
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(`${api.baseURL}/templates`);
@@ -56,6 +64,13 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
 
   // Load snippets from API
   loadSnippets: async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      // Snippets require server - skip in light mode
+      set({ isLoading: false, error: null });
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(`${api.baseURL}/snippets`);
