@@ -129,10 +129,9 @@ test.describe('Card Generation and Export', () => {
     await expect(exportButton).toBeVisible();
     await exportButton.click();
 
-    // Wait for dropdown and click JSON
-    await page.waitForTimeout(300);
+    // Wait for dropdown to appear and click JSON
     const jsonButton = page.locator('button:has-text("JSON")');
-    await expect(jsonButton).toBeVisible();
+    await expect(jsonButton).toBeVisible({ timeout: 5000 });
     await jsonButton.click();
 
     // Wait for download
@@ -170,10 +169,10 @@ test.describe('Card Generation and Export', () => {
     // Click Export dropdown
     const exportButton = page.locator('button:has-text("Export")');
     await exportButton.click();
-    await page.waitForTimeout(300);
 
     // Click PNG
     const pngButton = page.locator('button:has-text("PNG")');
+    await expect(pngButton).toBeVisible({ timeout: 5000 });
     await pngButton.click();
 
     // Wait for download
@@ -210,10 +209,10 @@ test.describe('Card Generation and Export', () => {
     // Click Export dropdown
     const exportButton = page.locator('button:has-text("Export")');
     await exportButton.click();
-    await page.waitForTimeout(300);
 
     // Click CHARX
     const charxButton = page.locator('button:has-text("CHARX")');
+    await expect(charxButton).toBeVisible({ timeout: 5000 });
     await charxButton.click();
 
     // Wait for download
@@ -244,10 +243,10 @@ test.describe('Card Generation and Export', () => {
     // Click Export dropdown
     const exportButton = page.locator('button:has-text("Export")');
     await exportButton.click();
-    await page.waitForTimeout(300);
 
     // Click Voxta
     const voxtaButton = page.locator('button:has-text("Voxta")');
+    await expect(voxtaButton).toBeVisible({ timeout: 5000 });
     await voxtaButton.click();
 
     // Wait for download
@@ -280,8 +279,9 @@ test.describe('Card Generation and Export', () => {
     // Export JSON
     let downloadPromise = page.waitForEvent('download', { timeout: 30000 });
     await page.locator('button:has-text("Export")').click();
-    await page.waitForTimeout(300);
-    await page.locator('button:has-text("JSON")').click();
+    const jsonBtn = page.locator('button:has-text("JSON")');
+    await expect(jsonBtn).toBeVisible({ timeout: 5000 });
+    await jsonBtn.click();
     let download = await downloadPromise;
     let downloadPath = path.join(DOWNLOADS_DIR, 'integrity-test.json');
     await download.saveAs(downloadPath);
@@ -292,8 +292,9 @@ test.describe('Card Generation and Export', () => {
     // Export PNG and extract data
     downloadPromise = page.waitForEvent('download', { timeout: 30000 });
     await page.locator('button:has-text("Export")').click();
-    await page.waitForTimeout(300);
-    await page.locator('button:has-text("PNG")').click();
+    const pngBtn = page.locator('button:has-text("PNG")');
+    await expect(pngBtn).toBeVisible({ timeout: 5000 });
+    await pngBtn.click();
     download = await downloadPromise;
     downloadPath = path.join(DOWNLOADS_DIR, 'integrity-test.png');
     await download.saveAs(downloadPath);
@@ -336,8 +337,9 @@ test.describe('Card Generation and Export', () => {
     // Export and verify
     const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
     await page.locator('button:has-text("Export")').click();
-    await page.waitForTimeout(300);
-    await page.locator('button:has-text("JSON")').click();
+    const jsonExportBtn = page.locator('button:has-text("JSON")');
+    await expect(jsonExportBtn).toBeVisible({ timeout: 5000 });
+    await jsonExportBtn.click();
 
     const download = await downloadPromise;
     const downloadPath = path.join(DOWNLOADS_DIR, 'special-chars.json');
@@ -364,8 +366,9 @@ test.describe('Card Generation and Export', () => {
     // Export as JSON first
     let downloadPromise = page.waitForEvent('download', { timeout: 30000 });
     await page.locator('button:has-text("Export")').click();
-    await page.waitForTimeout(300);
-    await page.locator('button:has-text("JSON")').click();
+    const jsonRoundTrip = page.locator('button:has-text("JSON")');
+    await expect(jsonRoundTrip).toBeVisible({ timeout: 5000 });
+    await jsonRoundTrip.click();
 
     const download = await downloadPromise;
     const downloadPath = path.join(DOWNLOADS_DIR, 'round-trip.json');
@@ -434,10 +437,10 @@ test.describe('Export Error Handling', () => {
 
     // Start export
     await page.locator('button:has-text("Export")').click();
-    await page.waitForTimeout(300);
 
     // The export might show a loading state
     const charxButton = page.locator('button:has-text("CHARX")');
+    await expect(charxButton).toBeVisible({ timeout: 5000 });
     await charxButton.click();
 
     // Should complete without hanging

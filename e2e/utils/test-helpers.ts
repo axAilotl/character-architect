@@ -130,8 +130,8 @@ export async function navigateToEditor(page: Page) {
  * Fill in card data in the editor
  */
 export async function fillCardData(page: Page, data: ReturnType<typeof generateRandomCard>) {
-  // Wait for editor to load
-  await page.waitForSelector('input, textarea', { timeout: 10000 });
+  // Wait for editor to load - specifically wait for visible text inputs (not hidden file inputs)
+  await page.waitForSelector('input[name="name"]:visible, input[placeholder*="name" i]:visible', { timeout: 10000 });
 
   // Fill name
   const nameInput = page.locator('input[name="name"], input[placeholder*="name" i]').first();

@@ -86,12 +86,19 @@ export default defineConfig({
 
   // Web server configuration
   webServer: [
-    // Full mode with API server
+    // Full mode with API server (dev)
     {
       command: 'npm run dev',
       url: 'http://localhost:5173',
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
+    },
+    // Light mode preview (production build)
+    {
+      command: 'VITE_DEPLOYMENT_MODE=light npm run build:web && npm run --workspace=@card-architect/web preview -- --port 4173',
+      url: 'http://localhost:4173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 180000,
     },
   ],
 });

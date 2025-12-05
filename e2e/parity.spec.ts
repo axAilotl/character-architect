@@ -235,8 +235,9 @@ test.describe('Deployment Mode Parity Tests', () => {
           // Test JSON export
           const downloadPromise = page.waitForEvent('download', { timeout: 10000 });
           await page.locator('button:has-text("Export")').click();
-          await page.waitForTimeout(300);
-          await page.locator('button:has-text("JSON")').click();
+          const jsonBtn = page.locator('button:has-text("JSON")');
+          await expect(jsonBtn).toBeVisible({ timeout: 5000 });
+          await jsonBtn.click();
 
           const download = await downloadPromise.catch(() => null);
           results.push({
