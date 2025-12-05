@@ -54,13 +54,22 @@ function createPlaceholderPNG(): Uint8Array {
 export async function exportCardAsPNG(card: Card): Promise<Blob> {
   // Get the full original image (icon) for export - NOT the thumbnail
   let imageData = await localDB.getImage(card.meta.id, 'icon');
+  console.log('[client-export] Got icon image:', imageData ? `${imageData.length} chars` : 'null');
+
+  // Fallback to thumbnail if icon not available (cards imported before fix)
+  if (!imageData) {
+    imageData = await localDB.getImage(card.meta.id, 'thumbnail');
+    console.log('[client-export] Fallback to thumbnail:', imageData ? `${imageData.length} chars` : 'null');
+  }
 
   let pngBuffer: Uint8Array;
 
   if (imageData) {
     pngBuffer = dataURLToUint8Array(imageData);
+    console.log('[client-export] PNG buffer size:', pngBuffer.length);
   } else {
     // Use placeholder if no image
+    console.log('[client-export] Using placeholder PNG');
     pngBuffer = createPlaceholderPNG();
   }
 
