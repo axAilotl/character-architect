@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { getDeploymentConfig } from '../../../config/deployment';
 
 interface WebImportSettingsData {
   icons: { convertToWebp: boolean; webpQuality: number; maxMegapixels: number };
@@ -51,6 +52,22 @@ export function WebImportSettings() {
   }, []);
 
   const loadData = async () => {
+    const config = getDeploymentConfig();
+
+    // In client-side mode, web import settings aren't configurable
+    if (config.mode === 'light' || config.mode === 'static') {
+      // Set default sites info (static)
+      setSites([
+        { id: 'chub', name: 'Chub.ai', patterns: ['chub.ai/characters/*'] },
+        { id: 'risu', name: 'RisuAI Realm', patterns: ['realm.risuai.net/character/*'] },
+        { id: 'character_tavern', name: 'Character Tavern', patterns: ['character-tavern.com/character/*'] },
+        { id: 'wyvern', name: 'Wyvern', patterns: ['app.wyvern.chat/characters/*'] },
+      ]);
+      setSettings(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setStatus(null);
     try {
@@ -92,6 +109,12 @@ export function WebImportSettings() {
   };
 
   const handleDownloadUserscript = () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      // In client-side mode, show info about manual configuration
+      alert('Web Import userscript requires a local Card Architect server.\n\nTo use web import:\n1. Run Card Architect locally\n2. Download userscript from your local server\n3. Configure the userscript API URL');
+      return;
+    }
     window.location.href = '/api/web-import/userscript';
   };
 

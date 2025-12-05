@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useCardStore } from '../../../store/card-store';
 import { useSettingsStore } from '../../../store/settings-store';
+import { getDeploymentConfig } from '../../../config/deployment';
 import { api } from '../../../lib/api';
 import type { CardAssetWithDetails } from '@card-architect/schemas';
 
@@ -117,6 +118,15 @@ export function AssetsPanel() {
 
   const loadAssets = useCallback(async () => {
     if (!currentCard) return;
+
+    const config = getDeploymentConfig();
+
+    // In client-side mode, assets are not supported yet
+    if (config.mode === 'light' || config.mode === 'static') {
+      setAssets([]);
+      setAssetGraph(null);
+      return;
+    }
 
     setIsLoading(true);
     try {
