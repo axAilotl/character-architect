@@ -2,11 +2,15 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { Card } from '@card-architect/schemas';
 
 const DB_NAME = 'card-architect';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const DRAFTS_STORE = 'drafts';
 const CARDS_STORE = 'cards';
 const IMAGES_STORE = 'images';
 const VERSIONS_STORE = 'versions';
+const ASSETS_STORE = 'assets';
+
+// 50MB max file size for client-side assets
+export const MAX_ASSET_SIZE = 50 * 1024 * 1024;
 
 interface DraftCard {
   id: string;
@@ -27,6 +31,24 @@ export interface StoredVersion {
   message?: string;
   data: Card['data'];
   createdAt: string;
+}
+
+export interface StoredAsset {
+  id: string;
+  cardId: string;
+  name: string;
+  type: 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom';
+  ext: string;
+  mimetype: string;
+  size: number;
+  width?: number;
+  height?: number;
+  data: string; // base64 data URL
+  isMain: boolean;
+  tags: string[];
+  actorIndex?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 class LocalDB {
@@ -55,6 +77,12 @@ class LocalDB {
           const store = db.createObjectStore(VERSIONS_STORE, { keyPath: 'id' });
           store.createIndex('cardId', 'cardId');
           store.createIndex('cardId_versionNumber', ['cardId', 'versionNumber']);
+        }
+        // Version 5: assets store for client-side asset management
+        if (oldVersion < 5 && !db.objectStoreNames.contains(ASSETS_STORE)) {
+          const store = db.createObjectStore(ASSETS_STORE, { keyPath: 'id' });
+          store.createIndex('cardId', 'cardId');
+          store.createIndex('cardId_type', ['cardId', 'type']);
         }
       },
     });
@@ -171,6 +199,77 @@ class LocalDB {
     const keys = await index.getAllKeys(cardId);
     for (const key of keys) {
       await tx.store.delete(key);
+    }
+    await tx.done;
+  }
+
+  // Assets store (for client-side asset management)
+  async saveAsset(asset: StoredAsset) {
+    if (!this.db) await this.init();
+    await this.db!.put(ASSETS_STORE, asset);
+  }
+
+  async getAsset(id: string): Promise<StoredAsset | null> {
+    if (!this.db) await this.init();
+    return (await this.db!.get(ASSETS_STORE, id)) || null;
+  }
+
+  async getAssetsByCard(cardId: string): Promise<StoredAsset[]> {
+    if (!this.db) await this.init();
+    const tx = this.db!.transaction(ASSETS_STORE, 'readonly');
+    const index = tx.store.index('cardId');
+    const assets = await index.getAll(cardId);
+    await tx.done;
+    return assets;
+  }
+
+  async getAssetsByCardAndType(cardId: string, type: StoredAsset['type']): Promise<StoredAsset[]> {
+    if (!this.db) await this.init();
+    const tx = this.db!.transaction(ASSETS_STORE, 'readonly');
+    const index = tx.store.index('cardId_type');
+    const assets = await index.getAll([cardId, type]);
+    await tx.done;
+    return assets;
+  }
+
+  async updateAsset(id: string, updates: Partial<Omit<StoredAsset, 'id' | 'cardId' | 'data'>>) {
+    if (!this.db) await this.init();
+    const asset = await this.getAsset(id);
+    if (!asset) throw new Error('Asset not found');
+    const updated = { ...asset, ...updates, updatedAt: new Date().toISOString() };
+    await this.db!.put(ASSETS_STORE, updated);
+    return updated;
+  }
+
+  async deleteAsset(id: string) {
+    if (!this.db) await this.init();
+    await this.db!.delete(ASSETS_STORE, id);
+  }
+
+  async deleteCardAssets(cardId: string) {
+    if (!this.db) await this.init();
+    const tx = this.db!.transaction(ASSETS_STORE, 'readwrite');
+    const index = tx.store.index('cardId');
+    const keys = await index.getAllKeys(cardId);
+    for (const key of keys) {
+      await tx.store.delete(key);
+    }
+    await tx.done;
+  }
+
+  async setAssetAsMain(cardId: string, assetId: string, type: StoredAsset['type']) {
+    if (!this.db) await this.init();
+    // Unset all other assets of this type as main
+    const assets = await this.getAssetsByCardAndType(cardId, type);
+    const tx = this.db!.transaction(ASSETS_STORE, 'readwrite');
+    for (const asset of assets) {
+      if (asset.id === assetId) {
+        asset.isMain = true;
+      } else {
+        asset.isMain = false;
+      }
+      asset.updatedAt = new Date().toISOString();
+      await tx.store.put(asset);
     }
     await tx.done;
   }

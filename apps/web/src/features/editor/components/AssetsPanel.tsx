@@ -3,6 +3,7 @@ import { useCardStore } from '../../../store/card-store';
 import { useSettingsStore } from '../../../store/settings-store';
 import { getDeploymentConfig } from '../../../config/deployment';
 import { api } from '../../../lib/api';
+import { localDB, MAX_ASSET_SIZE, type StoredAsset } from '../../../lib/db';
 import type { CardAssetWithDetails } from '@card-architect/schemas';
 
 interface AssetGraph {
@@ -33,6 +34,70 @@ const ASSET_TYPES = [
   { value: 'lorebook', label: 'Lorebook' },
   { value: 'custom', label: 'Custom' },
 ];
+
+// Extended type for client-side assets with actorIndex
+interface ClientAssetWithDetails extends CardAssetWithDetails {
+  actorIndex?: number;
+}
+
+// Convert StoredAsset to CardAssetWithDetails format for UI compatibility
+function storedAssetToCardAsset(asset: StoredAsset): ClientAssetWithDetails {
+  return {
+    id: asset.id,
+    cardId: asset.cardId,
+    assetId: asset.id, // In client-side mode, asset ID is same as card-asset ID
+    name: asset.name,
+    type: asset.type,
+    ext: asset.ext,
+    order: 0,
+    isMain: asset.isMain,
+    tags: asset.tags,
+    actorIndex: asset.actorIndex,
+    createdAt: asset.createdAt,
+    updatedAt: asset.updatedAt,
+    asset: {
+      id: asset.id,
+      filename: `${asset.name}.${asset.ext}`,
+      mimetype: asset.mimetype,
+      size: asset.size,
+      width: asset.width,
+      height: asset.height,
+      url: asset.data, // For client-side, the data URL is the URL
+      createdAt: asset.createdAt,
+    },
+  };
+}
+
+// Read file as base64 data URL
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Get image dimensions from data URL
+function getImageDimensions(dataUrl: string): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    if (!dataUrl.startsWith('data:image/')) {
+      resolve(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => resolve({ width: img.width, height: img.height });
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+// Format file size for display
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 export function AssetsPanel() {
   const currentCard = useCardStore((state) => state.currentCard);
@@ -116,32 +181,52 @@ export function AssetsPanel() {
     return sorted;
   }, [assets, sortField, sortOrder]);
 
+  const config = getDeploymentConfig();
+  const isLightMode = config.mode === 'light' || config.mode === 'static';
+
   const loadAssets = useCallback(async () => {
     if (!currentCard) return;
 
-    const config = getDeploymentConfig();
-
-    // In client-side mode, assets are not supported yet
-    if (config.mode === 'light' || config.mode === 'static') {
-      setAssets([]);
-      setAssetGraph(null);
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const [assetsData, graphData] = await Promise.all([
-        api.getAssets(currentCard.meta.id),
-        api.getAssetGraph(currentCard.meta.id),
-      ]);
-      setAssets(assetsData);
-      setAssetGraph(graphData);
+      if (isLightMode) {
+        // Client-side: load from IndexedDB
+        const storedAssets = await localDB.getAssetsByCard(currentCard.meta.id);
+        const cardAssets = storedAssets.map(storedAssetToCardAsset);
+        setAssets(cardAssets);
+
+        // Build a simple asset graph for client-side
+        const icons = storedAssets.filter(a => a.type === 'icon');
+        const backgrounds = storedAssets.filter(a => a.type === 'background');
+        const mainIcon = icons.find(a => a.isMain) || icons[0];
+        const mainBg = backgrounds.find(a => a.isMain) || backgrounds[0];
+
+        setAssetGraph({
+          nodes: [],
+          summary: {
+            totalAssets: storedAssets.length,
+            actors: [...new Set(storedAssets.filter(a => a.actorIndex).map(a => a.actorIndex!))],
+            mainPortrait: mainIcon ? { id: mainIcon.id, name: mainIcon.name, url: mainIcon.data } : null,
+            mainBackground: mainBg ? { id: mainBg.id, name: mainBg.name, url: mainBg.data } : null,
+            animatedCount: storedAssets.filter(a => a.mimetype.includes('gif') || a.mimetype.includes('webp')).length,
+          },
+          validation: { valid: true, errors: [] },
+        });
+      } else {
+        // Server mode: use API
+        const [assetsData, graphData] = await Promise.all([
+          api.getAssets(currentCard.meta.id),
+          api.getAssetGraph(currentCard.meta.id),
+        ]);
+        setAssets(assetsData);
+        setAssetGraph(graphData);
+      }
     } catch (err) {
       console.error('Failed to load assets:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [currentCard?.meta.id]);
+  }, [currentCard?.meta.id, isLightMode]);
 
   const loadArchiveStatus = useCallback(async () => {
     if (!currentCard || !linkedImageArchivalEnabled) return;
@@ -254,16 +339,55 @@ export function AssetsPanel() {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+
+        // Check file size limit (50MB)
+        if (file.size > MAX_ASSET_SIZE) {
+          alert(`File "${file.name}" exceeds the 50MB size limit (${formatFileSize(file.size)}). Skipping.`);
+          continue;
+        }
+
         const name = files.length > 1 ? file.name : (uploadName || file.name);
 
-        await api.uploadAsset(
-          currentCard.meta.id,
-          file,
-          uploadType,
-          name,
-          uploadIsMain && i === 0,
-          uploadTags
-        );
+        if (isLightMode) {
+          // Client-side: save to IndexedDB
+          const dataUrl = await readFileAsDataURL(file);
+          const ext = file.name.split('.').pop()?.toLowerCase() || '';
+          const dimensions = await getImageDimensions(dataUrl);
+
+          const asset: StoredAsset = {
+            id: crypto.randomUUID(),
+            cardId: currentCard.meta.id,
+            name: name.replace(/\.[^/.]+$/, ''), // Remove extension from name
+            type: uploadType as StoredAsset['type'],
+            ext,
+            mimetype: file.type,
+            size: file.size,
+            width: dimensions?.width,
+            height: dimensions?.height,
+            data: dataUrl,
+            isMain: uploadIsMain && i === 0,
+            tags: uploadTags,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          await localDB.saveAsset(asset);
+
+          // If set as main, update other assets of same type
+          if (asset.isMain) {
+            await localDB.setAssetAsMain(currentCard.meta.id, asset.id, asset.type);
+          }
+        } else {
+          // Server mode: use API
+          await api.uploadAsset(
+            currentCard.meta.id,
+            file,
+            uploadType,
+            name,
+            uploadIsMain && i === 0,
+            uploadTags
+          );
+        }
       }
 
       setUploadName('');
@@ -271,7 +395,9 @@ export function AssetsPanel() {
       setUploadIsMain(false);
       setShowUploadForm(false);
       await loadAssets();
-      await useCardStore.getState().loadCard(currentCard.meta.id);
+      if (!isLightMode) {
+        await useCardStore.getState().loadCard(currentCard.meta.id);
+      }
     } catch (err) {
       console.error('Failed to upload assets:', err);
       alert('Failed to upload one or more assets');
@@ -291,7 +417,11 @@ export function AssetsPanel() {
     if (!confirm('Are you sure you want to delete this asset?')) return;
 
     try {
-      await api.deleteAsset(currentCard.meta.id, assetId);
+      if (isLightMode) {
+        await localDB.deleteAsset(assetId);
+      } else {
+        await api.deleteAsset(currentCard.meta.id, assetId);
+      }
       await loadAssets();
       if (selectedAsset === assetId) {
         setSelectedAsset(null);
@@ -301,7 +431,9 @@ export function AssetsPanel() {
         next.delete(assetId);
         return next;
       });
-      await useCardStore.getState().loadCard(currentCard.meta.id);
+      if (!isLightMode) {
+        await useCardStore.getState().loadCard(currentCard.meta.id);
+      }
     } catch (err) {
       console.error('Failed to delete asset:', err);
       alert('Failed to delete asset');
@@ -313,14 +445,22 @@ export function AssetsPanel() {
     if (!confirm(`Are you sure you want to delete ${selectedAssets.size} asset(s)?`)) return;
 
     try {
-      const deletePromises = Array.from(selectedAssets).map(assetId =>
-        api.deleteAsset(currentCard.meta.id, assetId)
-      );
-      await Promise.allSettled(deletePromises);
+      if (isLightMode) {
+        for (const assetId of selectedAssets) {
+          await localDB.deleteAsset(assetId);
+        }
+      } else {
+        const deletePromises = Array.from(selectedAssets).map(assetId =>
+          api.deleteAsset(currentCard.meta.id, assetId)
+        );
+        await Promise.allSettled(deletePromises);
+      }
       await loadAssets();
       setSelectedAssets(new Set());
       setSelectedAsset(null);
-      await useCardStore.getState().loadCard(currentCard.meta.id);
+      if (!isLightMode) {
+        await useCardStore.getState().loadCard(currentCard.meta.id);
+      }
     } catch (err) {
       console.error('Failed to bulk delete assets:', err);
       alert('Failed to delete some assets');
@@ -331,10 +471,16 @@ export function AssetsPanel() {
     if (!currentCard || selectedAssets.size === 0 || !bulkEditType) return;
 
     try {
-      const updatePromises = Array.from(selectedAssets).map(assetId =>
-        api.updateAsset(currentCard.meta.id, assetId, { type: bulkEditType })
-      );
-      await Promise.allSettled(updatePromises);
+      if (isLightMode) {
+        for (const assetId of selectedAssets) {
+          await localDB.updateAsset(assetId, { type: bulkEditType as StoredAsset['type'] });
+        }
+      } else {
+        const updatePromises = Array.from(selectedAssets).map(assetId =>
+          api.updateAsset(currentCard.meta.id, assetId, { type: bulkEditType })
+        );
+        await Promise.allSettled(updatePromises);
+      }
       await loadAssets();
       setBulkEditType('');
     } catch (err) {
@@ -347,9 +493,15 @@ export function AssetsPanel() {
     if (!currentCard) return;
 
     try {
-      await api.setPortraitOverride(currentCard.meta.id, assetId);
+      if (isLightMode) {
+        await localDB.setAssetAsMain(currentCard.meta.id, assetId, 'icon');
+      } else {
+        await api.setPortraitOverride(currentCard.meta.id, assetId);
+      }
       await loadAssets();
-      await useCardStore.getState().loadCard(currentCard.meta.id);
+      if (!isLightMode) {
+        await useCardStore.getState().loadCard(currentCard.meta.id);
+      }
     } catch (err) {
       console.error('Failed to set portrait override:', err);
       alert('Failed to set portrait override');
@@ -360,7 +512,11 @@ export function AssetsPanel() {
     if (!currentCard) return;
 
     try {
-      await api.setMainBackground(currentCard.meta.id, assetId);
+      if (isLightMode) {
+        await localDB.setAssetAsMain(currentCard.meta.id, assetId, 'background');
+      } else {
+        await api.setMainBackground(currentCard.meta.id, assetId);
+      }
       await loadAssets();
     } catch (err) {
       console.error('Failed to set main background:', err);
@@ -371,17 +527,21 @@ export function AssetsPanel() {
   const handleBindActor = async (assetId: string) => {
     if (!currentCard) return;
 
-    const actorIndex = prompt('Enter actor number (1, 2, 3...):');
-    if (!actorIndex) return;
+    const actorIndexStr = prompt('Enter actor number (1, 2, 3...):');
+    if (!actorIndexStr) return;
 
-    const index = parseInt(actorIndex, 10);
+    const index = parseInt(actorIndexStr, 10);
     if (isNaN(index) || index < 1) {
       alert('Please enter a valid positive number');
       return;
     }
 
     try {
-      await api.bindAssetToActor(currentCard.meta.id, assetId, index);
+      if (isLightMode) {
+        await localDB.updateAsset(assetId, { actorIndex: index });
+      } else {
+        await api.bindAssetToActor(currentCard.meta.id, assetId, index);
+      }
       await loadAssets();
     } catch (err) {
       console.error('Failed to bind actor:', err);
@@ -393,7 +553,11 @@ export function AssetsPanel() {
     if (!currentCard) return;
 
     try {
-      await api.unbindAssetFromActor(currentCard.meta.id, assetId);
+      if (isLightMode) {
+        await localDB.updateAsset(assetId, { actorIndex: undefined });
+      } else {
+        await api.unbindAssetFromActor(currentCard.meta.id, assetId);
+      }
       await loadAssets();
     } catch (err) {
       console.error('Failed to unbind actor:', err);
@@ -405,7 +569,11 @@ export function AssetsPanel() {
     if (!currentCard || !selectedAsset) return;
 
     try {
-      await api.updateAsset(currentCard.meta.id, selectedAsset, { name: editName });
+      if (isLightMode) {
+        await localDB.updateAsset(selectedAsset, { name: editName });
+      } else {
+        await api.updateAsset(currentCard.meta.id, selectedAsset, { name: editName });
+      }
       await loadAssets();
       setEditingName(false);
     } catch (err) {
@@ -418,7 +586,11 @@ export function AssetsPanel() {
     if (!currentCard || !selectedAsset) return;
 
     try {
-      await api.updateAsset(currentCard.meta.id, selectedAsset, { type: editType });
+      if (isLightMode) {
+        await localDB.updateAsset(selectedAsset, { type: editType as StoredAsset['type'] });
+      } else {
+        await api.updateAsset(currentCard.meta.id, selectedAsset, { type: editType });
+      }
       await loadAssets();
       setEditingType(false);
     } catch (err) {
@@ -466,14 +638,20 @@ export function AssetsPanel() {
     };
 
     if (asset.asset.mimetype.startsWith('image/')) {
+      // In light mode, asset.asset.url is a data URL; in server mode, use thumbnail API
+      const imgSrc = isLightMode
+        ? asset.asset.url
+        : `/api/assets/${asset.asset.id}/thumbnail?size=${size === 'lg' ? 256 : size === 'md' ? 128 : 96}`;
       return (
         <img
-          src={`/api/assets/${asset.asset.id}/thumbnail?size=${size === 'lg' ? 256 : size === 'md' ? 128 : 96}`}
+          src={imgSrc}
           alt={asset.name}
           className={`${sizeClasses[size]} object-cover rounded`}
           loading="lazy"
           onError={(e) => {
-            e.currentTarget.src = asset.asset.url;
+            if (!isLightMode) {
+              e.currentTarget.src = asset.asset.url;
+            }
           }}
         />
       );
@@ -528,23 +706,6 @@ export function AssetsPanel() {
     }
   };
 
-  // Show message in light mode
-  const config = getDeploymentConfig();
-  if (config.mode === 'light' || config.mode === 'static') {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center p-8 max-w-md">
-          <svg className="w-16 h-16 mx-auto mb-4 text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <h3 className="text-xl font-semibold mb-2">Assets Not Available</h3>
-          <p className="text-dark-muted">
-            Asset management requires a server backend. In light mode, assets are embedded directly in exported CHARX/PNG files.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-full flex">
@@ -786,9 +947,14 @@ export function AssetsPanel() {
               {isUploading ? (
                 <p className="text-sm text-blue-400">Uploading...</p>
               ) : (
-                <p className="text-sm text-dark-muted">
-                  Drop file or click to browse
-                </p>
+                <>
+                  <p className="text-sm text-dark-muted">
+                    Drop file or click to browse
+                  </p>
+                  <p className="text-xs text-dark-muted mt-1">
+                    Max file size: 50MB
+                  </p>
+                </>
               )}
             </div>
           </div>
@@ -996,14 +1162,26 @@ export function AssetsPanel() {
                   <div className="bg-dark-bg rounded-lg p-4 flex items-center justify-center">
                     {selectedAssetData.asset.mimetype.startsWith('image/') ? (
                       <img
-                        src={`/api/assets/${selectedAssetData.asset.id}/thumbnail?size=512`}
+                        src={isLightMode ? selectedAssetData.asset.url : `/api/assets/${selectedAssetData.asset.id}/thumbnail?size=512`}
                         alt={selectedAssetData.name}
                         className="max-w-full max-h-96 rounded cursor-pointer"
                         loading="lazy"
                         title="Click to view full size"
-                        onClick={() => window.open(selectedAssetData.asset.url, '_blank')}
+                        onClick={() => {
+                          if (isLightMode) {
+                            // Open data URL in new tab
+                            const win = window.open();
+                            if (win) {
+                              win.document.write(`<img src="${selectedAssetData.asset.url}" style="max-width:100%;max-height:100vh;" />`);
+                            }
+                          } else {
+                            window.open(selectedAssetData.asset.url, '_blank');
+                          }
+                        }}
                         onError={(e) => {
-                          e.currentTarget.src = selectedAssetData.asset.url;
+                          if (!isLightMode) {
+                            e.currentTarget.src = selectedAssetData.asset.url;
+                          }
                         }}
                       />
                     ) : selectedAssetData.asset.mimetype.startsWith('video/') ? (
