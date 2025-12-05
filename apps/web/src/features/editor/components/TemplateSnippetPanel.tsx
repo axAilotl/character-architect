@@ -3,6 +3,7 @@ import { useTemplateStore } from '../../../store/template-store';
 import type { Template, Snippet, TemplateCategory, SnippetCategory, FocusField } from '@card-architect/schemas';
 import { TemplateEditor } from './TemplateEditor';
 import { SnippetEditor } from './SnippetEditor';
+import { getDeploymentConfig } from '../../../config/deployment';
 
 // ELARA VOSS stats type
 interface ElaraVossStats {
@@ -82,6 +83,13 @@ export function TemplateSnippetPanel({
 
   // Load ELARA VOSS stats when tab is active
   const loadElaraVossStats = async () => {
+    const config = getDeploymentConfig();
+    // ELARA VOSS requires server - skip in light mode
+    if (config.mode === 'light' || config.mode === 'static') {
+      setElaraVossLoading(false);
+      return;
+    }
+
     setElaraVossLoading(true);
     try {
       const response = await fetch('/api/elara-voss/stats');
@@ -104,6 +112,13 @@ export function TemplateSnippetPanel({
 
   // ELARA VOSS import handler
   const handleElaraVossImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      setElaraVossStatus('ELARA VOSS requires server. Run Card Architect locally.');
+      setTimeout(() => setElaraVossStatus(null), 5000);
+      return;
+    }
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -136,11 +151,22 @@ export function TemplateSnippetPanel({
 
   // ELARA VOSS export handler
   const handleElaraVossExport = async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      alert('ELARA VOSS requires server. Run Card Architect locally.');
+      return;
+    }
     window.location.href = '/api/elara-voss/names/export';
   };
 
   // ELARA VOSS reset handler
   const handleElaraVossReset = async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      alert('ELARA VOSS requires server. Run Card Architect locally.');
+      return;
+    }
+
     if (confirm('Reset ELARA VOSS names to defaults? This will remove all custom names.')) {
       try {
         const response = await fetch('/api/elara-voss/names/reset', { method: 'POST' });

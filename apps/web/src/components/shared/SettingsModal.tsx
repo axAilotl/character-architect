@@ -195,17 +195,37 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const selectedDatabase = selectedDbId ? ragDatabaseDetails[selectedDbId] : null;
 
+  // Default presets for client-side use
+  const now = new Date().toISOString();
+  const DEFAULT_PRESETS: UserPreset[] = [
+    { id: 'rewrite', name: 'Rewrite', instruction: 'Rewrite this text to be clearer and more engaging while preserving the meaning.', category: 'rewrite', description: 'Improve clarity and engagement', isBuiltIn: true, createdAt: now, updatedAt: now },
+    { id: 'expand', name: 'Expand', instruction: 'Expand this text with more detail and description while maintaining the original tone and style.', category: 'rewrite', description: 'Add more detail', isBuiltIn: true, createdAt: now, updatedAt: now },
+    { id: 'condense', name: 'Condense', instruction: 'Condense this text while keeping the key information and essential meaning.', category: 'rewrite', description: 'Make it shorter', isBuiltIn: true, createdAt: now, updatedAt: now },
+    { id: 'format-jed', name: 'Format as JED', instruction: 'Reformat this text using JED (JSON-Enhanced Description) format with sections like [Character], [Personality], [Background], etc.', category: 'format', description: 'Convert to JED format', isBuiltIn: true, createdAt: now, updatedAt: now },
+    { id: 'proofread', name: 'Proofread', instruction: 'Fix grammar, spelling, and punctuation errors in this text while preserving the original style.', category: 'rewrite', description: 'Fix errors', isBuiltIn: true, createdAt: now, updatedAt: now },
+  ];
+
   // Preset handlers
   const loadPresets = async () => {
     const config = getDeploymentConfig();
-    if (config.mode === 'light' || config.mode === 'static') {
-      setPresetError('LLM Presets require a server connection. Using the local instance or self-hosting enables custom presets.');
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    setPresetsLoading(true);
+    setPresetError(null);
+
+    if (isLightMode) {
+      // Load from localStorage in light mode
+      try {
+        const stored = localStorage.getItem('ca-llm-presets');
+        const userPresets: UserPreset[] = stored ? JSON.parse(stored) : [];
+        setPresets([...DEFAULT_PRESETS, ...userPresets]);
+      } catch {
+        setPresets(DEFAULT_PRESETS);
+      }
       setPresetsLoading(false);
       return;
     }
 
-    setPresetsLoading(true);
-    setPresetError(null);
     const result = await api.getPresets();
     setPresetsLoading(false);
 
@@ -229,6 +249,49 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const handleSavePreset = async () => {
     if (!editingPreset || !editingPreset.name || !editingPreset.instruction) {
       setPresetStatus('Name and instruction are required.');
+      return;
+    }
+
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Save to localStorage in light mode
+      try {
+        const stored = localStorage.getItem('ca-llm-presets');
+        const userPresets: UserPreset[] = stored ? JSON.parse(stored) : [];
+
+        const nowTs = new Date().toISOString();
+        const newPreset: UserPreset = {
+          id: editingPreset.id || crypto.randomUUID(),
+          name: editingPreset.name,
+          description: editingPreset.description || '',
+          instruction: editingPreset.instruction,
+          category: editingPreset.category as any || 'custom',
+          isBuiltIn: false,
+          createdAt: nowTs,
+          updatedAt: nowTs,
+        };
+
+        if (editingPreset.id) {
+          // Update existing
+          const idx = userPresets.findIndex(p => p.id === editingPreset.id);
+          if (idx >= 0) {
+            userPresets[idx] = newPreset;
+          } else {
+            userPresets.push(newPreset);
+          }
+        } else {
+          userPresets.push(newPreset);
+        }
+
+        localStorage.setItem('ca-llm-presets', JSON.stringify(userPresets));
+        setEditingPreset(null);
+        setPresetStatus(editingPreset.id ? 'Preset updated.' : 'Preset created.');
+        loadPresets();
+      } catch {
+        setPresetStatus('Failed to save preset.');
+      }
       return;
     }
 
@@ -262,6 +325,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const confirmed = window.confirm('Delete this preset? This cannot be undone.');
     if (!confirmed) return;
 
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      try {
+        const stored = localStorage.getItem('ca-llm-presets');
+        const userPresets: UserPreset[] = stored ? JSON.parse(stored) : [];
+        const updated = userPresets.filter(p => p.id !== id);
+        localStorage.setItem('ca-llm-presets', JSON.stringify(updated));
+        setPresetStatus('Preset deleted.');
+        loadPresets();
+      } catch {
+        setPresetStatus('Failed to delete preset.');
+      }
+      return;
+    }
+
     const result = await api.deletePreset(id);
     if (result.error) {
       setPresetStatus(result.error);
@@ -273,6 +353,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   };
 
   const handleExportPresets = async () => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      try {
+        const stored = localStorage.getItem('ca-llm-presets');
+        const userPresets: UserPreset[] = stored ? JSON.parse(stored) : [];
+        const allPresets = [...DEFAULT_PRESETS, ...userPresets];
+        const blob = new Blob([JSON.stringify({ presets: allPresets }, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'llm-presets.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        setPresetStatus('Presets exported.');
+      } catch {
+        setPresetStatus('Failed to export presets.');
+      }
+      return;
+    }
+
     const result = await api.exportPresets();
     if (result.error) {
       setPresetStatus(result.error);
@@ -294,18 +396,50 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
     try {
       const text = await file.text();
       const json = JSON.parse(text);
 
       if (!Array.isArray(json.presets)) {
         setPresetStatus('Invalid preset file format.');
+        e.target.value = '';
+        return;
+      }
+
+      if (isLightMode) {
+        // Import to localStorage in light mode
+        const stored = localStorage.getItem('ca-llm-presets');
+        const userPresets: UserPreset[] = stored ? JSON.parse(stored) : [];
+
+        // Filter out built-in presets from import, only import custom ones
+        const customPresets = json.presets.filter((p: UserPreset) => !p.isBuiltIn);
+        let imported = 0;
+
+        for (const preset of customPresets) {
+          // Skip if already exists
+          if (userPresets.some(p => p.id === preset.id)) continue;
+          userPresets.push({
+            ...preset,
+            id: preset.id || crypto.randomUUID(),
+            isBuiltIn: false,
+          });
+          imported++;
+        }
+
+        localStorage.setItem('ca-llm-presets', JSON.stringify(userPresets));
+        setPresetStatus(`Imported ${imported} preset(s).`);
+        loadPresets();
+        e.target.value = '';
         return;
       }
 
       const result = await api.importPresets(json.presets);
       if (result.error) {
         setPresetStatus(result.error);
+        e.target.value = '';
         return;
       }
 
@@ -1875,6 +2009,25 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     type="checkbox"
                                     checked={!preset.isHidden}
                                     onChange={async () => {
+                                      const cfg = getDeploymentConfig();
+                                      const isLight = cfg.mode === 'light' || cfg.mode === 'static';
+
+                                      if (isLight) {
+                                        try {
+                                          const stored = localStorage.getItem('ca-llm-presets');
+                                          const userPresets: UserPreset[] = stored ? JSON.parse(stored) : [];
+                                          const idx = userPresets.findIndex(p => p.id === preset.id);
+                                          if (idx >= 0) {
+                                            userPresets[idx].isHidden = !userPresets[idx].isHidden;
+                                            localStorage.setItem('ca-llm-presets', JSON.stringify(userPresets));
+                                          }
+                                          loadPresets();
+                                        } catch {
+                                          setPresetStatus('Failed to toggle visibility.');
+                                        }
+                                        return;
+                                      }
+
                                       const result = await api.togglePresetHidden(preset.id);
                                       if (!result.error) {
                                         loadPresets();
@@ -1913,6 +2066,34 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 {/* Copy button - always available */}
                                 <button
                                   onClick={async () => {
+                                    const cfg = getDeploymentConfig();
+                                    const isLight = cfg.mode === 'light' || cfg.mode === 'static';
+
+                                    if (isLight) {
+                                      try {
+                                        const stored = localStorage.getItem('ca-llm-presets');
+                                        const userPresets: UserPreset[] = stored ? JSON.parse(stored) : [];
+                                        const copyNow = new Date().toISOString();
+                                        const newPreset: UserPreset = {
+                                          id: crypto.randomUUID(),
+                                          name: `${preset.name} (Copy)`,
+                                          description: preset.description || '',
+                                          instruction: preset.instruction,
+                                          category: 'custom',
+                                          isBuiltIn: false,
+                                          createdAt: copyNow,
+                                          updatedAt: copyNow,
+                                        };
+                                        userPresets.push(newPreset);
+                                        localStorage.setItem('ca-llm-presets', JSON.stringify(userPresets));
+                                        setPresetStatus(`Copied "${preset.name}" as a new user preset`);
+                                        loadPresets();
+                                      } catch {
+                                        setPresetStatus('Failed to copy preset.');
+                                      }
+                                      return;
+                                    }
+
                                     const result = await api.copyPreset(preset.id);
                                     if (!result.error) {
                                       setPresetStatus(`Copied "${preset.name}" as a new user preset`);

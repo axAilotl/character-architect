@@ -8,6 +8,7 @@ import { useCardStore, extractCardData } from '../../store/card-store';
 import { useSettingsStore } from '../../store/settings-store';
 import { useLLMStore } from '../../store/llm-store';
 import { getDeploymentConfig } from '../../config/deployment';
+import { invokeClientLLM, type ClientLLMProvider } from '../../lib/client-llm';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -34,6 +35,20 @@ interface WwwyzzerddPromptSet {
   lorePrompt: string;
   personality: string;
 }
+
+// Default prompt set for client-side use
+const DEFAULT_PROMPT_SET: WwwyzzerddPromptSet = {
+  id: 'default',
+  name: 'Default Assistant',
+  characterPrompt: `You are wwwyzzerdd, an AI assistant helping users create character cards for roleplay.
+You specialize in creating engaging, detailed character profiles with rich personalities and backstories.
+Help the user develop their character by asking clarifying questions and providing creative suggestions.
+When you have enough information, output character data in JSON format.`,
+  lorePrompt: `You are wwwyzzerdd, an AI assistant helping users create world lore and settings.
+Help develop detailed worldbuilding elements like locations, factions, history, and culture.
+When you have enough information, output lore data in JSON format.`,
+  personality: `I'm friendly, creative, and enthusiastic about helping you bring your characters to life!`,
+};
 
 // Persist messages across component remounts
 let persistedMessages: ChatMessage[] = [];
@@ -123,7 +138,24 @@ export function WwwyzzerddTab() {
 
   // Load active prompt set
   useEffect(() => {
-    if (activePromptSetId) {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // In light mode, load from localStorage or use default
+      try {
+        const stored = localStorage.getItem('ca-wwwyzzerdd-prompts');
+        if (stored) {
+          const prompts = JSON.parse(stored);
+          const active = prompts.find((p: WwwyzzerddPromptSet) => p.id === activePromptSetId) || prompts[0] || DEFAULT_PROMPT_SET;
+          setPromptSet(active);
+        } else {
+          setPromptSet(DEFAULT_PROMPT_SET);
+        }
+      } catch {
+        setPromptSet(DEFAULT_PROMPT_SET);
+      }
+    } else if (activePromptSetId) {
       fetch(`/api/wwwyzzerdd/prompts/${activePromptSetId}`)
         .then((res) => res.json())
         .then((data) => {
@@ -249,26 +281,63 @@ Only include fields you want to update. The user can then apply these to the cha
         { role: 'user' as const, content: input.trim() },
       ];
 
-      const response = await fetch('/api/llm/invoke', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          providerId: activeProvider.id,
-          system: fullSystemPrompt,
-          messages: chatMessages,
+      const config = getDeploymentConfig();
+      const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+      let content: string;
+
+      if (isLightMode) {
+        // Use client-side LLM invocation
+        const clientProvider: ClientLLMProvider = {
+          id: activeProvider.id,
+          name: activeProvider.label,
+          kind: (activeProvider as any).clientKind || (activeProvider.kind === 'anthropic' ? 'anthropic' : 'openai-compatible'),
+          baseURL: activeProvider.baseURL || '',
+          apiKey: activeProvider.apiKey || '',
+          defaultModel: activeProvider.defaultModel || '',
+          temperature: activeProvider.temperature,
+          maxTokens: activeProvider.maxTokens,
+        };
+
+        const result = await invokeClientLLM({
+          provider: clientProvider,
+          messages: [
+            { role: 'system', content: fullSystemPrompt },
+            ...chatMessages,
+          ],
           temperature: 0.7,
           maxTokens: 2048,
-        }),
-        signal: abortControllerRef.current.signal,
-      });
+          model: activeProvider.defaultModel,
+        });
 
-      const data = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || 'LLM request failed');
+        }
 
-      if (data.error) {
-        throw new Error(data.error);
+        content = result.content || 'No response received.';
+      } else {
+        // Use server-side LLM invocation
+        const response = await fetch('/api/llm/invoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            providerId: activeProvider.id,
+            system: fullSystemPrompt,
+            messages: chatMessages,
+            temperature: 0.7,
+            maxTokens: 2048,
+          }),
+          signal: abortControllerRef.current.signal,
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        content = data.content || data.text || 'No response received.';
       }
-
-      const content = data.content || data.text || 'No response received.';
       const parsedData = tryParseCharacterJson(content);
 
       const assistantMessage: ChatMessage = {
@@ -398,24 +467,6 @@ Tell me your preferences and describe the character you'd like to create!`;
           <div className="text-6xl mb-4">&#129497;</div>
           <h2 className="text-xl font-semibold mb-2">No Card Loaded</h2>
           <p>Create or load a character card to use wwwyzzerdd.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Light mode check - wwwyzzerdd requires LLM server
-  const config = getDeploymentConfig();
-  if (config.mode === 'light' || config.mode === 'static') {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center text-dark-muted max-w-md">
-          <h2 className="text-xl font-semibold mb-2">wwwyzzerdd AI Assistant</h2>
-          <p className="mb-4">
-            The AI character creation wizard requires running Card Architect locally with LLM integration configured.
-          </p>
-          <p className="text-sm">
-            Run Card Architect with a backend server and configure an LLM provider in Settings to use this feature.
-          </p>
         </div>
       </div>
     );

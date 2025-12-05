@@ -34,7 +34,33 @@ export function WwwyzzerddSettings() {
   const loadPromptSets = async () => {
     const config = getDeploymentConfig();
     if (config.mode === 'light' || config.mode === 'static') {
-      setStatus('wwwyzzerdd prompt sets require a server. Run Card Architect locally to customize prompts.');
+      // Load from localStorage in light mode
+      try {
+        const stored = localStorage.getItem('ca-wwwyzzerdd-prompts');
+        if (stored) {
+          setPromptSets(JSON.parse(stored));
+        } else {
+          // Initialize with default prompt set
+          const defaults: WwwyzzerddPromptSet[] = [{
+            id: 'default',
+            name: 'Default Assistant',
+            description: 'Default character creation assistant',
+            characterPrompt: `You are wwwyzzerdd, an AI assistant helping users create character cards for roleplay.
+You specialize in creating engaging, detailed character profiles with rich personalities and backstories.
+Help the user develop their character by asking clarifying questions and providing creative suggestions.
+When you have enough information, output character data in JSON format.`,
+            lorePrompt: `You are wwwyzzerdd, an AI assistant helping users create world lore and settings.
+Help develop detailed worldbuilding elements like locations, factions, history, and culture.
+When you have enough information, output lore data in JSON format.`,
+            personality: `I'm friendly, creative, and enthusiastic about helping you bring your characters to life!`,
+            isDefault: true,
+          }];
+          localStorage.setItem('ca-wwwyzzerdd-prompts', JSON.stringify(defaults));
+          setPromptSets(defaults);
+        }
+      } catch {
+        setStatus('Failed to load prompt sets');
+      }
       setLoading(false);
       return;
     }
@@ -54,6 +80,33 @@ export function WwwyzzerddSettings() {
   const handleSavePromptSet = async () => {
     if (!editingPromptSet || !editingPromptSet.name || !editingPromptSet.characterPrompt || !editingPromptSet.lorePrompt || !editingPromptSet.personality) {
       setStatus('Name, Character Prompt, Lore Prompt, and Personality are required.');
+      return;
+    }
+
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      // Save to localStorage in light mode
+      try {
+        const newPromptSet: WwwyzzerddPromptSet = {
+          id: editingPromptSet.id || crypto.randomUUID(),
+          name: editingPromptSet.name,
+          description: editingPromptSet.description,
+          characterPrompt: editingPromptSet.characterPrompt,
+          lorePrompt: editingPromptSet.lorePrompt,
+          personality: editingPromptSet.personality,
+        };
+
+        const updated = editingPromptSet.id
+          ? promptSets.map(p => p.id === editingPromptSet.id ? newPromptSet : p)
+          : [...promptSets, newPromptSet];
+
+        localStorage.setItem('ca-wwwyzzerdd-prompts', JSON.stringify(updated));
+        setPromptSets(updated);
+        setEditingPromptSet(null);
+        setStatus(editingPromptSet.id ? 'Prompt set updated.' : 'Prompt set created.');
+      } catch {
+        setStatus('Failed to save prompt set');
+      }
       return;
     }
 
@@ -93,6 +146,15 @@ export function WwwyzzerddSettings() {
     const confirmed = window.confirm('Delete this prompt set? This cannot be undone.');
     if (!confirmed) return;
 
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      const updated = promptSets.filter(p => p.id !== id);
+      localStorage.setItem('ca-wwwyzzerdd-prompts', JSON.stringify(updated));
+      setPromptSets(updated);
+      setStatus('Prompt set deleted.');
+      return;
+    }
+
     try {
       const response = await fetch(`/api/wwwyzzerdd/prompts/${id}`, { method: 'DELETE' });
       if (!response.ok) {
@@ -108,6 +170,23 @@ export function WwwyzzerddSettings() {
   };
 
   const handleCopyPromptSet = async (id: string) => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      const original = promptSets.find(p => p.id === id);
+      if (!original) return;
+      const copy: WwwyzzerddPromptSet = {
+        ...original,
+        id: crypto.randomUUID(),
+        name: `${original.name} (Copy)`,
+        isDefault: false,
+      };
+      const updated = [...promptSets, copy];
+      localStorage.setItem('ca-wwwyzzerdd-prompts', JSON.stringify(updated));
+      setPromptSets(updated);
+      setStatus('Prompt set copied.');
+      return;
+    }
+
     try {
       const response = await fetch(`/api/wwwyzzerdd/prompts/${id}/copy`, {
         method: 'POST',
@@ -127,6 +206,21 @@ export function WwwyzzerddSettings() {
   };
 
   const handleExportPrompts = async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      // Export from localStorage
+      const json = JSON.stringify({ promptSets }, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'wwwyzzerdd-prompts.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus('Prompts exported.');
+      return;
+    }
+
     try {
       const response = await fetch('/api/wwwyzzerdd/prompts/export/all');
       const blob = await response.blob();
@@ -146,14 +240,33 @@ export function WwwyzzerddSettings() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const config = getDeploymentConfig();
+
     try {
       const text = await file.text();
       const json = JSON.parse(text);
+      const imported = json.promptSets || [];
+
+      if (config.mode === 'light' || config.mode === 'static') {
+        // Import to localStorage
+        const existing = promptSets.filter(p => p.isDefault);
+        const newSets = imported.map((p: WwwyzzerddPromptSet) => ({
+          ...p,
+          id: crypto.randomUUID(), // Give new IDs to avoid conflicts
+          isDefault: false,
+        }));
+        const updated = [...existing, ...newSets];
+        localStorage.setItem('ca-wwwyzzerdd-prompts', JSON.stringify(updated));
+        setPromptSets(updated);
+        setStatus(`Imported ${imported.length} prompt set(s).`);
+        e.target.value = '';
+        return;
+      }
 
       const response = await fetch('/api/wwwyzzerdd/prompts/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ promptSets: json.promptSets || [] }),
+        body: JSON.stringify({ promptSets: imported }),
       });
 
       const result = await response.json();

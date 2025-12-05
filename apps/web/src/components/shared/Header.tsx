@@ -29,9 +29,22 @@ export function Header({ onBack }: HeaderProps) {
   const config = getDeploymentConfig();
   const isLightMode = config.mode === 'light' || config.mode === 'static';
 
-  // Load SillyTavern settings for client-side push (server mode only)
+  // Load SillyTavern settings for client-side push
   useEffect(() => {
-    if (sillytavernEnabled && !isLightMode) {
+    if (!sillytavernEnabled) return;
+
+    if (isLightMode) {
+      // Light mode: load from localStorage
+      try {
+        const stored = localStorage.getItem('ca-sillytavern-settings');
+        if (stored) {
+          setStSettings(JSON.parse(stored) as SillyTavernSettings);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    } else {
+      // Server mode: load from API
       api.getSillyTavernSettings().then((result) => {
         if (result.data?.settings) {
           setStSettings(result.data.settings as SillyTavernSettings);

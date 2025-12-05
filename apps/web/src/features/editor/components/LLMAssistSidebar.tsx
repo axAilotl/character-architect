@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLLMStore } from '../../../store/llm-store';
 import { api } from '../../../lib/api';
 import { getDeploymentConfig } from '../../../config/deployment';
+import { invokeClientLLM, type ClientLLMProvider } from '../../../lib/client-llm';
 import type {
   FieldContext,
   CCFieldName,
@@ -16,6 +17,15 @@ import type {
   UserPreset,
 } from '@card-architect/schemas';
 import { DiffViewer } from '../../../components/ui/DiffViewer';
+
+// Default presets for client-side use
+const defaultNow = new Date().toISOString();
+const DEFAULT_PRESETS: UserPreset[] = [
+  { id: 'rewrite', name: 'Rewrite', instruction: 'Rewrite this text to be clearer and more engaging while preserving the meaning.', category: 'rewrite', description: '', isBuiltIn: true, createdAt: defaultNow, updatedAt: defaultNow },
+  { id: 'expand', name: 'Expand', instruction: 'Expand this text with more detail and description.', category: 'rewrite', description: '', isBuiltIn: true, createdAt: defaultNow, updatedAt: defaultNow },
+  { id: 'condense', name: 'Condense', instruction: 'Condense this text while keeping the key information.', category: 'rewrite', description: '', isBuiltIn: true, createdAt: defaultNow, updatedAt: defaultNow },
+  { id: 'format-jed', name: 'Format as JED', instruction: 'Reformat this text using JED (JSON-Enhanced Description) format with sections like [Character], [Personality], [Background], etc.', category: 'format', description: '', isBuiltIn: true, createdAt: defaultNow, updatedAt: defaultNow },
+];
 
 interface LLMAssistSidebarProps {
   isOpen: boolean;
@@ -73,6 +83,22 @@ export function LLMAssistSidebar({
   }, [isOpen]);
 
   const loadPresets = async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      // Load from localStorage or use defaults
+      try {
+        const stored = localStorage.getItem('ca-llm-presets');
+        if (stored) {
+          setPresets([...DEFAULT_PRESETS, ...JSON.parse(stored)]);
+        } else {
+          setPresets(DEFAULT_PRESETS);
+        }
+      } catch {
+        setPresets(DEFAULT_PRESETS);
+      }
+      return;
+    }
+
     const result = await api.getPresets();
     if (result.data?.presets) {
       setPresets(result.data.presets);
@@ -150,6 +176,78 @@ export function LLMAssistSidebar({
       }
     }
 
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    // Light mode: use client-side LLM (no RAG support)
+    if (isLightMode) {
+      const activeProvider = settings.providers.find(p => p.id === selectedProvider);
+      if (!activeProvider) {
+        setError('No LLM provider configured. Go to Settings > AI Providers.');
+        setIsProcessing(false);
+        return;
+      }
+
+      const clientProvider: ClientLLMProvider = {
+        id: activeProvider.id,
+        name: activeProvider.label,
+        kind: (activeProvider as any).clientKind || (activeProvider.kind === 'anthropic' ? 'anthropic' : 'openai-compatible'),
+        baseURL: activeProvider.baseURL || '',
+        apiKey: activeProvider.apiKey || '',
+        defaultModel: activeProvider.defaultModel || '',
+        temperature: activeProvider.temperature,
+        maxTokens: activeProvider.maxTokens,
+      };
+
+      const systemPrompt = `You are an AI assistant helping to edit character card content.
+Field being edited: ${fieldName}
+${selection ? `Selected text: "${selection}"` : ''}
+
+Your task: ${finalInstruction}
+
+Respond with ONLY the revised text. Do not include explanations or markdown formatting.`;
+
+      try {
+        const result = await invokeClientLLM({
+          provider: clientProvider,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: currentValue },
+          ],
+          temperature,
+          maxTokens,
+          model,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || 'LLM request failed');
+        }
+
+        const revised = result.content || '';
+        setAssistResponse({
+          original: selection || currentValue,
+          revised,
+          diff: [],
+          tokenDelta: { before: 0, after: 0, delta: 0 },
+          metadata: {
+            model: activeProvider?.defaultModel || 'unknown',
+            provider: activeProvider?.label || 'unknown',
+            temperature: 0.7,
+            promptTokens: 0,
+            completionTokens: 0,
+          },
+        });
+        setIsProcessing(false);
+        abortControllerRef.current = null;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'LLM request failed');
+        setIsProcessing(false);
+        abortControllerRef.current = null;
+      }
+      return;
+    }
+
+    // Full mode: use server-side LLM with RAG support
     let ragSnippets: RagSnippet[] | undefined;
 
     if (useKnowledgeBase) {
@@ -264,6 +362,35 @@ export function LLMAssistSidebar({
     const name = prompt('Enter a name for this preset:');
     if (!name) return;
 
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      // Save to localStorage in light mode
+      const saveNow = new Date().toISOString();
+      const newPreset: UserPreset = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        instruction: instruction.trim(),
+        category: 'custom',
+        description: '',
+        isBuiltIn: false,
+        createdAt: saveNow,
+        updatedAt: saveNow,
+      };
+      try {
+        const stored = localStorage.getItem('ca-llm-presets');
+        const existing = stored ? JSON.parse(stored) : [];
+        const updated = [...existing, newPreset];
+        localStorage.setItem('ca-llm-presets', JSON.stringify(updated));
+        await loadPresets();
+        setSelectedPresetId(newPreset.id);
+        setInstruction('');
+        setShowCustomInstruction(false);
+      } catch {
+        setError('Failed to save preset');
+      }
+      return;
+    }
+
     const result = await api.createPreset({
       name: name.trim(),
       instruction: instruction.trim(),
@@ -282,32 +409,6 @@ export function LLMAssistSidebar({
   };
 
   if (!isOpen) return null;
-
-  // Light mode check - LLM Assist requires server for RAG and advanced features
-  const config = getDeploymentConfig();
-  if (config.mode === 'light' || config.mode === 'static') {
-    return (
-      <div
-        className="absolute top-0 right-0 bottom-0 bg-slate-800 border-l border-dark-border shadow-2xl z-40 flex flex-col w-[500px]"
-      >
-        <div className="p-4 border-b border-dark-border flex justify-between items-center">
-          <h3 className="text-lg font-bold">LLM Assist</h3>
-          <button onClick={onClose} className="text-dark-muted hover:text-dark-text transition-colors">✕</button>
-        </div>
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center text-dark-muted">
-            <h4 className="text-lg font-semibold mb-2">AI Editing Requires Server</h4>
-            <p className="text-sm mb-4">
-              LLM Assist with RAG and advanced features requires running Card Architect locally.
-            </p>
-            <p className="text-xs text-dark-muted/70">
-              You can still configure CORS-enabled LLM providers (OpenRouter, Anthropic Direct, local LLMs) in Settings for future use.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div

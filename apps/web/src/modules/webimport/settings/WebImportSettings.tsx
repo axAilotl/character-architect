@@ -111,8 +111,8 @@ export function WebImportSettings() {
   const handleDownloadUserscript = () => {
     const config = getDeploymentConfig();
     if (config.mode === 'light' || config.mode === 'static') {
-      // In client-side mode, show info about manual configuration
-      alert('Web Import userscript requires a local Card Architect server.\n\nTo use web import:\n1. Run Card Architect locally\n2. Download userscript from your local server\n3. Configure the userscript API URL');
+      // In client-side mode, download the static userscript from public folder
+      window.location.href = '/userscript.js';
       return;
     }
     window.location.href = '/api/web-import/userscript';

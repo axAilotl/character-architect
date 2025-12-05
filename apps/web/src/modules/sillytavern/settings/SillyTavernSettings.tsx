@@ -16,11 +16,25 @@ export function SillyTavernSettings() {
   const [stStatus, setStStatus] = useState<string | null>(null);
   const [stLoading, setStLoading] = useState(false);
 
+  const config = getDeploymentConfig();
+  const isLightMode = config.mode === 'light' || config.mode === 'static';
+
   useEffect(() => {
     const loadStSettings = async () => {
-      const config = getDeploymentConfig();
-      if (config.mode === 'light' || config.mode === 'static') {
-        setStStatus('SillyTavern push requires a server. Run Card Architect locally to use this feature.');
+      if (isLightMode) {
+        // Light mode: load from localStorage
+        try {
+          const stored = localStorage.getItem('ca-sillytavern-settings');
+          if (stored) {
+            const s = JSON.parse(stored);
+            setStEnabled(s.enabled ?? false);
+            setStBaseUrl(s.baseUrl ?? '');
+            setStImportEndpoint(s.importEndpoint ?? '/api/characters/import');
+            setStSessionCookie(s.sessionCookie ?? '');
+          }
+        } catch {
+          // Ignore parse errors
+        }
         setStLoading(false);
         return;
       }
@@ -39,20 +53,32 @@ export function SillyTavernSettings() {
     };
 
     loadStSettings();
-  }, []);
+  }, [isLightMode]);
 
   const handleSave = async () => {
     setStLoading(true);
     setStStatus(null);
 
-    const config = {
+    const settings = {
       enabled: stEnabled,
       baseUrl: stBaseUrl,
       importEndpoint: stImportEndpoint,
       sessionCookie: stSessionCookie,
     };
 
-    const result = await api.updateSillyTavernSettings(config);
+    if (isLightMode) {
+      // Light mode: save to localStorage
+      try {
+        localStorage.setItem('ca-sillytavern-settings', JSON.stringify(settings));
+        setStStatus('Settings saved successfully!');
+      } catch {
+        setStStatus('Failed to save settings.');
+      }
+      setStLoading(false);
+      return;
+    }
+
+    const result = await api.updateSillyTavernSettings(settings);
     setStLoading(false);
 
     if (result.error) {
