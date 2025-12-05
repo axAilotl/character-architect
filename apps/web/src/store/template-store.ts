@@ -3,6 +3,73 @@ import type { Template, Snippet, UUID } from '@card-architect/schemas';
 import { api } from '../lib/api';
 import { getDeploymentConfig } from '../config/deployment';
 
+const TEMPLATES_STORAGE_KEY = 'ca-templates';
+const SNIPPETS_STORAGE_KEY = 'ca-snippets';
+
+// Default templates for light mode
+const DEFAULT_TEMPLATES: Template[] = [
+  {
+    id: 'default-persona',
+    name: 'Basic Persona',
+    description: 'A simple character persona template',
+    category: 'character',
+    targetFields: ['description'],
+    content: {
+      description: '{{char}} is a [age] year old [gender] [species/race]. They have [physical description]. Their personality is [traits]. They speak in a [speech pattern] manner.',
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'default-scenario',
+    name: 'Basic Scenario',
+    description: 'A simple scenario template',
+    category: 'scenario',
+    targetFields: ['scenario'],
+    content: {
+      scenario: '{{user}} and {{char}} are [relationship/situation]. The setting is [location/time]. [Additional context about the situation].',
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isDefault: true,
+  },
+];
+
+// Default snippets for light mode
+const DEFAULT_SNIPPETS: Snippet[] = [
+  {
+    id: 'snippet-char',
+    name: '{{char}}',
+    description: 'Character name placeholder',
+    category: 'instruction',
+    content: '{{char}}',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'snippet-user',
+    name: '{{user}}',
+    description: 'User name placeholder',
+    category: 'instruction',
+    content: '{{user}}',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'snippet-asterisk-action',
+    name: '*action*',
+    description: 'Action/emote format',
+    category: 'format',
+    content: '*{{char}} [action]*',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isDefault: true,
+  },
+];
+
 interface TemplateStore {
   templates: Template[];
   snippets: Snippet[];
@@ -42,16 +109,33 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
   isLoading: false,
   error: null,
 
-  // Load templates from API
+  // Load templates
   loadTemplates: async () => {
     const config = getDeploymentConfig();
-    if (config.mode === 'light' || config.mode === 'static') {
-      // Templates require server - skip in light mode
-      set({ isLoading: false, error: null });
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    set({ isLoading: true, error: null });
+
+    if (isLightMode) {
+      // Load from localStorage in light mode
+      try {
+        const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+        if (stored) {
+          const templates = JSON.parse(stored);
+          set({ templates, isLoading: false });
+        } else {
+          // Initialize with defaults
+          localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(DEFAULT_TEMPLATES));
+          set({ templates: DEFAULT_TEMPLATES, isLoading: false });
+        }
+      } catch (error) {
+        console.error('Failed to load templates from localStorage:', error);
+        set({ templates: DEFAULT_TEMPLATES, isLoading: false });
+      }
       return;
     }
 
-    set({ isLoading: true, error: null });
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/templates`);
       if (!response.ok) throw new Error('Failed to load templates');
@@ -62,16 +146,33 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
     }
   },
 
-  // Load snippets from API
+  // Load snippets
   loadSnippets: async () => {
     const config = getDeploymentConfig();
-    if (config.mode === 'light' || config.mode === 'static') {
-      // Snippets require server - skip in light mode
-      set({ isLoading: false, error: null });
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    set({ isLoading: true, error: null });
+
+    if (isLightMode) {
+      // Load from localStorage in light mode
+      try {
+        const stored = localStorage.getItem(SNIPPETS_STORAGE_KEY);
+        if (stored) {
+          const snippets = JSON.parse(stored);
+          set({ snippets, isLoading: false });
+        } else {
+          // Initialize with defaults
+          localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(DEFAULT_SNIPPETS));
+          set({ snippets: DEFAULT_SNIPPETS, isLoading: false });
+        }
+      } catch (error) {
+        console.error('Failed to load snippets from localStorage:', error);
+        set({ snippets: DEFAULT_SNIPPETS, isLoading: false });
+      }
       return;
     }
 
-    set({ isLoading: true, error: null });
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/snippets`);
       if (!response.ok) throw new Error('Failed to load snippets');
@@ -88,6 +189,26 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
   },
 
   createTemplate: async (template) => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    const now = new Date().toISOString();
+    const newTemplate: Template = {
+      ...template,
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (isLightMode) {
+      // Save to localStorage
+      const templates = [...get().templates, newTemplate];
+      localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+      set({ templates });
+      return newTemplate;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/templates`, {
         method: 'POST',
@@ -107,6 +228,20 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
   },
 
   updateTemplate: async (id, updates) => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Update in localStorage
+      const templates = get().templates.map((t) =>
+        t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t
+      );
+      localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+      set({ templates });
+      return;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/templates/${id}`, {
         method: 'PATCH',
@@ -124,6 +259,18 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
   },
 
   deleteTemplate: async (id) => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Delete from localStorage
+      const templates = get().templates.filter((t) => t.id !== id);
+      localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+      set({ templates });
+      return;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/templates/${id}`, {
         method: 'DELETE',
@@ -143,6 +290,26 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
   },
 
   createSnippet: async (snippet) => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    const now = new Date().toISOString();
+    const newSnippet: Snippet = {
+      ...snippet,
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (isLightMode) {
+      // Save to localStorage
+      const snippets = [...get().snippets, newSnippet];
+      localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(snippets));
+      set({ snippets });
+      return newSnippet;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/snippets`, {
         method: 'POST',
@@ -162,6 +329,20 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
   },
 
   updateSnippet: async (id, updates) => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Update in localStorage
+      const snippets = get().snippets.map((s) =>
+        s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+      );
+      localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(snippets));
+      set({ snippets });
+      return;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/snippets/${id}`, {
         method: 'PATCH',
@@ -179,6 +360,18 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
   },
 
   deleteSnippet: async (id) => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Delete from localStorage
+      const snippets = get().snippets.filter((s) => s.id !== id);
+      localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(snippets));
+      set({ snippets });
+      return;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/snippets/${id}`, {
         method: 'DELETE',
@@ -194,6 +387,23 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
 
   // Export templates as JSON download
   exportTemplates: async () => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Export from localStorage
+      const templates = get().templates;
+      const blob = new Blob([JSON.stringify({ templates }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'templates.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/templates/export/all`);
       if (!response.ok) throw new Error('Failed to export templates');
@@ -211,6 +421,23 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
 
   // Export snippets as JSON download
   exportSnippets: async () => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Export from localStorage
+      const snippets = get().snippets;
+      const blob = new Blob([JSON.stringify({ snippets }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'snippets.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/snippets/export/all`);
       if (!response.ok) throw new Error('Failed to export snippets');
@@ -228,15 +455,36 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
 
   // Import templates from JSON file
   importTemplates: async (file, replace = false) => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const templates = parsed.templates || parsed;
+      const importedTemplates = parsed.templates || parsed;
 
+      if (isLightMode) {
+        // Import to localStorage
+        const now = new Date().toISOString();
+        const newTemplates = importedTemplates.map((t: any) => ({
+          ...t,
+          id: t.id || crypto.randomUUID(),
+          createdAt: t.createdAt || now,
+          updatedAt: now,
+        }));
+
+        const existing = replace ? [] : get().templates;
+        const templates = [...existing, ...newTemplates];
+        localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+        set({ templates });
+        return { success: true, imported: newTemplates.length };
+      }
+
+      // Server mode
       const response = await fetch(`${api.baseURL}/templates/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templates, replace }),
+        body: JSON.stringify({ templates: importedTemplates, replace }),
       });
 
       if (!response.ok) throw new Error('Failed to import templates');
@@ -254,15 +502,36 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
 
   // Import snippets from JSON file
   importSnippets: async (file, replace = false) => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const snippets = parsed.snippets || parsed;
+      const importedSnippets = parsed.snippets || parsed;
 
+      if (isLightMode) {
+        // Import to localStorage
+        const now = new Date().toISOString();
+        const newSnippets = importedSnippets.map((s: any) => ({
+          ...s,
+          id: s.id || crypto.randomUUID(),
+          createdAt: s.createdAt || now,
+          updatedAt: now,
+        }));
+
+        const existing = replace ? [] : get().snippets;
+        const snippets = [...existing, ...newSnippets];
+        localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(snippets));
+        set({ snippets });
+        return { success: true, imported: newSnippets.length };
+      }
+
+      // Server mode
       const response = await fetch(`${api.baseURL}/snippets/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ snippets, replace }),
+        body: JSON.stringify({ snippets: importedSnippets, replace }),
       });
 
       if (!response.ok) throw new Error('Failed to import snippets');
@@ -280,6 +549,17 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
 
   // Reset templates to defaults
   resetTemplates: async () => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Reset to defaults in localStorage
+      localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(DEFAULT_TEMPLATES));
+      set({ templates: DEFAULT_TEMPLATES });
+      return;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/templates/reset`, {
         method: 'POST',
@@ -294,6 +574,17 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
 
   // Reset snippets to defaults
   resetSnippets: async () => {
+    const config = getDeploymentConfig();
+    const isLightMode = config.mode === 'light' || config.mode === 'static';
+
+    if (isLightMode) {
+      // Reset to defaults in localStorage
+      localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(DEFAULT_SNIPPETS));
+      set({ snippets: DEFAULT_SNIPPETS });
+      return;
+    }
+
+    // Server mode
     try {
       const response = await fetch(`${api.baseURL}/snippets/reset`, {
         method: 'POST',
