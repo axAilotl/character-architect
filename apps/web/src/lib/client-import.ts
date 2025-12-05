@@ -2,11 +2,12 @@
  * Client-side card import
  *
  * Used in light/static deployment modes where there's no server.
- * Parses PNG and CHARX files directly in the browser.
+ * Parses PNG, CHARX, and Voxta files directly in the browser.
  */
 
 import { extractFromPNG, isPNG } from '@card-architect/png';
 import { extractCharx } from '@card-architect/charx';
+import { extractVoxtaPackage, voxtaToCCv3 } from '@card-architect/voxta';
 import type { Card, CCv2Data, CCv3Data } from '@card-architect/schemas';
 
 export interface ClientImportResult {
@@ -181,7 +182,77 @@ function createCard(
 }
 
 /**
- * Import a card file (PNG, CHARX, or JSON) client-side
+ * Import a Voxta package (.voxpkg) client-side
+ * Returns multiple cards since Voxta packages can contain multiple characters
+ */
+export async function importVoxtaPackageClientSide(buffer: Uint8Array): Promise<ClientImportResult[]> {
+  const results: ClientImportResult[] = [];
+
+  try {
+    const voxtaData = extractVoxtaPackage(buffer);
+
+    if (voxtaData.characters.length === 0) {
+      throw new Error('Voxta package contains no characters');
+    }
+
+    for (const charData of voxtaData.characters) {
+      // Find books referenced by this character
+      const referencedBooks = charData.data.MemoryBooks
+        ? voxtaData.books
+            .filter(b => charData.data.MemoryBooks?.includes(b.id))
+            .map(b => b.data)
+        : [];
+
+      // Convert Voxta to CCv3
+      const ccv3Data = voxtaToCCv3(charData.data, referencedBooks);
+      const card = createCard(ccv3Data, 'v3');
+
+      // Process thumbnail if present
+      let fullImageDataUrl: string | undefined;
+      let thumbnailDataUrl: string | undefined;
+
+      if (charData.thumbnail) {
+        // Detect format from buffer
+        let mimeType = 'image/png';
+        const bytes = charData.thumbnail as Uint8Array;
+        if (bytes[0] === 0xFF && bytes[1] === 0xD8) {
+          mimeType = 'image/jpeg';
+        } else if (bytes[0] === 0x52 && bytes[1] === 0x49) {
+          mimeType = 'image/webp';
+        }
+
+        fullImageDataUrl = uint8ArrayToDataURL(bytes, mimeType);
+
+        try {
+          thumbnailDataUrl = await createThumbnail(fullImageDataUrl);
+        } catch {
+          thumbnailDataUrl = fullImageDataUrl;
+        }
+      }
+
+      const warnings: string[] = [];
+
+      // Note assets that weren't imported
+      if (charData.assets && charData.assets.length > 0) {
+        warnings.push(`${charData.assets.length} additional assets not imported (client-side mode)`);
+      }
+
+      results.push({
+        card,
+        fullImageDataUrl,
+        thumbnailDataUrl,
+        warnings: warnings.length > 0 ? warnings : undefined,
+      });
+    }
+
+    return results;
+  } catch (err) {
+    throw new Error(`Failed to parse Voxta package: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/**
+ * Import a card file (PNG, CHARX, JSON, or Voxta) client-side
  */
 export async function importCardClientSide(file: File): Promise<ClientImportResult> {
   const warnings: string[] = [];
@@ -270,6 +341,22 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
       }
       throw err;
     }
+  }
+
+  if (fileName.endsWith('.voxpkg')) {
+    // Voxta package - this returns the first character only for single import
+    // Use importVoxtaPackageClientSide for full multi-character support
+    const results = await importVoxtaPackageClientSide(buffer);
+    if (results.length === 0) {
+      throw new Error('Voxta package contains no characters');
+    }
+    const first = results[0];
+    if (results.length > 1) {
+      const additionalWarnings = first.warnings || [];
+      additionalWarnings.push(`Package contains ${results.length} characters. Only "${first.card.meta.name}" was imported.`);
+      return { ...first, warnings: additionalWarnings };
+    }
+    return first;
   }
 
   throw new Error(`Unsupported file type: ${file.name}`);

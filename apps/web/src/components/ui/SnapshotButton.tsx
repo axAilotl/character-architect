@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { useCardStore } from '../../store/card-store';
+import { getDeploymentConfig } from '../../config/deployment';
 
 export function SnapshotButton() {
   const { currentCard, createSnapshot } = useCardStore();
   const [isCreating, setIsCreating] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [message, setMessage] = useState('');
+
+  const config = getDeploymentConfig();
+
+  // Hide snapshots in light mode (no server)
+  if (config.mode === 'light' || config.mode === 'static') return null;
 
   if (!currentCard || !currentCard.meta.id) return null;
 

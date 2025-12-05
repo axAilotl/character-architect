@@ -10,6 +10,7 @@ import { extractCardData } from '../../lib/card-utils';
 import type { ProviderConfig, ProviderKind, OpenAIMode, UserPreset, CreatePresetRequest } from '@card-architect/schemas';
 import { TemplateSnippetPanel } from '../../features/editor/components/TemplateSnippetPanel';
 import { api } from '../../lib/api';
+import { getDeploymentConfig } from '../../config/deployment';
 import { SearchableSelect } from '../ui/SearchableSelect';
 import { useSettingsPanels, useModules } from '../../lib/registry/hooks';
 import { registry } from '../../lib/registry';
@@ -196,6 +197,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Preset handlers
   const loadPresets = async () => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      setPresetError('LLM Presets require a server connection. Using the local instance or self-hosting enables custom presets.');
+      setPresetsLoading(false);
+      return;
+    }
+
     setPresetsLoading(true);
     setPresetError(null);
     const result = await api.getPresets();

@@ -2,10 +2,11 @@
  * Client-side card export
  *
  * Used in light/static deployment modes where there's no server.
- * Exports cards as JSON or PNG directly in the browser.
+ * Exports cards as JSON, PNG, or CHARX directly in the browser.
  */
 
 import { embedIntoPNG } from '@card-architect/png';
+import { buildCharx, type CharxWriteAsset } from '@card-architect/charx';
 import type { Card, CCv2Data, CCv3Data } from '@card-architect/schemas';
 import { localDB } from './db';
 
@@ -86,6 +87,65 @@ export async function exportCardAsPNG(card: Card): Promise<Blob> {
 }
 
 /**
+ * Export card as CHARX (ZIP-based format with assets)
+ */
+export async function exportCardAsCHARX(card: Card): Promise<Blob> {
+  // Get card data - convert to V3 if needed
+  let v3Data: CCv3Data;
+  if (card.meta.spec === 'v3') {
+    v3Data = card.data as CCv3Data;
+  } else {
+    // Convert V2 to V3 for CHARX
+    const v2Data = card.data as CCv2Data;
+    v3Data = {
+      spec: 'chara_card_v3',
+      spec_version: '3.0',
+      data: {
+        ...v2Data,
+        creator: v2Data.creator || '',
+        character_version: v2Data.character_version || '1.0',
+        tags: v2Data.tags || [],
+      },
+    } as CCv3Data;
+  }
+
+  // Collect assets
+  const assets: CharxWriteAsset[] = [];
+
+  // Get the main icon image
+  let imageData = await localDB.getImage(card.meta.id, 'icon');
+  if (!imageData) {
+    imageData = await localDB.getImage(card.meta.id, 'thumbnail');
+  }
+
+  if (imageData) {
+    const buffer = dataURLToUint8Array(imageData);
+    // Detect format from data URL
+    let ext = 'png';
+    if (imageData.startsWith('data:image/webp')) ext = 'webp';
+    else if (imageData.startsWith('data:image/jpeg')) ext = 'jpg';
+
+    assets.push({
+      type: 'icon',
+      name: 'main',
+      ext,
+      data: buffer,
+      isMain: true,
+    });
+  }
+
+  // Build CHARX
+  const result = buildCharx(v3Data, assets);
+
+  // Convert to Blob
+  const arrayBuffer = new ArrayBuffer(result.buffer.length);
+  const uint8Result = new Uint8Array(arrayBuffer);
+  uint8Result.set(result.buffer as unknown as ArrayLike<number>);
+
+  return new Blob([uint8Result], { type: 'application/zip' });
+}
+
+/**
  * Download a blob as a file
  */
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -102,7 +162,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
  */
 export async function exportCard(
   card: Card,
-  format: 'json' | 'png'
+  format: 'json' | 'png' | 'charx'
 ): Promise<void> {
   const filename = `${card.meta.name || 'character'}.${format}`;
 
@@ -111,6 +171,9 @@ export async function exportCard(
     downloadBlob(blob, filename);
   } else if (format === 'png') {
     const blob = await exportCardAsPNG(card);
+    downloadBlob(blob, filename);
+  } else if (format === 'charx') {
+    const blob = await exportCardAsCHARX(card);
     downloadBlob(blob, filename);
   }
 }

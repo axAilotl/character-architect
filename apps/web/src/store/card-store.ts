@@ -5,7 +5,7 @@ import { localDB } from '../lib/db';
 import { extractCardData } from '../lib/card-utils';
 import { useTokenStore } from './token-store';
 import { getDeploymentConfig } from '../config/deployment';
-import { importCardClientSide } from '../lib/client-import';
+import { importCardClientSide, importVoxtaPackageClientSide } from '../lib/client-import';
 import { exportCard as exportCardClientSide } from '../lib/client-export';
 
 export { extractCardData };
@@ -346,11 +346,45 @@ export const useCardStore = create<CardStore>((set, get) => ({
   // Import Voxta package
   importVoxtaPackage: async (file) => {
     const config = getDeploymentConfig();
+
+    // Client-side mode: use browser-based Voxta parsing
     if (config.mode === 'light' || config.mode === 'static') {
-      alert('Voxta package import is not supported in light mode. Please use PNG or JSON imports instead.');
-      return null;
+      try {
+        const buffer = await file.arrayBuffer();
+        const results = await importVoxtaPackageClientSide(new Uint8Array(buffer));
+
+        if (results.length === 0) {
+          alert('Voxta package contains no characters.');
+          return null;
+        }
+
+        // Save all characters to IndexedDB
+        for (const result of results) {
+          await localDB.saveCard(result.card);
+          if (result.fullImageDataUrl) {
+            await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+          }
+          if (result.thumbnailDataUrl) {
+            await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+          }
+        }
+
+        // Set the first card as active
+        const firstResult = results[0];
+        set({ currentCard: firstResult.card, isDirty: false });
+        useTokenStore.getState().updateTokenCounts(firstResult.card);
+
+        if (results.length > 1) {
+          alert(`Imported ${results.length} characters from Voxta package. "${firstResult.card.meta.name}" is now active.`);
+        }
+        return firstResult.card.meta.id;
+      } catch (err) {
+        alert(`Failed to import Voxta package: ${err instanceof Error ? err.message : String(err)}`);
+        return null;
+      }
     }
 
+    // Server mode: use API
     const { data, error } = await api.importVoxtaPackage(file);
     if (error) {
       alert(`Failed to import Voxta package: ${error}`);
@@ -414,11 +448,11 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
     // Client-side mode: use client export
     if (config.mode === 'light' || config.mode === 'static') {
-      if (format === 'charx' || format === 'voxta') {
-        alert(`${format.toUpperCase()} export requires a server. Only JSON and PNG are available in light mode.`);
+      if (format === 'voxta') {
+        alert('Voxta export requires a server. JSON, PNG, and CHARX are available in light mode.');
         return;
       }
-      await exportCardClientSide(currentCard, format as 'json' | 'png');
+      await exportCardClientSide(currentCard, format as 'json' | 'png' | 'charx');
       return;
     }
 
