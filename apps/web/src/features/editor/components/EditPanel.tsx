@@ -5,6 +5,7 @@ import { useTokenStore } from '../../../store/token-store';
 import { useLLMStore } from '../../../store/llm-store';
 import { localDB } from '../../../lib/db';
 import { getDeploymentConfig } from '../../../config/deployment';
+import { invokeClientLLM, type ClientLLMProvider } from '../../../lib/client-llm';
 import type { CCFieldName, FocusField, Template, Snippet } from '@card-architect/schemas';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
@@ -149,12 +150,6 @@ export function EditPanel() {
       return;
     }
 
-    // Light mode check - AI features require server
-    if (isLightMode) {
-      alert('AI tag generation requires running Card Architect locally with an LLM provider configured.');
-      return;
-    }
-
     let activeProvider = llmSettings.providers.find((p) => p.id === llmSettings.activeProviderId);
     if (!activeProvider && llmSettings.providers.length > 0) {
       activeProvider = llmSettings.providers[0];
@@ -166,24 +161,54 @@ export function EditPanel() {
 
     setGeneratingTags(true);
     try {
-      const response = await fetch('/api/llm/invoke', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          providerId: activeProvider.id,
-          system: aiPrompts.tagsSystemPrompt,
+      let content = '';
+
+      if (isLightMode) {
+        // Client-side LLM call
+        const clientProvider: ClientLLMProvider = {
+          id: activeProvider.id,
+          name: activeProvider.label,
+          kind: (activeProvider as any).clientKind || (activeProvider.kind === 'anthropic' ? 'anthropic' : 'openai-compatible'),
+          baseURL: activeProvider.baseURL || '',
+          apiKey: activeProvider.apiKey || '',
+          defaultModel: activeProvider.defaultModel || '',
+          temperature: activeProvider.temperature,
+          maxTokens: activeProvider.maxTokens,
+        };
+
+        const result = await invokeClientLLM({
+          provider: clientProvider,
           messages: [
+            { role: 'system', content: aiPrompts.tagsSystemPrompt },
             { role: 'user', content: `Generate tags for this character:\n\nName: ${cardData.name || 'Unknown'}\n\nDescription:\n${cardData.description}` }
           ],
           temperature: 0.7,
           maxTokens: 200,
-        }),
-      });
+        });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+        if (!result.success) throw new Error(result.error || 'LLM request failed');
+        content = result.content || '';
+      } else {
+        // Server-side LLM call
+        const response = await fetch('/api/llm/invoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            providerId: activeProvider.id,
+            system: aiPrompts.tagsSystemPrompt,
+            messages: [
+              { role: 'user', content: `Generate tags for this character:\n\nName: ${cardData.name || 'Unknown'}\n\nDescription:\n${cardData.description}` }
+            ],
+            temperature: 0.7,
+            maxTokens: 200,
+          }),
+        });
 
-      const content = data.content || data.text || '';
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        content = data.content || data.text || '';
+      }
+
       // Parse JSON array from response
       const jsonMatch = content.match(/\[[\s\S]*?\]/);
       if (jsonMatch) {
@@ -210,12 +235,6 @@ export function EditPanel() {
       return;
     }
 
-    // Light mode check - AI features require server
-    if (isLightMode) {
-      alert('AI tagline generation requires running Card Architect locally with an LLM provider configured.');
-      return;
-    }
-
     let activeProvider = llmSettings.providers.find((p) => p.id === llmSettings.activeProviderId);
     if (!activeProvider && llmSettings.providers.length > 0) {
       activeProvider = llmSettings.providers[0];
@@ -227,24 +246,54 @@ export function EditPanel() {
 
     setGeneratingTagline(true);
     try {
-      const response = await fetch('/api/llm/invoke', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          providerId: activeProvider.id,
-          system: aiPrompts.taglineSystemPrompt,
+      let content = '';
+
+      if (isLightMode) {
+        // Client-side LLM call
+        const clientProvider: ClientLLMProvider = {
+          id: activeProvider.id,
+          name: activeProvider.label,
+          kind: (activeProvider as any).clientKind || (activeProvider.kind === 'anthropic' ? 'anthropic' : 'openai-compatible'),
+          baseURL: activeProvider.baseURL || '',
+          apiKey: activeProvider.apiKey || '',
+          defaultModel: activeProvider.defaultModel || '',
+          temperature: activeProvider.temperature,
+          maxTokens: activeProvider.maxTokens,
+        };
+
+        const result = await invokeClientLLM({
+          provider: clientProvider,
           messages: [
+            { role: 'system', content: aiPrompts.taglineSystemPrompt },
             { role: 'user', content: `Write a short tagline for this character:\n\nName: ${cardData.name || 'Unknown'}\n\nDescription:\n${cardData.description}` }
           ],
           temperature: 0.8,
           maxTokens: 200,
-        }),
-      });
+        });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+        if (!result.success) throw new Error(result.error || 'LLM request failed');
+        content = (result.content || '').trim();
+      } else {
+        // Server-side LLM call
+        const response = await fetch('/api/llm/invoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            providerId: activeProvider.id,
+            system: aiPrompts.taglineSystemPrompt,
+            messages: [
+              { role: 'user', content: `Write a short tagline for this character:\n\nName: ${cardData.name || 'Unknown'}\n\nDescription:\n${cardData.description}` }
+            ],
+            temperature: 0.8,
+            maxTokens: 200,
+          }),
+        });
 
-      const content = (data.content || data.text || '').trim();
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        content = (data.content || data.text || '').trim();
+      }
+
       if (content) {
         // Update tagline extension
         const existingExtensions = (cardData as any).extensions || {};
@@ -344,7 +393,8 @@ export function EditPanel() {
     { id: 'greetings' as EditTab, label: 'Greetings' },
     { id: 'advanced' as EditTab, label: 'Advanced' },
     { id: 'lorebook' as EditTab, label: 'Lorebook' },
-    { id: 'elara-voss' as EditTab, label: 'ELARA VOSS' },
+    // ELARA VOSS requires server - hide in light mode
+    ...(!isLightMode ? [{ id: 'elara-voss' as EditTab, label: 'ELARA VOSS' }] : []),
     ...(editor.showExtensionsTab ? [{ id: 'extensions' as EditTab, label: 'Extensions' }] : []),
   ];
 

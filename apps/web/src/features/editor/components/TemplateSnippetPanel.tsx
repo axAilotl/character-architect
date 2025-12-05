@@ -54,6 +54,10 @@ export function TemplateSnippetPanel({
   const templateImportRef = useRef<HTMLInputElement>(null);
   const snippetImportRef = useRef<HTMLInputElement>(null);
 
+  // Light mode check - ELARA VOSS requires server
+  const deploymentConfig = getDeploymentConfig();
+  const isLightMode = deploymentConfig.mode === 'light' || deploymentConfig.mode === 'static';
+
   const {
     templates,
     snippets,
@@ -420,20 +424,23 @@ export function TemplateSnippetPanel({
           >
             Snippets
           </button>
-          <button
-            onClick={() => {
-              setActiveTab('elara-voss');
-              setSelectedTemplate(null);
-              setSelectedSnippet(null);
-            }}
-            className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === 'elara-voss'
-                ? 'bg-dark-bg text-purple-400 border-b-2 border-purple-400'
-                : 'text-dark-muted hover:text-dark-text'
-            }`}
-          >
-            ELARA VOSS
-          </button>
+          {/* ELARA VOSS requires server - hide in light mode */}
+          {!isLightMode && (
+            <button
+              onClick={() => {
+                setActiveTab('elara-voss');
+                setSelectedTemplate(null);
+                setSelectedSnippet(null);
+              }}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'elara-voss'
+                  ? 'bg-dark-bg text-purple-400 border-b-2 border-purple-400'
+                  : 'text-dark-muted hover:text-dark-text'
+              }`}
+            >
+              ELARA VOSS
+            </button>
+          )}
         </div>
 
         {/* Search and Filter - only for templates/snippets tabs */}
