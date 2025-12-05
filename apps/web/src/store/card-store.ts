@@ -344,6 +344,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
   // Import Voxta package
   importVoxtaPackage: async (file) => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      alert('Voxta package import is not supported in light mode. Please use PNG or JSON imports instead.');
+      return null;
+    }
+
     const { data, error } = await api.importVoxtaPackage(file);
     if (error) {
       alert(`Failed to import Voxta package: ${error}`);
@@ -368,6 +374,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
   },
 
   importCardFromURL: async (url) => {
+    const config = getDeploymentConfig();
+    if (config.mode === 'light' || config.mode === 'static') {
+      alert('URL import is not supported in light mode. Please use file import or the userscript instead.');
+      return null;
+    }
+
     const { data, error } = await api.importCardFromURL(url);
     if (error) {
       alert(`Failed to import card: ${error}`);
