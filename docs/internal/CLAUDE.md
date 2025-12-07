@@ -66,7 +66,8 @@ card_doctor/
 │           │       └── hooks.ts         # React hooks
 │           └── styles/      # CSS
 ├── packages/
-│   ├── defaults/            # Default templates, snippets, presets (Single Source of Truth)
+│   ├── defaults/            # Default templates, snippets, presets, wwwyzzerdd prompts (Single Source of Truth)
+│   │   └── assets/          # JSON files: templates.json, snippets.json, presets.json, wwwyzzerdd-prompts.json
 │   ├── plugins/             # Plugin SDK (stub)
 │   └── utils/               # Card-architect specific utilities
 │

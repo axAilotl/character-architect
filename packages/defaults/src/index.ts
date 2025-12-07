@@ -45,6 +45,16 @@ export interface UserPreset {
   updatedAt: string;
 }
 
+export interface WwwyzzerddPromptSet {
+  id: string;
+  name: string;
+  description?: string;
+  characterPrompt: string;
+  lorePrompt: string;
+  personality: string;
+  isDefault?: boolean;
+}
+
 // ==========================================
 // IMPORTS
 // ==========================================
@@ -52,6 +62,7 @@ export interface UserPreset {
 import templatesData from '../assets/templates.json';
 import snippetsData from '../assets/snippets.json';
 import presetsData from '../assets/presets.json';
+import wwwyzzerddData from '../assets/wwwyzzerdd-prompts.json';
 
 // ==========================================
 // EXPORTS
@@ -60,3 +71,4 @@ import presetsData from '../assets/presets.json';
 export const DEFAULT_TEMPLATES = templatesData as Template[];
 export const DEFAULT_SNIPPETS = snippetsData as Snippet[];
 export const DEFAULT_PRESETS = presetsData as UserPreset[];
+export const DEFAULT_WWWYZZERDD_PROMPTS = wwwyzzerddData as WwwyzzerddPromptSet[];

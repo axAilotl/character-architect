@@ -414,6 +414,32 @@ export const useCardStore = create<CardStore>((set, get) => ({
           if (result.thumbnailDataUrl) {
             await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
           }
+          // Save extracted assets
+          if (result.assets && result.assets.length > 0) {
+            console.log(`[importVoxtaPackage] Saving ${result.assets.length} assets for ${result.card.meta.name}`);
+            for (const asset of result.assets) {
+              const assetId = crypto.randomUUID();
+              const validTypes = ['icon', 'background', 'emotion', 'sound', 'workflow', 'lorebook', 'custom'] as const;
+              const assetType = validTypes.includes(asset.type as any) ? asset.type as typeof validTypes[number] : 'custom';
+              await localDB.saveAsset({
+                id: assetId,
+                cardId: result.card.meta.id,
+                name: asset.name,
+                type: assetType,
+                ext: asset.ext,
+                mimetype: asset.mimetype,
+                data: asset.data,
+                size: asset.size,
+                width: asset.width,
+                height: asset.height,
+                isMain: asset.isMain ?? false,
+                actorIndex: asset.actorIndex,
+                tags: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          }
         }
 
         // Set the first card as active
@@ -468,6 +494,32 @@ export const useCardStore = create<CardStore>((set, get) => ({
         }
         if (result.thumbnailDataUrl) {
           await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+        }
+        // Save extracted assets
+        if (result.assets && result.assets.length > 0) {
+          console.log(`[importCardFromURL] Saving ${result.assets.length} assets`);
+          for (const asset of result.assets) {
+            const assetId = crypto.randomUUID();
+            const validTypes = ['icon', 'background', 'emotion', 'sound', 'workflow', 'lorebook', 'custom'] as const;
+            const assetType = validTypes.includes(asset.type as any) ? asset.type as typeof validTypes[number] : 'custom';
+            await localDB.saveAsset({
+              id: assetId,
+              cardId: result.card.meta.id,
+              name: asset.name,
+              type: assetType,
+              ext: asset.ext,
+              mimetype: asset.mimetype,
+              data: asset.data,
+              size: asset.size,
+              width: asset.width,
+              height: asset.height,
+              isMain: asset.isMain ?? false,
+              actorIndex: asset.actorIndex,
+              tags: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
         }
         set({ currentCard: result.card, isDirty: false });
         useTokenStore.getState().updateTokenCounts(result.card);

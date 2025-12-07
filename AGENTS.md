@@ -3,7 +3,13 @@
 ## Project Structure & Module Organization
 - Monorepo via npm workspaces: `apps/api` (Fastify backend), `apps/web` (React + Vite UI), local packages in `packages/*` (`defaults`, `plugins`, `utils`).
 - External `@character-foundry/*` packages from GitHub Packages registry (`schemas`, `core`, `png`, `charx`, `voxta`, `tokenizers`, `loader`, `federation`).
+- **Defaults package** (`@card-architect/defaults`): Single source of truth for templates, snippets, presets, and wwwyzzerdd prompts. All shared JSON data lives in `packages/defaults/assets/`.
 - Reference docs live in `docs/`; sample cards and assets in `testing/`; Docker assets in `docker/` with the root `docker-compose.yml` for local stack.
+
+## Deployment Modes
+- **Full mode**: All features enabled, self-hosted with API backend
+- **Light mode**: Minimal server, most features client-side (cheap VPS). Web Import disabled.
+- **Static mode**: No server at all (Cloudflare Pages, GitHub Pages). Web Import disabled.
 
 ## Build, Test, and Development Commands
 - Requires `GITHUB_TOKEN` env var with `read:packages` scope for `@character-foundry/*` packages.

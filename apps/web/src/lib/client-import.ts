@@ -247,15 +247,63 @@ export async function importVoxtaPackageClientSide(buffer: Uint8Array): Promise<
 
       const warnings: string[] = [];
 
-      // Note assets that weren't imported
+      // Extract assets from Voxta package
+      const extractedAssets: ExtractedAsset[] = [];
       if (charData.assets && charData.assets.length > 0) {
-        warnings.push(`${charData.assets.length} additional assets not imported (client-side mode)`);
+        console.log(`[client-import] Extracting ${charData.assets.length} assets from Voxta`);
+        for (const asset of charData.assets) {
+          if (asset.buffer) {
+            // Get extension from path
+            const pathParts = asset.path.split('/');
+            const filename = pathParts[pathParts.length - 1];
+            const extMatch = filename.match(/\.([^.]+)$/);
+            const ext = extMatch ? extMatch[1].toLowerCase() : 'bin';
+
+            // Determine MIME type
+            let mimeType = 'application/octet-stream';
+            if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+              mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+            } else if (['mp3', 'wav', 'ogg', 'webm'].includes(ext)) {
+              mimeType = `audio/${ext}`;
+            } else if (['mp4'].includes(ext)) {
+              mimeType = 'video/mp4';
+            } else if (ext === 'json') {
+              mimeType = 'application/json';
+            }
+
+            // Determine asset type from path
+            let assetType = 'custom';
+            const pathLower = asset.path.toLowerCase();
+            if (pathLower.includes('emotion') || pathLower.includes('expression')) {
+              assetType = 'emotion';
+            } else if (pathLower.includes('background') || pathLower.includes('bg')) {
+              assetType = 'background';
+            } else if (pathLower.includes('icon') || pathLower.includes('avatar') || pathLower.includes('portrait')) {
+              assetType = 'icon';
+            } else if (pathLower.includes('audio') || pathLower.includes('voice') || pathLower.includes('sound')) {
+              assetType = 'sound';
+            }
+
+            const bytes = asset.buffer as Uint8Array;
+            extractedAssets.push({
+              name: filename.replace(/\.[^.]+$/, '') || 'asset',
+              type: assetType,
+              ext,
+              mimetype: mimeType,
+              data: uint8ArrayToDataURL(bytes, mimeType),
+              size: bytes.length,
+              isMain: false,
+            });
+          }
+        }
+        console.log(`[client-import] Extracted ${extractedAssets.length} Voxta assets`);
       }
 
       results.push({
         card,
         fullImageDataUrl,
         thumbnailDataUrl,
+        assets: extractedAssets.length > 0 ? extractedAssets : undefined,
         warnings: warnings.length > 0 ? warnings : undefined,
       });
     }

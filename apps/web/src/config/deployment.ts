@@ -88,7 +88,7 @@ const FULL_CONFIG: DeploymentConfig = {
 const LIGHT_CONFIG: DeploymentConfig = {
   mode: 'light',
   serverFeatures: {
-    webImport: true, // Still works - client fetches everything
+    webImport: false, // Requires server processing - disabled in light mode
     serverRag: false, // Use client-side
     serverLlm: false, // Use direct browser calls
     comfyui: false, // No ComfyUI on VPS
@@ -105,7 +105,7 @@ const LIGHT_CONFIG: DeploymentConfig = {
     wwwyzzerdd: true,
     comfyui: false, // Disabled - no ComfyUI server
     sillytavern: true,
-    webimport: true,
+    webimport: false, // Disabled - requires server processing
     charxOptimizer: true,
     federation: true, // Works client-side
   },
