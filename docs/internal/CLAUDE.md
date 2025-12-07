@@ -66,13 +66,19 @@ card_doctor/
 │           │       └── hooks.ts         # React hooks
 │           └── styles/      # CSS
 ├── packages/
-│   ├── schemas/             # Shared types & Zod validation (CCv2, CCv3, CHARX, Voxta)
-│   ├── utils/               # Binary, base64, ZIP, URI utilities
-│   ├── png/                 # PNG tEXt/zTXt chunk reading/writing
-│   ├── charx/               # CHARX format (ZIP-based CCv3)
-│   ├── voxta/               # Voxta .voxpkg format
-│   ├── tokenizers/          # Token counting
-│   └── plugins/             # Plugin SDK (stub)
+│   ├── defaults/            # Default templates, snippets, presets (Single Source of Truth)
+│   ├── plugins/             # Plugin SDK (stub)
+│   └── utils/               # Card-architect specific utilities
+│
+│   # External @character-foundry/* packages (from GitHub Packages):
+│   # - @character-foundry/schemas - Shared types & validation (CCv2, CCv3, CHARX, Voxta)
+│   # - @character-foundry/core - Binary, base64, ZIP utilities
+│   # - @character-foundry/png - PNG tEXt/zTXt chunk reading/writing
+│   # - @character-foundry/charx - CHARX format (ZIP-based CCv3)
+│   # - @character-foundry/voxta - Voxta .voxpkg format
+│   # - @character-foundry/tokenizers - Token counting
+│   # - @character-foundry/loader - Universal card loader
+│   # - @character-foundry/federation - Federation protocol
 ├── docs/                    # Documentation
 │   ├── CLAUDE.md            # This file - technical context
 │   ├── plugins_plan.md      # Plugin architecture implementation plan
@@ -861,13 +867,21 @@ For complete API endpoint reference and database schema documentation, see **[CL
 - `openai.ts` - OpenAI Responses API and Chat Completions API
 - `anthropic.ts` - Anthropic Messages API (Claude)
 
-### Shared Packages
-- `packages/schemas/src/` - TypeScript types and Zod validation
-- `packages/utils/src/` - Binary, base64, ZIP utilities
-- `packages/png/src/` - PNG chunk operations
-- `packages/charx/src/` - CHARX format handler
-- `packages/voxta/src/` - Voxta format handler
-- `packages/tokenizers/` - Tokenizer adapters (GPT-2-like, LLaMA-like)
+### Local Packages
+- `packages/defaults/` - Default templates, snippets, presets (Single Source of Truth)
+- `packages/plugins/` - Plugin SDK (stub)
+- `packages/utils/` - Card-architect specific utilities
+
+### External Packages (@character-foundry/*)
+These packages are installed from GitHub Packages registry (requires `GITHUB_TOKEN` with `read:packages` scope):
+- `@character-foundry/schemas` - TypeScript types and validation (CCv2, CCv3, CHARX, Voxta)
+- `@character-foundry/core` - Binary, base64, ZIP utilities
+- `@character-foundry/png` - PNG chunk operations
+- `@character-foundry/charx` - CHARX format handler
+- `@character-foundry/voxta` - Voxta format handler
+- `@character-foundry/tokenizers` - Tokenizer adapters
+- `@character-foundry/loader` - Universal card loader
+- `@character-foundry/federation` - Federation protocol
 
 ## Design System
 
@@ -893,6 +907,10 @@ For complete API endpoint reference and database schema documentation, see **[CL
 ```bash
 # Prerequisites: Node.js 20+, npm 10+
 
+# Set up GitHub Packages authentication (required for @character-foundry packages)
+# Create a GitHub Personal Access Token with read:packages scope
+export GITHUB_TOKEN=your_token_here
+
 # Install dependencies
 npm install
 
@@ -903,6 +921,8 @@ npm run dev
 npm run dev:api    # API on http://localhost:3456
 npm run dev:web    # Web UI on http://localhost:5173
 ```
+
+**Note:** The project uses `@character-foundry/*` packages from GitHub Packages registry. The `.npmrc` file is configured to authenticate using the `GITHUB_TOKEN` environment variable.
 
 ### Build Commands
 
@@ -915,12 +935,9 @@ npm run build:api
 npm run build:web
 npm run build:schemas
 
-# Build packages individually
-npm run build -w packages/schemas
+# Build local packages
+npm run build -w packages/defaults
 npm run build -w packages/utils
-npm run build -w packages/png
-npm run build -w packages/charx
-npm run build -w packages/voxta
 
 # Lint all code
 npm run lint

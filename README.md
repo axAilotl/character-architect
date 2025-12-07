@@ -134,6 +134,10 @@ docker run -p 3456:3456 -p 8765:8765 \
 ```bash
 # Prerequisites: Node.js 20+, npm 10+
 
+# Set up GitHub Packages authentication (required for @character-foundry packages)
+# Create a GitHub Personal Access Token with read:packages scope
+export GITHUB_TOKEN=your_token_here
+
 # Install dependencies
 npm install
 
@@ -144,6 +148,8 @@ npm run dev
 # Web UI will run on http://localhost:5173
 ```
 
+**Note:** The project uses `@character-foundry/*` packages from GitHub Packages registry. The `.npmrc` file is configured to authenticate using the `GITHUB_TOKEN` environment variable.
+
 ## Architecture
 
 Card Architect is a monorepo with:
@@ -151,13 +157,20 @@ Card Architect is a monorepo with:
 ```
 /apps/api              # Fastify backend (Node 20 + SQLite)
 /apps/web              # React frontend (Vite + TypeScript + Tailwind)
-/packages/schemas      # Shared TypeScript types + Zod schemas
 /packages/defaults     # Shared default templates, snippets, and presets (Single Source of Truth)
-/packages/charx        # CHARX format reader/writer/validator
-/packages/png          # PNG tEXt/zTXt chunk reading/writing
-/packages/utils        # Binary, base64, ZIP, URI, macro utilities
-/packages/voxta        # Voxta .voxpkg format handling
+/packages/plugins      # Plugin SDK (stub)
+/packages/utils        # Card-architect specific utilities
 ```
+
+**External Dependencies** (from `@character-foundry/*` on GitHub Packages):
+- `@character-foundry/schemas` - Shared TypeScript types + validation
+- `@character-foundry/core` - Core utilities (binary, base64, etc.)
+- `@character-foundry/png` - PNG tEXt/zTXt chunk reading/writing
+- `@character-foundry/charx` - CHARX format reader/writer/validator
+- `@character-foundry/voxta` - Voxta .voxpkg format handling
+- `@character-foundry/tokenizers` - Token counting
+- `@character-foundry/loader` - Universal card loader
+- `@character-foundry/federation` - Federation protocol
 
 ### Tech Stack
 
