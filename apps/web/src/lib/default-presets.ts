@@ -73,7 +73,8 @@ export const defaultPresets: UserPreset[] = [
     id: 'format-jed',
     name: 'Format to JED',
     description: 'Reformat character card content to JED template structure',
-    instruction: 'Reformat the provided character content into the JED (JSON Enhanced Definition) template format. Use these section headers and structure:
+    instruction: 
+      `Reformat the provided character content into the JED (JSON Enhanced Definition) template format. Use these section headers and structure:
 
 # Setting
 - Time Period:
@@ -117,7 +118,7 @@ export const defaultPresets: UserPreset[] = [
 - Quirks:
 - Ticks:
 
-Extract and organize the existing content into these sections. Do not invent new facts. Keep {{char}}/{{user}} placeholders. Output only the reformatted text.',
+Extract and organize the existing content into these sections. Do not invent new facts. Keep {{char}}/{{user}} placeholders. Output only the reformatted text.`,
     category: 'format',
     isBuiltIn: true,
     isHidden: false,
@@ -128,7 +129,8 @@ Extract and organize the existing content into these sections. Do not invent new
     id: 'format-jed-plus',
     name: 'Format to JED+',
     description: 'Reformat character card content to comprehensive JED+ template with Q&A sections',
-    instruction: 'Reformat the provided character content into the JED+ (Extended JSON Enhanced Definition) template format with Q&A sections. Use this structure:
+    instruction: 
+      `Reformat the provided character content into the JED+ (Extended JSON Enhanced Definition) template format with Q&A sections. Use this structure:
 
 # [SETTING]
 - Time/Period:
@@ -207,7 +209,7 @@ A: [Answer based on content]
 
 </{{char}}>
 
-Extract and organize the existing content into these sections. Add Q&A entries where information is available. Do not invent new facts. Keep {{char}}/{{user}} placeholders. Output only the reformatted text.',
+Extract and organize the existing content into these sections. Add Q&A entries where information is available. Do not invent new facts. Keep {{char}}/{{user}} placeholders. Output only the reformatted text.`,
     category: 'format',
     isBuiltIn: true,
     isHidden: false,
@@ -229,13 +231,7 @@ Extract and organize the existing content into these sections. Add Q&A entries w
     id: 'gen-lorebook',
     name: 'Generate Lorebook Entry',
     description: 'Propose a lorebook entry for this content',
-    instruction: 'Propose a lorebook entry for this content. Return as JSON:\n{\n  "keys": ["key1", "key2"],
-  "secondaryKeys": [],
-  "content": "entry content",
-  "priority": 10,
-  "insertionOrder": 100,
-  "position": "after_char"
-}',
+    instruction: 'Propose a lorebook entry for this content. Return as JSON:\n{\n  "keys": ["key1", "key2"],\n  "secondaryKeys": [],\n  "content": "entry content",\n  "priority": 10,\n  "insertionOrder": 100,\n  "position": "after_char"\n}',
     category: 'generate',
     isBuiltIn: true,
     isHidden: false,
