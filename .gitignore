@@ -48,7 +48,7 @@ coverage/
 testing/
 
 # Documentation (keep local only)
-docs/
+# docs/
 AGENTS.md
 
 # Temporary
