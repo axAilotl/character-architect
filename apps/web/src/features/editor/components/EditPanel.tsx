@@ -6,7 +6,7 @@ import { useLLMStore } from '../../../store/llm-store';
 import { localDB } from '../../../lib/db';
 import { getDeploymentConfig } from '../../../config/deployment';
 import { invokeClientLLM, type ClientLLMProvider } from '../../../lib/client-llm';
-import { normalizeSpec, type CCFieldName, type FocusField, type Template, type Snippet } from '../../../lib/types';
+import { normalizeSpec, type FocusField, type Template, type Snippet } from '../../../lib/types';
 import { FieldEditor } from './FieldEditor';
 import { LorebookEditor } from './LorebookEditor';
 import { ElaraVossPanel } from './ElaraVossPanel';
@@ -32,7 +32,7 @@ export function EditPanel() {
   const [generatingTagline, setGeneratingTagline] = useState(false);
 
   const [llmAssistOpen, setLLMAssistOpen] = useState(false);
-  const [llmAssistField, setLLMAssistField] = useState<CCFieldName>('description');
+  const [llmAssistField, setLLMAssistField] = useState<string>('description');
   const [llmAssistValue, setLLMAssistValue] = useState('');
 
   const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -98,13 +98,106 @@ export function EditPanel() {
     }
   };
 
-  const handleOpenLLMAssist = (fieldName: CCFieldName, value: string) => {
+  // Get depth_prompt extension data
+  const depthPrompt = (cardData as any).extensions?.depth_prompt;
+  const characterNoteValue = depthPrompt?.prompt || '';
+  const characterNoteDepth = depthPrompt?.depth ?? 4;
+
+  // Get appearance from voxta or visual_description extension
+  const getAppearance = () => {
+    const extensions = (cardData as any).extensions || {};
+    if (extensions.voxta?.appearance) return extensions.voxta.appearance;
+    if (extensions.visual_description) return extensions.visual_description;
+    return '';
+  };
+
+  const setAppearance = (value: string) => {
+    const existingExtensions = (cardData as any).extensions || {};
+    const extensions = { ...existingExtensions };
+    // Prefer voxta extension if it exists, otherwise use visual_description
+    if (extensions.voxta) {
+      extensions.voxta = { ...extensions.voxta, appearance: value };
+    } else {
+      extensions.visual_description = value;
+    }
+    handleFieldChange('extensions', extensions);
+  };
+
+  const handleCharacterNoteChange = (value: string) => {
+    const existingExtensions = (cardData as any).extensions || {};
+    const extensions = { ...existingExtensions };
+    extensions.depth_prompt = {
+      ...(extensions.depth_prompt || {}),
+      prompt: value,
+      depth: characterNoteDepth,
+      role: 'system',
+    };
+    handleFieldChange('extensions', extensions);
+  };
+
+  const handleCharacterNoteDepthChange = (depth: number) => {
+    const existingExtensions = (cardData as any).extensions || {};
+    const extensions = { ...existingExtensions };
+    extensions.depth_prompt = {
+      ...(extensions.depth_prompt || {}),
+      prompt: characterNoteValue,
+      depth,
+      role: 'system',
+    };
+    handleFieldChange('extensions', extensions);
+  };
+
+  // Get extensions for display (filtered)
+  const getFilteredExtensions = () => {
+    const existingExtensions = (cardData as any).extensions || {};
+    const extensions = { ...existingExtensions };
+    // Remove handled extensions
+    const filtered = { ...extensions };
+    delete filtered.depth_prompt;
+    delete filtered.visual_description;
+    // Keep voxta but remove appearance if showing separately
+    if (filtered.voxta) {
+      const voxtaCopy = { ...filtered.voxta };
+      delete voxtaCopy.appearance;
+      if (Object.keys(voxtaCopy).length === 0) {
+        delete filtered.voxta;
+      } else {
+        filtered.voxta = voxtaCopy;
+      }
+    }
+    return filtered;
+  };
+
+  const handleOpenLLMAssist = (fieldName: string, value: string) => {
     setLLMAssistField(fieldName);
     setLLMAssistValue(value);
     setLLMAssistOpen(true);
   };
 
   const handleLLMApply = (value: string, action: 'replace' | 'append' | 'insert') => {
+    if (llmAssistField === 'appearance') {
+      if (action === 'replace') setAppearance(value);
+      else if (action === 'append') setAppearance(getAppearance() + '\n' + value);
+      return;
+    }
+
+    if (llmAssistField === 'character_note') {
+      if (action === 'replace') handleCharacterNoteChange(value);
+      else if (action === 'append') handleCharacterNoteChange(characterNoteValue + '\n' + value);
+      return;
+    }
+
+    if (llmAssistField.startsWith('alternate_greetings:')) {
+      const index = parseInt(llmAssistField.split(':')[1], 10);
+      if (!isNaN(index) && cardData.alternate_greetings) {
+        const updated = [...cardData.alternate_greetings];
+        if (action === 'replace') updated[index] = value;
+        else if (action === 'append') updated[index] = updated[index] + '\n' + value;
+        handleFieldChange('alternate_greetings', updated);
+      }
+      return;
+    }
+
     if (action === 'replace') {
       handleFieldChange(llmAssistField, value);
     } else if (action === 'append') {
@@ -308,75 +401,7 @@ export function EditPanel() {
     }
   };
 
-  // Get depth_prompt extension data
-  const depthPrompt = (cardData as any).extensions?.depth_prompt;
-  const characterNoteValue = depthPrompt?.prompt || '';
-  const characterNoteDepth = depthPrompt?.depth ?? 4;
 
-  // Get appearance from voxta or visual_description extension
-  const getAppearance = () => {
-    const extensions = (cardData as any).extensions || {};
-    if (extensions.voxta?.appearance) return extensions.voxta.appearance;
-    if (extensions.visual_description) return extensions.visual_description;
-    return '';
-  };
-
-  const setAppearance = (value: string) => {
-    const existingExtensions = (cardData as any).extensions || {};
-    const extensions = { ...existingExtensions };
-    // Prefer voxta extension if it exists, otherwise use visual_description
-    if (extensions.voxta) {
-      extensions.voxta = { ...extensions.voxta, appearance: value };
-    } else {
-      extensions.visual_description = value;
-    }
-    handleFieldChange('extensions', extensions);
-  };
-
-  const handleCharacterNoteChange = (value: string) => {
-    const existingExtensions = (cardData as any).extensions || {};
-    const extensions = { ...existingExtensions };
-    extensions.depth_prompt = {
-      ...(extensions.depth_prompt || {}),
-      prompt: value,
-      depth: characterNoteDepth,
-      role: 'system',
-    };
-    handleFieldChange('extensions', extensions);
-  };
-
-  const handleCharacterNoteDepthChange = (depth: number) => {
-    const existingExtensions = (cardData as any).extensions || {};
-    const extensions = { ...existingExtensions };
-    extensions.depth_prompt = {
-      ...(extensions.depth_prompt || {}),
-      prompt: characterNoteValue,
-      depth,
-      role: 'system',
-    };
-    handleFieldChange('extensions', extensions);
-  };
-
-  // Get extensions for display (filtered)
-  const getFilteredExtensions = () => {
-    const existingExtensions = (cardData as any).extensions || {};
-    const extensions = { ...existingExtensions };
-    // Remove handled extensions
-    const filtered = { ...extensions };
-    delete filtered.depth_prompt;
-    delete filtered.visual_description;
-    // Keep voxta but remove appearance if showing separately
-    if (filtered.voxta) {
-      const voxtaCopy = { ...filtered.voxta };
-      delete voxtaCopy.appearance;
-      if (Object.keys(voxtaCopy).length === 0) {
-        delete filtered.voxta;
-      } else {
-        filtered.voxta = voxtaCopy;
-      }
-    }
-    return filtered;
-  };
 
   const ASSIST_WIDTH_PX = 500;
   const ASSIST_GAP_PX = 24;
@@ -751,7 +776,7 @@ export function EditPanel() {
                     📄
                   </button>
                   <button
-                    onClick={() => handleOpenLLMAssist('description', getAppearance())}
+                    onClick={() => handleOpenLLMAssist('appearance', getAppearance())}
                     className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                     title="AI Assist"
                   >
@@ -825,7 +850,7 @@ export function EditPanel() {
                         📄
                       </button>
                       <button
-                        onClick={() => handleOpenLLMAssist('first_mes', greeting)}
+                        onClick={() => handleOpenLLMAssist(`alternate_greetings:${index}`, greeting)}
                         className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                         title="AI Assist"
                       >
@@ -995,7 +1020,7 @@ export function EditPanel() {
                     📄
                   </button>
                   <button
-                    onClick={() => handleOpenLLMAssist('description', characterNoteValue)}
+                    onClick={() => handleOpenLLMAssist('character_note', characterNoteValue)}
                     className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                     title="AI Assist"
                   >

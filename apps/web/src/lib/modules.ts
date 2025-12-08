@@ -20,6 +20,8 @@ import { useSettingsStore } from '../store/settings-store';
 import { registry } from './registry';
 import type { ModuleDefinition } from './registry/types';
 import { getModuleDefault, deploymentConfig } from '../config/deployment';
+import { registerCoreTabs } from '../features/editor/tabs';
+import { registerCoreSettingsPanels } from '../features/settings/index';
 
 /**
  * Auto-discover all modules using Vite's glob import
@@ -122,8 +124,8 @@ const loadedModules = new Set<string>();
  * Load core features (always loaded)
  */
 async function loadCoreFeatures(): Promise<void> {
-  const { registerCoreTabs } = await import('../features/editor/tabs');
   registerCoreTabs();
+  registerCoreSettingsPanels();
 }
 
 /**

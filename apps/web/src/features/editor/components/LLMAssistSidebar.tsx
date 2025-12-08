@@ -10,7 +10,6 @@ import { getDeploymentConfig } from '../../../config/deployment';
 import { invokeClientLLM, type ClientLLMProvider } from '../../../lib/client-llm';
 import type {
   FieldContext,
-  CCFieldName,
   LLMAssistResponse,
   LLMStreamChunk,
   RagSnippet,
@@ -22,7 +21,7 @@ import { defaultPresets as DEFAULT_PRESETS } from '../../../lib/default-presets'
 interface LLMAssistSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  fieldName: CCFieldName;
+  fieldName: string;
   currentValue: string;
   selection?: string;
   onApply: (value: string, action: 'replace' | 'append' | 'insert') => void;
