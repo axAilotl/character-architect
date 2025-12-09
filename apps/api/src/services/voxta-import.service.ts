@@ -252,18 +252,15 @@ export class VoxtaImportService {
       data: ccv3Data as any, // Type assertion needed due to schema strictness
     });
 
-    // Import Thumbnail if present - this becomes the main icon
+    // Import Thumbnail if present - save as card image only
+    // Do NOT create asset - main icon asset is only created during CHARX export
     if (char.thumbnail) {
-      // Save as main card image (for PNG export)
       this.cardRepo.updateImage(card.meta.id, char.thumbnail);
-
-      // Also save as a card asset with isMain: true (for CHARX export)
-      await this.importThumbnailAsMainIcon(card.meta.id, char.thumbnail);
     }
 
     // Import Assets
     if (char.assets && char.assets.length > 0) {
-      const assetDescriptors = await this.importAssets(card.meta.id, char.assets, !!char.thumbnail);
+      const assetDescriptors = await this.importAssets(card.meta.id, char.assets);
 
       // Update card with assets list so frontend sees them in the JSON blob
       ccv3Data.data.assets = assetDescriptors;
@@ -421,11 +418,9 @@ export class VoxtaImportService {
 
   /**
    * Import Assets for a card
-   * @param hasThumbnail - If true, start order at 1 (thumbnail is order 0)
    */
-  private async importAssets(cardId: string, assets: ExtractedVoxtaAsset[], hasThumbnail: boolean = false): Promise<any[]> {
-    // Start at 1 if thumbnail already imported as order 0
-    let orderCounter = hasThumbnail ? 1 : 0;
+  private async importAssets(cardId: string, assets: ExtractedVoxtaAsset[]): Promise<any[]> {
+    let orderCounter = 0;
     const descriptors: any[] = [];
 
     for (const asset of assets) {
