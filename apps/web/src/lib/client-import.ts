@@ -304,9 +304,18 @@ async function processVoxtaCharacter(
 
   // Extract assets from Voxta package
   const extractedAssets: ExtractedAsset[] = [];
+  console.log(`[client-import] charData.assets:`, charData.assets);
+  console.log(`[client-import] charData.assets type:`, typeof charData.assets);
+  console.log(`[client-import] charData.assets isArray:`, Array.isArray(charData.assets));
+  console.log(`[client-import] charData.assets length:`, charData.assets?.length);
   if (charData.assets && charData.assets.length > 0) {
     console.log(`[client-import] Extracting ${charData.assets.length} assets from Voxta character ${charData.data.Name}`);
+    console.log(`[client-import] First asset:`, charData.assets[0]);
+    console.log(`[client-import] First asset path:`, charData.assets[0]?.path);
+    console.log(`[client-import] First asset buffer:`, charData.assets[0]?.buffer);
+    console.log(`[client-import] First asset buffer type:`, charData.assets[0]?.buffer?.constructor?.name);
     for (const asset of charData.assets) {
+      console.log(`[client-import] Processing asset: path=${asset.path}, hasBuffer=${!!asset.buffer}`);
       if (asset.buffer) {
         // Get extension from path
         const pathParts = asset.path.split('/');
