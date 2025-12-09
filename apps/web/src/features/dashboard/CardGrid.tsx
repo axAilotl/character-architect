@@ -16,7 +16,7 @@ interface CardGridProps {
 }
 
 type SortOption = 'edited' | 'newest' | 'oldest' | 'name';
-type FilterOption = 'all' | 'voxta' | 'charx' | 'v3' | 'v2';
+type FilterOption = 'all' | 'collection' | 'voxta' | 'charx' | 'v3' | 'v2';
 
 const CARDS_PER_PAGE = 50;
 
@@ -293,7 +293,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
               return;
             }
 
-            // Import all characters from the package
+            // Import all characters from the package (includes collection card if multi-character)
             for (const result of results) {
               await localDB.saveCard(result.card);
               if (result.fullImageDataUrl) {
@@ -301,6 +301,29 @@ export function CardGrid({ onCardClick }: CardGridProps) {
               }
               if (result.thumbnailDataUrl) {
                 await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+              }
+              // Save assets (including original-package for collections)
+              console.log(`[CardGrid] Card ${result.card.meta.name} has ${result.assets?.length || 0} assets to save`);
+              if (result.assets && result.assets.length > 0) {
+                for (const asset of result.assets) {
+                  console.log(`[CardGrid] Saving asset: ${asset.name}.${asset.ext} (${asset.type}) for card ${result.card.meta.id}`);
+                  await localDB.saveAsset({
+                    id: crypto.randomUUID(),
+                    cardId: result.card.meta.id,
+                    name: asset.name,
+                    type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                    ext: asset.ext,
+                    mimetype: asset.mimetype,
+                    size: asset.size,
+                    width: asset.width,
+                    height: asset.height,
+                    data: asset.data,
+                    isMain: asset.isMain ?? false,
+                    tags: [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  });
+                }
               }
             }
 
@@ -347,6 +370,27 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 if (result.thumbnailDataUrl) {
                   await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
                 }
+                // Save assets (including original-package for collections)
+                if (result.assets && result.assets.length > 0) {
+                  for (const asset of result.assets) {
+                    await localDB.saveAsset({
+                      id: crypto.randomUUID(),
+                      cardId: result.card.meta.id,
+                      name: asset.name,
+                      type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                      ext: asset.ext,
+                      mimetype: asset.mimetype,
+                      size: asset.size,
+                      width: asset.width,
+                      height: asset.height,
+                      data: asset.data,
+                      isMain: asset.isMain ?? false,
+                      tags: [],
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                  }
+                }
                 successCount++;
               }
               continue;
@@ -359,6 +403,27 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             }
             if (result.thumbnailDataUrl) {
               await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+            }
+            // Save assets for regular imports too
+            if (result.assets && result.assets.length > 0) {
+              for (const asset of result.assets) {
+                await localDB.saveAsset({
+                  id: crypto.randomUUID(),
+                  cardId: result.card.meta.id,
+                  name: asset.name,
+                  type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                  ext: asset.ext,
+                  mimetype: asset.mimetype,
+                  size: asset.size,
+                  width: asset.width,
+                  height: asset.height,
+                  data: asset.data,
+                  isMain: asset.isMain ?? false,
+                  tags: [],
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }
             }
             successCount++;
           } catch (err) {
@@ -632,6 +697,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     // Apply type filter
     if (filterBy !== 'all') {
       filtered = filtered.filter(card => {
+        if (filterBy === 'collection') return card.meta.spec === 'collection';
         const cardType = getCardType(card);
         if (filterBy === 'voxta') return cardType === 'voxta';
         if (filterBy === 'charx') return cardType === 'charx';
@@ -809,6 +875,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
               >
                 <option value="all">All Types</option>
+                <option value="collection">Collections</option>
                 <option value="voxta">Voxta</option>
                 <option value="charx">CharX</option>
                 <option value="v3">V3 (Standard)</option>
@@ -979,13 +1046,15 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                       )}
                       <span
                         className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          card.meta.spec === 'v3'
+                          card.meta.spec === 'collection'
+                            ? 'bg-purple-600/20 text-purple-300'
+                            : card.meta.spec === 'v3'
                             ? 'bg-emerald-600/20 text-emerald-300'
                             : 'bg-amber-600/20 text-amber-300'
                         }`}
-                        title={`Character Card ${card.meta.spec.toUpperCase()} Format`}
+                        title={card.meta.spec === 'collection' ? 'Voxta Collection' : `Character Card ${card.meta.spec.toUpperCase()} Format`}
                       >
-                        {card.meta.spec.toUpperCase()}
+                        {card.meta.spec === 'collection' ? 'COLLECTION' : card.meta.spec.toUpperCase()}
                       </span>
                     </div>
                   </div>
