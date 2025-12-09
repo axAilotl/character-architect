@@ -370,7 +370,19 @@ async function processVoxtaCharacter(
 export async function importVoxtaPackageClientSide(buffer: Uint8Array): Promise<ClientImportResult[]> {
   try {
     console.log('[client-import] Starting Voxta package import, buffer size:', buffer.length);
+    console.log('[client-import] @character-foundry/voxta readVoxta function:', typeof extractVoxtaPackage);
     const voxtaData = extractVoxtaPackage(buffer);
+    console.log('[client-import] Raw voxtaData.characters[0]:', voxtaData.characters[0] ? {
+      id: voxtaData.characters[0].id,
+      name: voxtaData.characters[0].data?.Name,
+      hasAssets: !!voxtaData.characters[0].assets,
+      assetsLength: voxtaData.characters[0].assets?.length,
+      assetSample: voxtaData.characters[0].assets?.[0] ? {
+        path: voxtaData.characters[0].assets[0].path,
+        hasBuffer: !!voxtaData.characters[0].assets[0].buffer,
+        bufferType: voxtaData.characters[0].assets[0].buffer?.constructor?.name,
+      } : null,
+    } : 'no characters');
     console.log('[client-import] Voxta data extracted:', {
       characterCount: voxtaData.characters.length,
       bookCount: voxtaData.books.length,
@@ -397,10 +409,15 @@ export async function importVoxtaPackageClientSide(buffer: Uint8Array): Promise<
 
       for (let i = 0; i < voxtaData.characters.length; i++) {
         const charData = voxtaData.characters[i];
+        console.log(`[client-import] Character ${i}: ${charData.data.Name}, assets count: ${charData.assets?.length || 0}`);
+        if (charData.assets && charData.assets.length > 0) {
+          console.log(`[client-import] Character ${charData.data.Name} asset paths:`, charData.assets.map(a => a.path));
+        }
         const result = await processVoxtaCharacter(
           charData as Parameters<typeof processVoxtaCharacter>[0],
           voxtaData.books as Parameters<typeof processVoxtaCharacter>[1]
         );
+        console.log(`[client-import] Character ${charData.data.Name} processed, extracted assets: ${result.assets?.length || 0}`);
         characterResults.push(result);
 
         // Build member info for collection using actual card IDs
