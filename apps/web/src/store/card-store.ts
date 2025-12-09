@@ -551,13 +551,16 @@ export const useCardStore = create<CardStore>((set, get) => ({
     if (!currentCard || !currentCard.meta.id) return;
 
     // Save before exporting to ensure DB has latest data
-    try {
-      await get().saveCard();
-      // Small delay to ensure database write completes
-      await new Promise(resolve => setTimeout(resolve, 150));
-    } catch (err) {
-      alert(`Failed to save card before export: ${err}`);
-      return;
+    // Skip save for collection cards - they have different structure and don't need character validation
+    if (currentCard.meta.spec !== 'collection') {
+      try {
+        await get().saveCard();
+        // Small delay to ensure database write completes
+        await new Promise(resolve => setTimeout(resolve, 150));
+      } catch (err) {
+        alert(`Failed to save card before export: ${err}`);
+        return;
+      }
     }
 
     const config = getDeploymentConfig();
