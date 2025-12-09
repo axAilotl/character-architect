@@ -332,14 +332,17 @@ export async function buildVoxtaPackage(
   let totalSaved = 0;
 
   // Filter assets by included types (empty array = include all)
+  // IMPORTANT: Exclude main icon from Voxta exports - Voxta uses thumbnail.xxx at character root
+  // The main icon is only for CHARX/PNG exports, not Voxta Assets folder
   const includedTypes = options.optimization?.includedAssetTypes || [];
-  const filteredAssets = includedTypes.length > 0
-    ? assets.filter(a => {
-        // Always include main icon regardless of filter
-        if (a.type === 'icon' && (a.isMain || a.name === 'main')) return true;
-        return includedTypes.includes(a.type);
-      })
-    : assets;
+  const filteredAssets = assets.filter(a => {
+    // Skip main icon - Voxta handles thumbnail separately, not in Assets folder
+    if (a.type === 'icon' && (a.isMain || a.name === 'main')) return false;
+    // If no type filter, include everything else
+    if (includedTypes.length === 0) return true;
+    // Apply type filter
+    return includedTypes.includes(a.type);
+  });
 
   if (includedTypes.length > 0) {
     console.log(`[Voxta Build] Filtering assets: including types [${includedTypes.join(', ')}], ${filteredAssets.length}/${assets.length} assets`);
