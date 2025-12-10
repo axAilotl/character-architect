@@ -13,7 +13,7 @@ import type { FastifyInstance } from 'fastify';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-const INTERNAL_FIXTURES_DIR = '/mnt/samesung/ai/card_doctor/docs/internal/testing';
+const INTERNAL_FIXTURES_DIR = join(__dirname, '../../../../docs/internal/testing');
 const ADELINE_PNG = join(INTERNAL_FIXTURES_DIR, 'Adeline.png');
 
 describe('PNG → Voxta Export Bug', () => {

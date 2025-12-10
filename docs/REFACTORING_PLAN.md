@@ -9,6 +9,55 @@
 
 ## Latest Updates
 
+### December 10, 2024 (Continued)
+- **Phase 2.2: Format Handler Pattern - COMPLETED** ✅
+  - Created modular format handler architecture:
+    - `apps/api/src/handlers/types.ts` - Central type definitions for handlers
+    - `apps/api/src/handlers/format-handler.ts` - Base interface and abstract class
+    - `apps/api/src/handlers/png-handler.ts` - PNG format handler (254 lines)
+    - `apps/api/src/handlers/json-handler.ts` - JSON format handler (268 lines)
+    - `apps/api/src/handlers/charx-handler.ts` - CHARX format handler (340 lines)
+    - `apps/api/src/handlers/voxta-handler.ts` - Voxta package handler (264 lines)
+    - `apps/api/src/handlers/index.ts` - Handler registry with format detection (216 lines)
+    - `apps/api/src/handlers/utils/normalization.ts` - Extracted normalization utilities
+  - Refactored `import-export.ts`:
+    - Removed duplicate `normalizeCardData` and `normalizeLorebookEntries` functions
+    - Now imports from centralized `handlers/` module
+    - Re-exports for backwards compatibility
+  - **Results:**
+    - Format detection now modular and extensible
+    - Each handler self-contained with import/export logic
+    - Registry provides unified interface for format operations
+    - Adding new formats: implement interface + register
+  - All builds passing ✅
+
+### December 10, 2024 (Early Morning)
+- **Phase 3.1: Schema-Driven EditPanel - COMPLETED** ✅
+  - Created schema-driven architecture for field rendering:
+    - `apps/web/src/features/editor/config/field-definitions.ts` (584 lines)
+      - Type-safe field definitions for all CCv2/CCv3 fields
+      - Tab organization: basic, character, greetings, advanced
+      - Spec visibility controls (V2, V3, extensions)
+      - Token counting, LLM assist, templates integration
+    - `apps/web/src/features/editor/components/FieldRenderer.tsx` (635 lines)
+      - Reusable field components: text, textarea, number, tags, array, map, extension, readonly
+      - Unified header with badges, token counts, action buttons
+      - Consistent styling and behavior
+    - `apps/web/src/features/editor/components/DynamicField.tsx` (464 lines)
+      - Data binding between field definitions and card data
+      - Special handling for appearance, character_note, tagline
+      - AI generation for tags and tagline
+    - `apps/web/src/features/editor/components/EditPanelV2.tsx` (608 lines)
+      - Tab content generated from field definitions
+      - Integrated LLM assist sidebar and templates panel
+      - Maintains full backward compatibility
+  - **Results:**
+    - EditPanel component: 1,235 → 608 lines (-51%)
+    - Adding a new field: ~15 lines config vs multiple file edits
+    - Field rendering now consistent and testable
+    - Easy to extend with new field types
+  - All builds passing ✅
+
 ### December 9, 2024 (Night - Continued)
 - **Phase 1: Security Hardening - COMPLETED** ✅
   - Created `apps/api/src/utils/ssrf-protection.ts`:
@@ -1658,12 +1707,22 @@ describe('CardNormalizer', () => {
 |-------|--------|-------|
 | 0 - Primitives | ISSUES FILED | #6-#9 awaiting review. Scenario support in progress. |
 | 1 - Security | **COMPLETE** ✅ | CORS, rate limiting, SSRF protection implemented |
-| 2 - Backend | BLOCKED | Waiting on Phase 0 primitives (CardNormalizer, etc.) |
-| 3 - Frontend | **3.2 COMPLETE** | Persistence Adapter done. Other tasks blocked on primitives. |
+| 2 - Backend | **2.2 COMPLETE** ✅ | Format Handler Pattern done; 2.1 CardService blocked on primitives |
+| 3 - Frontend | **3.1+3.2 COMPLETE** ✅ | Schema-driven EditPanel + Persistence Adapter done |
 | 4 - Infrastructure | NOT STARTED | Depends on Phase 2/3 |
 | 5 - Cleanup | PARTIAL | ComfyUI done. Voxta scenario fix ON HOLD. |
 
-### Completed This Session (Phase 3.2: Persistence Adapter)
+### Completed This Session (Phase 3.1: Schema-Driven EditPanel)
+
+Files created:
+- `apps/web/src/features/editor/config/field-definitions.ts` - Type-safe field definitions (584 lines)
+- `apps/web/src/features/editor/components/FieldRenderer.tsx` - Reusable field components (635 lines)
+- `apps/web/src/features/editor/components/DynamicField.tsx` - Data binding logic (464 lines)
+- `apps/web/src/features/editor/components/EditPanelV2.tsx` - New schema-driven panel (608 lines)
+
+**Result:** EditPanel component reduced from 1,235 to 608 lines (-51%)
+
+### Completed Previous Session (Phase 3.2: Persistence Adapter)
 
 Files created:
 - `apps/web/src/adapters/persistence/types.ts` - Interface definition (160 lines)
@@ -1694,16 +1753,16 @@ Files created:
    - ⏸️ Upload security - DEFERRED (local storage)
    - 🔧 Federation default OFF - TODO (add config flag)
 
-2. **Phase 3.1: Schema-Driven EditPanel** - ✅ UNBLOCKED, HIGH PRIORITY
-   - Refactor 800+ line EditPanel.tsx to config-driven forms
-   - Create field definitions for all CCv2/CCv3 fields
-   - Implement FieldRenderer and DynamicField components
-   - Expected: ~80% code reduction
+2. ~~**Phase 3.1: Schema-Driven EditPanel**~~ ✅ **COMPLETED Dec 10, 2024**
+   - Created schema-driven field rendering architecture
+   - Field definitions in `config/field-definitions.ts`
+   - Reusable `FieldRenderer` and `DynamicField` components
+   - **Result:** EditPanel 1,235 → 608 lines (-51%)
 
-3. **Phase 2.2: Format Handler Pattern** - Can start now (doesn't need primitives)
-   - Break up `import-export.ts` (1,985 lines) into modular handlers
-   - Create handler interface and registry
-   - Extract PNG, CHARX, JSON handlers
+3. ~~**Phase 2.2: Format Handler Pattern**~~ ✅ **COMPLETED Dec 10, 2024**
+   - Created modular handler architecture in `apps/api/src/handlers/`
+   - Handler registry with format detection
+   - PNG, JSON, CHARX, Voxta handlers implemented
 
 4. ~~**Phase 3.2: Persistence Adapter**~~ ✅ **COMPLETED**
    - Adapter interface + ServerAdapter + LocalAdapter created
@@ -1796,14 +1855,16 @@ Files created:
   - [ ] Implement importCard
   - [ ] Write unit tests
   - [ ] Write integration tests
-- [ ] 2.2 Format Handler Pattern
-  - [ ] Design handler interface
-  - [ ] Implement PngHandler
-  - [ ] Implement CharxHandler
-  - [ ] Implement VoxtaHandler
-  - [ ] Implement JsonHandler
-  - [ ] Implement handler registry
-  - [ ] Write tests
+- [x] 2.2 Format Handler Pattern ✅ **COMPLETED Dec 10, 2024**
+  - [x] Design handler interface (`format-handler.ts`, `types.ts`)
+  - [x] Implement PngHandler (`png-handler.ts` - 254 lines)
+  - [x] Implement CharxHandler (`charx-handler.ts` - 340 lines)
+  - [x] Implement VoxtaHandler (`voxta-handler.ts` - 264 lines)
+  - [x] Implement JsonHandler (`json-handler.ts` - 268 lines)
+  - [x] Implement handler registry (`index.ts` - 216 lines)
+  - [x] Extract normalization utilities (`utils/normalization.ts`)
+  - [x] Refactor import-export.ts to use handlers
+  - [ ] Write tests (future)
 - [ ] 2.3 Migrate Existing Logic
   - [ ] Write behavior tests for current code
   - [ ] Extract to handlers
@@ -1811,13 +1872,13 @@ Files created:
   - [ ] Remove old code
 
 #### Phase 3: Frontend Consolidation
-- [ ] 3.1 Schema-Driven EditPanel
-  - [ ] Design field definition schema
-  - [ ] Create field definitions for all fields
-  - [ ] Implement FieldRenderer
-  - [ ] Implement DynamicField
-  - [ ] Refactor EditPanel
-  - [ ] Write tests
+- [x] 3.1 Schema-Driven EditPanel ✅ **COMPLETED Dec 10, 2024**
+  - [x] Design field definition schema (`config/field-definitions.ts`)
+  - [x] Create field definitions for all fields (basic, character, greetings, advanced tabs)
+  - [x] Implement FieldRenderer (text, textarea, number, tags, array, map, extension, readonly)
+  - [x] Implement DynamicField (data binding, special field handling, AI generation)
+  - [x] Refactor EditPanel → EditPanelV2 (1,235 → 608 lines, -51%)
+  - [ ] Write tests (future)
 - [x] 3.2 Persistence Adapter ✅ **COMPLETED Dec 9, 2024**
   - [x] Design adapter interface (`types.ts`)
   - [x] Implement ServerAdapter (`server-adapter.ts`)
@@ -1884,11 +1945,14 @@ Files created:
 | `apps/api/src/utils/url-validator.ts` | 1 | 150 |
 | `apps/api/src/utils/upload-validator.ts` | 1 | 100 |
 | `apps/api/src/services/card.service.ts` | 2 | 300 |
-| `apps/api/src/handlers/format-handler.interface.ts` | 2 | 50 |
-| `apps/api/src/handlers/png-handler.ts` | 2 | 150 |
-| `apps/api/src/handlers/charx-handler.ts` | 2 | 200 |
-| `apps/api/src/handlers/voxta-handler.ts` | 2 | 200 |
-| `apps/api/src/handlers/json-handler.ts` | 2 | 100 |
+| `apps/api/src/handlers/types.ts` | 2 | 150 ✅ |
+| `apps/api/src/handlers/format-handler.ts` | 2 | 100 ✅ |
+| `apps/api/src/handlers/png-handler.ts` | 2 | 254 ✅ |
+| `apps/api/src/handlers/charx-handler.ts` | 2 | 340 ✅ |
+| `apps/api/src/handlers/voxta-handler.ts` | 2 | 264 ✅ |
+| `apps/api/src/handlers/json-handler.ts` | 2 | 268 ✅ |
+| `apps/api/src/handlers/index.ts` | 2 | 216 ✅ |
+| `apps/api/src/handlers/utils/normalization.ts` | 2 | 100 ✅ |
 | `apps/web/src/features/editor/config/field-definitions.ts` | 3 | 200 |
 | `apps/web/src/features/editor/components/FieldRenderer.tsx` | 3 | 150 |
 | `apps/web/src/adapters/persistence/index.ts` | 3 | 50 |

@@ -52,10 +52,10 @@
   "dependencies": {
     "@character-foundry/charx": "0.0.3-security.0",
     "@character-foundry/core": "0.0.2-security.0",
-    "@character-foundry/federation": "0.1.2-security.0",
-    "@character-foundry/loader": "0.1.5-security.0",
+    "@character-foundry/federation": "^0.1.4-security.0",
+    "@character-foundry/loader": "^0.1.6-security.0",
     "@character-foundry/png": "0.0.3-security.0",
-    "@character-foundry/voxta": "0.1.5-security.0",
+    "@character-foundry/voxta": "^0.1.6-security.0",
     "@types/uuid": "^10.0.0",
     "uuid": "^13.0.0"
   }

@@ -10,5 +10,9 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
     },
+    // Disable rate limiting during tests
+    env: {
+      RATE_LIMIT_ENABLED: 'false',
+    },
   },
 });

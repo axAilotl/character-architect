@@ -3,7 +3,7 @@ import { CardRepository, CardAssetRepository } from '../db/repository.js';
 import { type CCv2Data, type CCv3Data } from '@character-foundry/schemas';
 import { validateV2, validateV3 } from '../utils/validation.js';
 import type { CardMeta } from '../types/index.js';
-import { normalizeLorebookEntries } from './import-export.js';
+import { normalizeLorebookEntries } from '../handlers/index.js';
 
 export async function cardRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);

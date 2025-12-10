@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 
-const TESTING_DIR = join(__dirname, '../../../../testing');
+const TESTING_DIR = join(__dirname, '../../../../docs/internal/testing');
 
 describe('Format Interoperability', () => {
   let app: FastifyInstance;
@@ -2301,8 +2301,19 @@ here.`,
 
         expect([200, 201]).toContain(voxtaImportResponse.statusCode);
         const voxtaImportBody = JSON.parse(voxtaImportResponse.body);
-        const voxtaCard = voxtaImportBody.cards?.[0] || voxtaImportBody.card;
-        createdCardIds.push(voxtaCard.meta.id);
+        // Handle collection cards - if first card is collection, use the second (member character)
+        let voxtaCard = voxtaImportBody.cards?.[0] || voxtaImportBody.card;
+        if (voxtaCard?.meta?.spec === 'collection' && voxtaImportBody.cards?.length > 1) {
+          voxtaCard = voxtaImportBody.cards[1];
+        }
+        // Track all created cards for cleanup
+        if (voxtaImportBody.cards) {
+          for (const c of voxtaImportBody.cards) {
+            createdCardIds.push(c.meta.id);
+          }
+        } else if (voxtaCard?.meta?.id) {
+          createdCardIds.push(voxtaCard.meta.id);
+        }
 
         // Upload image for CHARX export (Voxta import may not have icon asset)
         const testImageForCharx = await createTestImage();
@@ -2716,7 +2727,8 @@ here.`,
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.body).toContain('No character card data found');
+      // Error can be either message depending on the extraction path
+      expect(response.body).toMatch(/No (character card data|text chunks) found/);
     });
 
     it('should preserve position field normalization', async () => {

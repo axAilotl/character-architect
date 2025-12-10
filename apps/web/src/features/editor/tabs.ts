@@ -10,7 +10,9 @@ import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
 
 // Eager-loaded core components (small, always needed)
-import { EditPanel } from './components/EditPanel';
+// Note: EditPanelV2 is the new schema-driven version for testing
+// import { EditPanel } from './components/EditPanel';
+import { EditPanelV2 as EditPanel } from './components/EditPanelV2';
 
 // Lazy-loaded components (larger, less frequently used)
 const AssetsPanel = lazy(() =>

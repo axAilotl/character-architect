@@ -443,7 +443,7 @@ export class VoxtaImportService {
         character_version: voxtaChar.Version || '1.0.0',
         system_prompt: voxtaChar.SystemPrompt || '',
         post_history_instructions: voxtaChar.PostHistoryInstructions || '',
-        alternate_greetings: voxtaChar.AlternateGreetings || [],
+        alternate_greetings: voxtaChar.AlternativeFirstMessages || [],
         group_only_greetings: [],
         character_book: characterBook,
         extensions: {

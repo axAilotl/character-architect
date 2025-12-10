@@ -276,22 +276,44 @@ describe('Data Integrity', () => {
     if (response.statusCode === 200 || response.statusCode === 201) {
       const result = JSON.parse(response.body);
       // Voxta import returns cardIds array
+      // When a collection is created, cardIds[0] is the collection, cardIds[1+] are member characters
       if (isVoxta && result.cardIds && result.cardIds.length > 0) {
         createdCardIds.push(...result.cardIds);
-        // Fetch the card to return consistent format
+        // Fetch the first card
         const cardResponse = await app.inject({
           method: 'GET',
           url: `/api/cards/${result.cardIds[0]}`,
         });
         if (cardResponse.statusCode === 200) {
-          return { card: JSON.parse(cardResponse.body) };
+          const card = JSON.parse(cardResponse.body);
+          // If this is a collection card, return the first member character instead
+          // Collection cards have spec 'collection' and don't have direct personality/etc fields
+          if (card.meta?.spec === 'collection' && result.cardIds.length > 1) {
+            const memberCardResponse = await app.inject({
+              method: 'GET',
+              url: `/api/cards/${result.cardIds[1]}`,
+            });
+            if (memberCardResponse.statusCode === 200) {
+              return { card: JSON.parse(memberCardResponse.body), collectionCard: card };
+            }
+          }
+          return { card };
         }
         throw new Error(`Failed to fetch Voxta imported card: ${cardResponse.body}`);
       }
       // Voxta might also return 'cards' array
       if (isVoxta && result.cards && result.cards.length > 0) {
-        createdCardIds.push(result.cards[0].meta.id);
-        return { card: result.cards[0] };
+        // Push all card IDs for cleanup
+        for (const c of result.cards) {
+          createdCardIds.push(c.meta.id);
+        }
+        // If first card is a collection, return the second card (first member character)
+        // Collection cards have spec 'collection' and don't have direct personality/etc fields
+        const firstCard = result.cards[0];
+        if (firstCard.meta?.spec === 'collection' && result.cards.length > 1) {
+          return { card: result.cards[1], collectionCard: firstCard };
+        }
+        return { card: firstCard };
       }
       if (result.card?.meta?.id) {
         createdCardIds.push(result.card.meta.id);
@@ -1245,7 +1267,11 @@ describe('Data Integrity', () => {
       const reImportResult = JSON.parse(reImportResponse.body);
 
       // Voxta import may return cards array or single card
-      const reimportedCard = reImportResult.card || reImportResult.cards?.[0];
+      // If first card is a collection, use the second card (first member character)
+      let reimportedCard = reImportResult.card || reImportResult.cards?.[0];
+      if (reimportedCard?.meta?.spec === 'collection' && reImportResult.cards?.length > 1) {
+        reimportedCard = reImportResult.cards[1];
+      }
       expect(reimportedCard).toBeDefined();
       const reimportedData = reimportedCard.data?.data || reimportedCard.data;
 
@@ -1291,7 +1317,11 @@ describe('Data Integrity', () => {
       const result = JSON.parse(response.body);
 
       // Voxta import returns cards array
-      const card = result.cards?.[0];
+      // If first card is a collection, use the second card (first member character)
+      let card = result.cards?.[0];
+      if (card?.meta?.spec === 'collection' && result.cards?.length > 1) {
+        card = result.cards[1];
+      }
       expect(card).toBeDefined();
 
       const cardData = card.data?.data || card.data;
