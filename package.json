@@ -58,6 +58,8 @@
     "@character-foundry/png": "^0.0.3",
     "@character-foundry/schemas": "^0.1.0",
     "@character-foundry/voxta": "^0.1.6",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.39.2",
     "@types/uuid": "^10.0.0",
     "uuid": "^13.0.0"
   }
