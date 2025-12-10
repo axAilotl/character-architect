@@ -30,36 +30,12 @@ interface AIPromptSettings {
   taglineSystemPrompt: string;
 }
 
-interface ComfyUIGenerationHistoryItem {
-  id: string;
-  timestamp: number;
-  positivePrompt: string;
-  negativePrompt: string;
-  seed: number;
-  imageUrl: string;
-  workflowId: string;
-}
-
+// Simplified ComfyUI settings - iframe-based integration
 interface ComfyUISettings {
   serverUrl: string;
-  activeWorkflowId: string | null;
-  activePromptId: string | null;
-  autoSelectType: boolean;
-  autoGenerateFilename: boolean;
-  defaultModel: string;
-  defaultSampler: string;
-  defaultScheduler: string;
-  defaultWidth: number;
-  defaultHeight: number;
-  positivePrefix: string;
-  negativePrefix: string;
-  // Generation state (persisted)
-  positivePrompt: string;
-  negativePrompt: string;
-  seed: number;
-  selectedCheckpoint: string;
-  selectedWorkflowId: string | null;
-  history: ComfyUIGenerationHistoryItem[];
+  // Legacy fields kept for migration compatibility (will be ignored)
+  activeWorkflowId?: string | null;
+  activePromptId?: string | null;
 }
 
 // Theme definitions
@@ -279,21 +255,8 @@ interface SettingsStore {
   // wwwyzzerdd actions
   setWwwyzzerddActivePromptSet: (id: string | null) => void;
 
-  // ComfyUI actions
+  // ComfyUI actions (simplified - iframe-based integration)
   setComfyUIServerUrl: (url: string) => void;
-  setComfyUIActiveWorkflow: (id: string | null) => void;
-  setComfyUIActivePrompt: (id: string | null) => void;
-  setComfyUIAutoSelectType: (enabled: boolean) => void;
-  setComfyUIAutoGenerateFilename: (enabled: boolean) => void;
-  setComfyUIDefaults: (defaults: Partial<Omit<ComfyUISettings, 'serverUrl' | 'activeWorkflowId' | 'activePromptId' | 'autoSelectType' | 'autoGenerateFilename'>>) => void;
-  // ComfyUI generation state actions
-  setComfyUIPositivePrompt: (prompt: string) => void;
-  setComfyUINegativePrompt: (prompt: string) => void;
-  setComfyUISeed: (seed: number) => void;
-  setComfyUISelectedCheckpoint: (checkpoint: string) => void;
-  setComfyUISelectedWorkflowId: (id: string | null) => void;
-  setComfyUIHistory: (history: ComfyUIGenerationHistoryItem[]) => void;
-  addComfyUIHistoryItem: (item: ComfyUIGenerationHistoryItem) => void;
 
   // AI prompt actions
   setTagsSystemPrompt: (prompt: string) => void;
@@ -344,26 +307,9 @@ const DEFAULT_WWWYZZERDD: WwwyzzerddSettings = {
   activePromptSetId: null,
 };
 
+// Simplified ComfyUI settings - iframe-based integration
 const DEFAULT_COMFYUI: ComfyUISettings = {
   serverUrl: 'http://127.0.0.1:8188',
-  activeWorkflowId: null,
-  activePromptId: null,
-  autoSelectType: true,
-  autoGenerateFilename: true,
-  defaultModel: '',
-  defaultSampler: 'euler',
-  defaultScheduler: 'normal',
-  defaultWidth: 512,
-  defaultHeight: 768,
-  positivePrefix: '',
-  negativePrefix: 'blurry, low quality, deformed, bad anatomy, watermark, signature',
-  // Generation state
-  positivePrompt: '',
-  negativePrompt: '',
-  seed: Math.floor(Math.random() * 999999999),
-  selectedCheckpoint: '',
-  selectedWorkflowId: null,
-  history: [],
 };
 
 const DEFAULT_AI_PROMPTS: AIPromptSettings = {
@@ -484,74 +430,10 @@ export const useSettingsStore = create<SettingsStore>()(
           wwwyzzerdd: { ...state.wwwyzzerdd, activePromptSetId },
         })),
 
-      // ComfyUI actions
+      // ComfyUI actions (simplified - iframe-based integration)
       setComfyUIServerUrl: (serverUrl) =>
         set((state) => ({
           comfyUI: { ...state.comfyUI, serverUrl },
-        })),
-
-      setComfyUIActiveWorkflow: (activeWorkflowId) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, activeWorkflowId },
-        })),
-
-      setComfyUIActivePrompt: (activePromptId) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, activePromptId },
-        })),
-
-      setComfyUIAutoSelectType: (autoSelectType) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, autoSelectType },
-        })),
-
-      setComfyUIAutoGenerateFilename: (autoGenerateFilename) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, autoGenerateFilename },
-        })),
-
-      setComfyUIDefaults: (defaults) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, ...defaults },
-        })),
-
-      // ComfyUI generation state actions
-      setComfyUIPositivePrompt: (positivePrompt) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, positivePrompt },
-        })),
-
-      setComfyUINegativePrompt: (negativePrompt) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, negativePrompt },
-        })),
-
-      setComfyUISeed: (seed) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, seed },
-        })),
-
-      setComfyUISelectedCheckpoint: (selectedCheckpoint) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, selectedCheckpoint },
-        })),
-
-      setComfyUISelectedWorkflowId: (selectedWorkflowId) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, selectedWorkflowId },
-        })),
-
-      setComfyUIHistory: (history) =>
-        set((state) => ({
-          comfyUI: { ...state.comfyUI, history },
-        })),
-
-      addComfyUIHistoryItem: (item) =>
-        set((state) => ({
-          comfyUI: {
-            ...state.comfyUI,
-            history: [item, ...state.comfyUI.history].slice(0, 50), // Keep last 50
-          },
         })),
 
       // AI prompt actions
@@ -567,16 +449,21 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'card-architect-settings',
-      // History now uses proxy URLs (small strings) instead of base64, so it can be persisted
+      // Custom merge to handle settings migration (legacy ComfyUI fields are ignored)
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<SettingsStore>;
+        // For comfyUI, only keep serverUrl from persisted state (ignore legacy fields)
+        const comfyUI = {
+          ...currentState.comfyUI,
+          serverUrl: (persisted.comfyUI as { serverUrl?: string })?.serverUrl || currentState.comfyUI.serverUrl,
+        };
         return {
           ...currentState,
           ...persisted,
           // Ensure new properties are properly merged with defaults
           features: { ...currentState.features, ...persisted.features },
           wwwyzzerdd: { ...currentState.wwwyzzerdd, ...persisted.wwwyzzerdd },
-          comfyUI: { ...currentState.comfyUI, ...persisted.comfyUI },
+          comfyUI,
           aiPrompts: { ...currentState.aiPrompts, ...persisted.aiPrompts },
           autoSnapshot: { ...currentState.autoSnapshot, ...persisted.autoSnapshot },
           creatorNotes: { ...currentState.creatorNotes, ...persisted.creatorNotes },

@@ -228,6 +228,11 @@ export function CollectionsView({ collectionCard }: CollectionsViewProps) {
             <span className="px-2 py-1 bg-purple-600/20 text-purple-300 text-xs rounded font-medium">
               {collectionData.members.length} Characters
             </span>
+            {collectionData.scenarios && collectionData.scenarios.length > 0 && (
+              <span className="px-2 py-1 bg-green-600/20 text-green-300 text-xs rounded font-medium">
+                {collectionData.scenarios.length} Scenarios
+              </span>
+            )}
             {collectionData.version && (
               <span className="px-2 py-1 bg-blue-600/20 text-blue-300 text-xs rounded font-medium">
                 v{collectionData.version}
@@ -252,6 +257,100 @@ export function CollectionsView({ collectionCard }: CollectionsViewProps) {
           Click a character to edit, use the × to remove from collection
         </span>
       </div>
+
+      {/* Scenarios Section */}
+      {collectionData.scenarios && collectionData.scenarios.length > 0 && (
+        <div className="bg-dark-surface border border-dark-border rounded-lg p-4">
+          <h4 className="text-md font-semibold mb-3 flex items-center gap-2">
+            <span className="text-green-400">Scenarios</span>
+            <span className="text-xs text-dark-muted font-normal">
+              ({collectionData.scenarios.length})
+            </span>
+          </h4>
+          <div className="space-y-3">
+            {collectionData.scenarios.map((scenario) => {
+              // Find member cards that are in this scenario
+              const scenarioMembers = collectionData.members.filter(m =>
+                m.scenarioIds?.includes(scenario.voxtaScenarioId) ||
+                scenario.characterIds.includes(m.voxtaCharacterId || '')
+              );
+
+              return (
+                <div
+                  key={scenario.voxtaScenarioId}
+                  className="bg-dark-bg border border-dark-border rounded p-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h5 className="font-medium">{scenario.name}</h5>
+                      {scenario.description && (
+                        <p className="text-sm text-dark-muted mt-1 line-clamp-2">
+                          {scenario.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      {scenario.explicitContent && (
+                        <span className="px-2 py-0.5 bg-red-600/20 text-red-300 text-xs rounded">
+                          Explicit
+                        </span>
+                      )}
+                      {scenario.version && (
+                        <span className="px-2 py-0.5 bg-blue-600/20 text-blue-300 text-xs rounded">
+                          v{scenario.version}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Characters in this scenario */}
+                  {scenarioMembers.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-dark-border">
+                      <span className="text-xs text-dark-muted">Characters in this scenario:</span>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {scenarioMembers.map((member) => {
+                          const card = memberCards[collectionData.members.indexOf(member)];
+                          const imageUrl = memberImages.get(member.cardId);
+                          return (
+                            <button
+                              key={member.cardId}
+                              onClick={() => navigate(`/cards/${member.cardId}`)}
+                              className="flex items-center gap-2 px-2 py-1 bg-dark-surface border border-dark-border rounded hover:border-blue-500 transition-colors"
+                              title={`Edit ${member.name}`}
+                            >
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={member.name}
+                                  className="w-6 h-6 rounded object-cover"
+                                />
+                              ) : (
+                                <div className="w-6 h-6 rounded bg-dark-muted flex items-center justify-center text-xs">
+                                  ?
+                                </div>
+                              )}
+                              <span className="text-sm">{member.name}</span>
+                              {!card && (
+                                <span className="text-xs text-red-400">(missing)</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {scenario.creator && (
+                    <p className="text-xs text-dark-muted mt-2">
+                      Creator: {scenario.creator}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Member Cards Grid */}
       {collectionData.members.length === 0 ? (

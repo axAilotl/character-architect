@@ -87,6 +87,30 @@ export interface CollectionMember {
   order: number;
   /** When added to collection */
   addedAt: string;
+  /** Scenario IDs this character belongs to */
+  scenarioIds?: string[];
+}
+
+/** Scenario info stored in collection */
+export interface CollectionScenario {
+  /** Original Voxta scenario ID */
+  voxtaScenarioId: string;
+  /** Scenario name */
+  name: string;
+  /** Scenario description */
+  description?: string;
+  /** Version */
+  version?: string;
+  /** Creator */
+  creator?: string;
+  /** Voxta character IDs that are in this scenario (from Roles) */
+  characterIds: string[];
+  /** Order in the collection */
+  order: number;
+  /** Whether this scenario has explicit content */
+  explicitContent?: boolean;
+  /** Has thumbnail */
+  hasThumbnail?: boolean;
 }
 
 /** Collection-specific data stored in Card.data for collection cards */
@@ -103,6 +127,8 @@ export interface CollectionData {
   voxtaPackageId?: string;
   /** Member cards in this collection */
   members: CollectionMember[];
+  /** Scenarios in this collection */
+  scenarios?: CollectionScenario[];
   /** Shared lorebooks (book IDs) */
   sharedBookIds?: string[];
   /** Whether this package has explicit content */

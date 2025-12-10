@@ -26,4 +26,16 @@ export const config = {
     sessionCookie: process.env.SILLY_TAVERN_SESSION_COOKIE || '',
     csrfToken: process.env.SILLY_TAVERN_CSRF_TOKEN || '',
   },
+  security: {
+    // CORS: comma-separated list of allowed origins, or '*' for all (dev only)
+    corsOrigins: process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173',
+    // Rate limiting
+    rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== 'false',
+    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10), // requests per window
+    rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10), // 1 minute
+    // SSRF protection
+    ssrfProtectionEnabled: process.env.SSRF_PROTECTION_ENABLED !== 'false',
+    // Allowed external hosts for LLM providers (comma-separated)
+    allowedLLMHosts: process.env.ALLOWED_LLM_HOSTS || 'api.openai.com,api.anthropic.com,api.together.xyz,openrouter.ai,api.groq.com,localhost,127.0.0.1',
+  },
 };

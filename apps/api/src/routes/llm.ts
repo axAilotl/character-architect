@@ -15,6 +15,7 @@ import { getSettings, saveSettings } from '../utils/settings.js';
 import { buildPrompt } from '../utils/llm-prompts.js';
 import { computeDiff } from '../utils/diff.js';
 import { getTokenizer } from '../utils/tokenizer.js';
+import { validateLLMProviderURL } from '../utils/ssrf-protection.js';
 
 export async function llmRoutes(fastify: FastifyInstance) {
   /**
@@ -92,6 +93,13 @@ export async function llmRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ error: 'Provider not found' });
         }
 
+        // Validate provider URL for SSRF
+        try {
+          validateLLMProviderURL(provider.baseURL);
+        } catch (error: any) {
+          return reply.status(400).send({ error: error.message });
+        }
+
         // Simple test: request 1 token completion
         const testMessage = { role: 'user' as const, content: 'Hi' };
 
@@ -151,6 +159,13 @@ export async function llmRoutes(fastify: FastifyInstance) {
 
       if (!provider) {
         return reply.status(404).send({ error: 'Provider not found' });
+      }
+
+      // Validate provider URL for SSRF
+      try {
+        validateLLMProviderURL(provider.baseURL);
+      } catch (error: any) {
+        return reply.status(400).send({ error: error.message });
       }
 
       let result;
@@ -236,6 +251,13 @@ export async function llmRoutes(fastify: FastifyInstance) {
 
       if (!provider) {
         return reply.status(404).send({ error: 'Provider not found' });
+      }
+
+      // Validate provider URL for SSRF
+      try {
+        validateLLMProviderURL(provider.baseURL);
+      } catch (error: any) {
+        return reply.status(400).send({ error: error.message });
       }
 
       // Build prompt from context and preset

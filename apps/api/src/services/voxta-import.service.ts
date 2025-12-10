@@ -11,7 +11,7 @@ import {
   type VoxtaData,
 } from '../utils/file-handlers.js';
 import type { CCv3Data } from '@character-foundry/schemas';
-import type { VoxtaExtensionData, VoxtaCharacter } from '@character-foundry/voxta';
+import type { VoxtaExtensionData, VoxtaCharacter, VoxtaScenario } from '@character-foundry/voxta';
 import type { AssetTag, AssetType } from '../types/index.js';
 import { detectAnimatedAsset } from '../utils/asset-utils.js';
 import { nanoid } from 'nanoid';
@@ -29,6 +29,19 @@ interface CollectionMember {
   name: string;
   order: number;
   addedAt: string;
+  scenarioIds?: string[];
+}
+
+interface CollectionScenario {
+  voxtaScenarioId: string;
+  name: string;
+  description?: string;
+  version?: string;
+  creator?: string;
+  characterIds: string[];
+  order: number;
+  explicitContent?: boolean;
+  hasThumbnail?: boolean;
 }
 
 interface CollectionData {
@@ -38,6 +51,7 @@ interface CollectionData {
   creator?: string;
   voxtaPackageId?: string;
   members: CollectionMember[];
+  scenarios?: CollectionScenario[];
   sharedBookIds?: string[];
   explicitContent?: boolean;
   dateCreated?: string;
@@ -59,11 +73,14 @@ export class VoxtaImportService {
     const data = await extractVoxtaPackage(filePath);
     const createdCardIds: string[] = [];
 
-    // Determine if this should be a collection (multi-character or has package metadata)
-    const isCollection = data.characters.length > 1 || data.package !== undefined;
+    // Determine if this should be a collection (multi-character, has package metadata, or has scenarios)
+    const isCollection = data.characters.length > 1 || data.package !== undefined || data.scenarios.length > 0;
 
     const now = new Date().toISOString();
     const members: CollectionMember[] = [];
+
+    // Build scenario lookup for character-scenario linking
+    const characterScenarioMap = this.buildCharacterScenarioMap(data);
 
     // 2. Process each character first (packageId will be set after collection is created)
     for (let i = 0; i < data.characters.length; i++) {
@@ -73,19 +90,33 @@ export class VoxtaImportService {
 
       // Build member info for collection
       if (isCollection) {
+        // Get scenario IDs for this character
+        const scenarioIds = characterScenarioMap.get(char.data.Id) || [];
+
         members.push({
           cardId,
           voxtaCharacterId: char.data.Id,
           name: char.data.Name || 'Unknown',
           order: i,
           addedAt: now,
+          scenarioIds: scenarioIds.length > 0 ? scenarioIds : undefined,
         });
       }
     }
 
-    // 3. Create collection card AFTER characters, using the actual card IDs
+    // 3. Process scenarios
+    const scenarios: CollectionScenario[] = [];
+    for (let i = 0; i < data.scenarios.length; i++) {
+      const scenario = data.scenarios[i];
+      const scenarioInfo = this.extractScenarioInfo(scenario.data, i);
+      scenarios.push(scenarioInfo);
+
+      console.log(`[Voxta Import] Processed scenario: "${scenarioInfo.name}" with ${scenarioInfo.characterIds.length} characters`);
+    }
+
+    // 4. Create collection card AFTER characters, using the actual card IDs
     if (isCollection && members.length > 0) {
-      const collectionCardId = await this.createCollectionCard(data, members, filePath);
+      const collectionCardId = await this.createCollectionCard(data, members, scenarios, filePath);
 
       // Update each character card with the collection's packageId
       for (const member of members) {
@@ -138,11 +169,78 @@ export class VoxtaImportService {
   }
 
   /**
+   * Build a map of character ID -> scenario IDs
+   * Uses both scenario.Roles and character.DefaultScenarios for bidirectional linking
+   */
+  private buildCharacterScenarioMap(data: VoxtaData): Map<string, string[]> {
+    const map = new Map<string, string[]>();
+
+    // From scenarios: check Roles for character references
+    for (const scenario of data.scenarios) {
+      const scenarioId = scenario.data.Id;
+      const roles = scenario.data.Roles || [];
+
+      for (const role of roles) {
+        // VoxtaRole has CharacterId field
+        const characterId = (role as any).CharacterId;
+        if (characterId) {
+          const existing = map.get(characterId) || [];
+          if (!existing.includes(scenarioId)) {
+            existing.push(scenarioId);
+            map.set(characterId, existing);
+          }
+        }
+      }
+    }
+
+    // From characters: check DefaultScenarios
+    for (const char of data.characters) {
+      const defaultScenarios = char.data.DefaultScenarios || [];
+      for (const scenarioId of defaultScenarios) {
+        const existing = map.get(char.data.Id) || [];
+        if (!existing.includes(scenarioId)) {
+          existing.push(scenarioId);
+          map.set(char.data.Id, existing);
+        }
+      }
+    }
+
+    return map;
+  }
+
+  /**
+   * Extract scenario info for storage in collection
+   */
+  private extractScenarioInfo(scenario: VoxtaScenario, order: number): CollectionScenario {
+    // Get character IDs from Roles
+    const characterIds: string[] = [];
+    for (const role of scenario.Roles || []) {
+      const characterId = (role as any).CharacterId;
+      if (characterId && !characterIds.includes(characterId)) {
+        characterIds.push(characterId);
+      }
+    }
+
+    return {
+      voxtaScenarioId: scenario.Id,
+      name: scenario.Name,
+      description: scenario.Description,
+      version: scenario.Version,
+      creator: scenario.Creator,
+      characterIds,
+      order,
+      explicitContent: scenario.ExplicitContent,
+      hasThumbnail: !!scenario.Thumbnail,
+    };
+  }
+
+  /**
    * Create a collection card for multi-character packages
    */
   private async createCollectionCard(
     data: VoxtaData,
     members: CollectionMember[],
+    scenarios: CollectionScenario[],
     originalFilePath: string
   ): Promise<string> {
     const packageData = data.package;
@@ -157,6 +255,7 @@ export class VoxtaImportService {
       creator: packageData?.Creator,
       voxtaPackageId: packageData?.Id,
       members,
+      scenarios: scenarios.length > 0 ? scenarios : undefined,
       explicitContent: packageData?.ExplicitContent,
       dateCreated: packageData?.DateCreated,
       dateModified: packageData?.DateModified,

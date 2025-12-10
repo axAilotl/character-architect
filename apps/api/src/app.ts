@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import staticPlugin from '@fastify/static';
 import { config } from './config.js';
+import { registerRateLimiter } from './middleware/rate-limiter.js';
 import { initDatabase, createTables } from './db/schema.js';
 import { cardRoutes } from './routes/cards.js';
 import { tokenizeRoutes } from './routes/tokenize.js';
@@ -45,11 +46,19 @@ export async function build(opts: FastifyServerOptions = {}) {
   // Make db available to routes
   fastify.decorate('db', db);
 
-  // Register plugins
-  await fastify.register(cors, {
-    origin: true,
-    credentials: true,
-  });
+  // Register plugins - Hardened CORS configuration
+  const corsOrigins = config.security.corsOrigins;
+  const corsConfig = corsOrigins === '*'
+    ? { origin: true, credentials: true }  // Dev mode: allow all
+    : {
+        origin: corsOrigins.split(',').map(o => o.trim()),
+        credentials: true,
+      };
+
+  await fastify.register(cors, corsConfig);
+
+  // Register rate limiter
+  await registerRateLimiter(fastify);
 
   await fastify.register(multipart, {
     limits: {

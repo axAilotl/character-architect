@@ -17,6 +17,7 @@ import {
   generateUserscript,
   type WebImportSettings,
 } from '../services/web-import/index.js';
+import { isURLSafeForFetch } from '../utils/ssrf-protection.js';
 
 export async function webImportRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
@@ -98,6 +99,13 @@ export async function webImportRoutes(fastify: FastifyInstance) {
     if (!url || typeof url !== 'string') {
       reply.code(400);
       return { success: false, error: 'URL is required' };
+    }
+
+    // Validate URL for SSRF
+    const urlValidation = isURLSafeForFetch(url);
+    if (!urlValidation.valid) {
+      reply.code(400);
+      return { success: false, error: `Invalid URL: ${urlValidation.error}` };
     }
 
     const result = await webImportService.importCard(
