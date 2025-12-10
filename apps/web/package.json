@@ -9,7 +9,7 @@
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "@card-architect/defaults": "*",
+    "@card-architect/defaults": "workspace:*",
     "@character-foundry/charx": "^0.0.3",
     "@character-foundry/core": "^0.0.2",
     "@character-foundry/federation": "^0.1.5",

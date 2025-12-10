@@ -12,7 +12,7 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@card-architect/defaults": "*",
+    "@card-architect/defaults": "workspace:*",
     "@character-foundry/charx": "^0.0.3",
     "@character-foundry/core": "^0.0.2",
     "@character-foundry/loader": "^0.1.6",
@@ -44,6 +44,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/ws": "^8.18.1",
     "@vitest/ui": "^4.0.9",
+    "fflate": "^0.8.2",
     "form-data": "^4.0.5",
     "pino-pretty": "^13.1.2",
     "tsx": "^4.7.0",
