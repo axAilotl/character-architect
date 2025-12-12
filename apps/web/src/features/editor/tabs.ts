@@ -46,20 +46,22 @@ export function registerCoreTabs(): void {
     label: 'Edit',
     component: EditPanel,
     order: 0,
-    contexts: ['card', 'template', 'all'],
+    contexts: ['card', 'template', 'lorebook', 'collection', 'all'],
   });
 
   // Assets - Image/asset management (order: 10)
+  // Available for cards and collections, not for standalone lorebooks
   registry.registerTab({
     id: 'assets',
     label: 'Assets',
     component: AssetsPanel,
     order: 10,
-    contexts: ['card'],
+    contexts: ['card', 'collection'],
     condition: () => useSettingsStore.getState().features?.assetsEnabled ?? true,
   });
 
   // Focused - Distraction-free editing (order: 20)
+  // Only for character cards, not lorebooks or collections
   registry.registerTab({
     id: 'focused',
     label: 'Focused',
@@ -70,21 +72,23 @@ export function registerCoreTabs(): void {
   });
 
   // Preview - Markdown preview (order: 60)
+  // Available for cards, lorebooks, and collections
   registry.registerTab({
     id: 'preview',
     label: 'Preview',
     component: PreviewPanel,
     order: 60,
-    contexts: ['card'],
+    contexts: ['card', 'lorebook', 'collection'],
   });
 
   // Diff - Version comparison (order: 70)
+  // Available for cards, lorebooks, and collections
   registry.registerTab({
     id: 'diff',
     label: 'Diff',
     component: DiffPanel,
     order: 70,
-    contexts: ['card'],
+    contexts: ['card', 'lorebook', 'collection'],
     condition: () => useSettingsStore.getState().features?.diffEnabled ?? true,
   });
 

@@ -1,6 +1,11 @@
 import { ComponentType, LazyExoticComponent } from 'react';
 
 /**
+ * Tab context type - determines which tabs are available
+ */
+export type TabContext = 'card' | 'template' | 'lorebook' | 'collection' | 'all';
+
+/**
  * Base definition for all plugin contributions
  */
 export interface PluginContribution {
@@ -18,7 +23,7 @@ export interface EditorTabDefinition extends PluginContribution {
   icon?: ComponentType<{ className?: string }>;
   component: ComponentType | LazyExoticComponent<ComponentType<unknown>>;
   // Which editor contexts this tab appears in
-  contexts?: ('card' | 'template' | 'all')[];
+  contexts?: TabContext[];
 }
 
 /**
@@ -74,11 +79,6 @@ export interface PluginManifest {
   onActivate?: () => void | Promise<void>;
   onDeactivate?: () => void | Promise<void>;
 }
-
-/**
- * Tab context type
- */
-export type TabContext = 'card' | 'template' | 'all';
 
 /**
  * Module definition - metadata for optional modules

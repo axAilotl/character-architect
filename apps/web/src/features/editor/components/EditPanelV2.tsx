@@ -487,14 +487,40 @@ export function EditPanelV2() {
     handleFieldChange(templatesField, newValue);
   };
 
-  // Build tabs list
-  const tabs: Array<{ id: EditTab; label: string }> = [
-    ...tabDefinitions.map((t) => ({ id: t.id as EditTab, label: t.label })),
-    { id: 'lorebook', label: 'Lorebook' },
-    // ELARA VOSS requires server - hide in light mode
-    ...(!isLightMode ? [{ id: 'elara-voss' as EditTab, label: 'ELARA VOSS' }] : []),
-    ...(editor.showExtensionsTab ? [{ id: 'extensions' as EditTab, label: 'Extensions' }] : []),
-  ];
+  // Determine card type for tab filtering
+  const cardSpec = currentCard.meta.spec;
+  const isLorebook = cardSpec === 'lorebook';
+  const isCollection = cardSpec === 'collection';
+
+  // Build tabs list based on card type
+  const tabs: Array<{ id: EditTab; label: string }> = (() => {
+    if (isLorebook) {
+      // Lorebooks: Basic Info, Lorebook, Extensions
+      return [
+        { id: 'basic' as EditTab, label: 'Basic Info' },
+        { id: 'lorebook' as EditTab, label: 'Lorebook' },
+        ...(editor.showExtensionsTab ? [{ id: 'extensions' as EditTab, label: 'Extensions' }] : []),
+      ];
+    }
+
+    if (isCollection) {
+      // Collections: Basic Info, Character, Extensions
+      return [
+        { id: 'basic' as EditTab, label: 'Basic Info' },
+        { id: 'character' as EditTab, label: 'Character' },
+        ...(editor.showExtensionsTab ? [{ id: 'extensions' as EditTab, label: 'Extensions' }] : []),
+      ];
+    }
+
+    // Character cards: All tabs
+    return [
+      ...tabDefinitions.map((t) => ({ id: t.id as EditTab, label: t.label })),
+      { id: 'lorebook', label: 'Lorebook' },
+      // ELARA VOSS requires server - hide in light mode
+      ...(!isLightMode ? [{ id: 'elara-voss' as EditTab, label: 'ELARA VOSS' }] : []),
+      ...(editor.showExtensionsTab ? [{ id: 'extensions' as EditTab, label: 'Extensions' }] : []),
+    ];
+  })();
 
   // Layout calculations for LLM assist sidebar
   const ASSIST_WIDTH_PX = 500;
@@ -545,7 +571,7 @@ export function EditPanelV2() {
             <TabContent
               tab={activeTab}
               cardData={cardData}
-              spec={spec === 'collection' ? 'v3' : spec}
+              spec={spec === 'collection' || spec === 'lorebook' ? 'v3' : spec}
               showV3Fields={showV3Fields}
               tokenCounts={tokenCounts}
               onFieldChange={handleFieldChange}
