@@ -1,47 +1,42 @@
-import { useEffect, useState } from 'react';
+/**
+ * Diff Panel - Version History and Comparison
+ *
+ * Provides version snapshot management and diff viewing with:
+ * - CodeMirror 6 merge view for side-by-side comparison
+ * - Per-entry lorebook diffing
+ * - Support for character cards and standalone lorebooks
+ */
+
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useCardStore } from '../../../store/card-store';
 import { api } from '../../../lib/api';
 import { localDB, type StoredVersion } from '../../../lib/db';
-import { DiffViewer } from '../../../components/ui/DiffViewer';
 import { getDeploymentConfig } from '../../../config/deployment';
-import type { DiffOperation } from '../../../lib/types';
+import type { DiffViewMode } from '../../../lib/types';
+import {
+  getLorebookFromData,
+  computeLorebookDiff,
+  cardHasLorebook,
+  type LorebookDiff,
+} from '../../../lib/diff-utils';
 
-// Simple diff computation on the client
-function computeSimpleDiff(original: string, revised: string): DiffOperation[] {
-  const originalLines = original.split('\n');
-  const revisedLines = revised.split('\n');
-  const diff: DiffOperation[] = [];
+// Lazy load heavy components
+const CodeMirrorMergeView = lazy(() =>
+  import('../../../components/ui/CodeMirrorMergeView').then((m) => ({
+    default: m.CodeMirrorMergeView,
+  }))
+);
 
-  let i = 0, j = 0;
-  while (i < originalLines.length || j < revisedLines.length) {
-    const origLine = originalLines[i];
-    const revLine = revisedLines[j];
-
-    if (origLine === revLine) {
-      diff.push({ type: 'unchanged', value: origLine + '\n', lineNumber: i + 1 });
-      i++; j++;
-    } else if (i >= originalLines.length) {
-      diff.push({ type: 'add', value: revLine + '\n', lineNumber: j + 1 });
-      j++;
-    } else if (j >= revisedLines.length) {
-      diff.push({ type: 'remove', value: origLine + '\n', lineNumber: i + 1 });
-      i++;
-    } else {
-      diff.push({ type: 'remove', value: origLine + '\n', lineNumber: i + 1 });
-      diff.push({ type: 'add', value: revLine + '\n', lineNumber: j + 1 });
-      i++; j++;
-    }
-  }
-
-  return diff;
-}
+const LorebookDiffView = lazy(() =>
+  import('./LorebookDiffView').then((m) => ({ default: m.LorebookDiffView }))
+);
 
 // Type that works for both API and IndexedDB versions
 type UnifiedVersion = {
   id: string;
   version: number;
   message?: string;
-  data: any;
+  data: unknown;
   createdAt: string;
 };
 
@@ -56,20 +51,117 @@ function storedToUnified(stored: StoredVersion): UnifiedVersion {
   };
 }
 
+// Loading spinner component
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+  );
+}
+
+// View mode selector component
+function ViewModeSelector({
+  mode,
+  hasLorebook,
+  lorebookDiff,
+  onModeChange,
+}: {
+  mode: DiffViewMode;
+  hasLorebook: boolean;
+  lorebookDiff?: LorebookDiff;
+  onModeChange: (mode: DiffViewMode) => void;
+}) {
+  const lorebookChanges = lorebookDiff
+    ? lorebookDiff.entrySummary.added +
+      lorebookDiff.entrySummary.removed +
+      lorebookDiff.entrySummary.modified
+    : 0;
+
+  return (
+    <div className="inline-flex rounded border border-dark-border overflow-hidden">
+      <button
+        onClick={() => onModeChange('split')}
+        className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+          mode === 'split'
+            ? 'bg-blue-600 text-white'
+            : 'bg-dark-card text-dark-muted hover:bg-dark-surface'
+        }`}
+      >
+        Side-by-Side
+      </button>
+      <button
+        onClick={() => onModeChange('unified')}
+        className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-dark-border ${
+          mode === 'unified'
+            ? 'bg-blue-600 text-white'
+            : 'bg-dark-card text-dark-muted hover:bg-dark-surface'
+        }`}
+      >
+        Unified
+      </button>
+      {hasLorebook && (
+        <button
+          onClick={() => onModeChange('lorebook')}
+          className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-dark-border flex items-center gap-1.5 ${
+            mode === 'lorebook'
+              ? 'bg-blue-600 text-white'
+              : 'bg-dark-card text-dark-muted hover:bg-dark-surface'
+          }`}
+        >
+          Lorebook
+          {lorebookChanges > 0 && (
+            <span
+              className={`px-1.5 py-0.5 text-[10px] rounded-full ${
+                mode === 'lorebook' ? 'bg-white/20' : 'bg-yellow-600 text-white'
+              }`}
+            >
+              {lorebookChanges}
+            </span>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function DiffPanel() {
   const currentCard = useCardStore((state) => state.currentCard);
   const setCurrentCard = useCardStore((state) => state.setCurrentCard);
   const [versions, setVersions] = useState<UnifiedVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<UnifiedVersion | null>(null);
+  const [viewMode, setViewMode] = useState<DiffViewMode>('split');
+  const [lorebookDiff, setLorebookDiff] = useState<LorebookDiff | undefined>();
 
   const config = getDeploymentConfig();
   const isClientMode = config.mode === 'light' || config.mode === 'static';
+
+  // Check if current card has a lorebook
+  const hasLorebook = currentCard ? cardHasLorebook(currentCard) : false;
 
   useEffect(() => {
     if (currentCard?.meta.id) {
       loadVersions();
     }
   }, [currentCard?.meta.id]);
+
+  // Compute lorebook diff when version is selected
+  useEffect(() => {
+    if (!selectedVersion || !currentCard) {
+      setLorebookDiff(undefined);
+      return;
+    }
+
+    const originalLorebook = getLorebookFromData(selectedVersion.data);
+    const currentLorebook = getLorebookFromData(currentCard.data);
+
+    if (originalLorebook || currentLorebook) {
+      const diff = computeLorebookDiff(originalLorebook, currentLorebook);
+      setLorebookDiff(diff);
+    } else {
+      setLorebookDiff(undefined);
+    }
+  }, [selectedVersion, currentCard]);
 
   const loadVersions = async () => {
     if (!currentCard?.meta.id) return;
@@ -115,7 +207,7 @@ export function DiffPanel() {
       // Restore by updating the card with the version's data
       const restoredCard = {
         ...currentCard,
-        data: version.data,
+        data: version.data as typeof currentCard.data,
         meta: {
           ...currentCard.meta,
           updatedAt: new Date().toISOString(),
@@ -156,38 +248,89 @@ export function DiffPanel() {
   if (selectedVersion) {
     const originalText = JSON.stringify(selectedVersion.data, null, 2);
     const revisedText = JSON.stringify(currentCard.data, null, 2);
-    const diff = computeSimpleDiff(originalText, revisedText);
+
+    // Determine if we should show lorebook view
+    const showLorebookView = viewMode === 'lorebook' && lorebookDiff;
 
     return (
       <div className="h-full flex flex-col">
-        <div className="p-4 bg-dark-surface border-b border-dark-border flex justify-between items-center">
-          <h3 className="font-semibold">
-            Comparing Version {selectedVersion.version} with Current
-          </h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleRestore(selectedVersion)}
-              className="btn-primary"
-            >
-              Restore This Version
-            </button>
-            <button onClick={() => setSelectedVersion(null)} className="btn-secondary">
-              Back to Versions
-            </button>
+        {/* Header */}
+        <div className="p-4 bg-dark-surface border-b border-dark-border">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-semibold">
+              Comparing Version {selectedVersion.version} with Current
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleRestore(selectedVersion)}
+                className="btn-primary"
+              >
+                Restore This Version
+              </button>
+              <button
+                onClick={() => setSelectedVersion(null)}
+                className="btn-secondary"
+              >
+                Back to Versions
+              </button>
+            </div>
+          </div>
+
+          {/* View mode selector */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-dark-muted">View:</span>
+            <ViewModeSelector
+              mode={viewMode}
+              hasLorebook={hasLorebook || !!lorebookDiff}
+              lorebookDiff={lorebookDiff}
+              onModeChange={setViewMode}
+            />
+            {selectedVersion.message && (
+              <span className="text-sm text-dark-muted ml-auto">
+                "{selectedVersion.message}"
+              </span>
+            )}
           </div>
         </div>
 
+        {/* Diff content */}
         <div className="flex-1 overflow-auto p-4">
-          <DiffViewer diff={diff} originalText={originalText} revisedText={revisedText} compact={true} />
+          <Suspense fallback={<LoadingSpinner />}>
+            {showLorebookView && lorebookDiff ? (
+              <LorebookDiffView
+                lorebookDiff={lorebookDiff}
+                originalData={selectedVersion.data}
+                currentData={currentCard.data}
+              />
+            ) : (
+              <CodeMirrorMergeView
+                originalText={originalText}
+                currentText={revisedText}
+                language="json"
+                collapseUnchanged={{ margin: 3, minSize: 4 }}
+                height="calc(100vh - 250px)"
+                originalLabel={`Version ${selectedVersion.version}`}
+                currentLabel="Current"
+              />
+            )}
+          </Suspense>
         </div>
       </div>
     );
   }
 
+  // Version list view
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 bg-dark-surface border-b border-dark-border flex justify-between items-center">
-        <h3 className="font-semibold">Version History</h3>
+        <div>
+          <h3 className="font-semibold">Version History</h3>
+          {hasLorebook && (
+            <p className="text-xs text-dark-muted mt-1">
+              This card has a lorebook - entry-level diffing available
+            </p>
+          )}
+        </div>
         <button onClick={handleCreateSnapshot} className="btn-primary">
           Create Snapshot
         </button>
@@ -197,7 +340,9 @@ export function DiffPanel() {
         {versions.length === 0 ? (
           <div className="text-center text-dark-muted py-8">
             <p>No snapshots yet</p>
-            <p className="text-sm mt-2">Create a snapshot to save a version of your card</p>
+            <p className="text-sm mt-2">
+              Create a snapshot to save a version of your card
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -208,9 +353,18 @@ export function DiffPanel() {
                 onClick={() => handleVersionClick(version)}
               >
                 <div>
-                  <div className="font-medium">Version {version.version}</div>
+                  <div className="font-medium flex items-center gap-2">
+                    Version {version.version}
+                    {version.message?.startsWith('[Auto]') && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-dark-muted/30 text-dark-muted rounded">
+                        Auto
+                      </span>
+                    )}
+                  </div>
                   {version.message && (
-                    <div className="text-sm text-dark-muted">{version.message}</div>
+                    <div className="text-sm text-dark-muted">
+                      {version.message.replace('[Auto] ', '')}
+                    </div>
                   )}
                   <div className="text-xs text-dark-muted">
                     {new Date(version.createdAt).toLocaleString()}

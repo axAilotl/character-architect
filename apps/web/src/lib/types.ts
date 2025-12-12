@@ -15,18 +15,24 @@ export type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
 // SPEC TYPES
 // ============================================================================
 
-export type Spec = 'v2' | 'v3' | 'chara_card_v2' | 'chara_card_v3' | 'collection';
+export type Spec = 'v2' | 'v3' | 'chara_card_v2' | 'chara_card_v3' | 'collection' | 'lorebook';
 
 // Helper to normalize spec to short form
-export function normalizeSpec(spec: Spec): 'v2' | 'v3' | 'collection' {
+export function normalizeSpec(spec: Spec): 'v2' | 'v3' | 'collection' | 'lorebook' {
   if (spec === 'chara_card_v2' || spec === 'v2') return 'v2';
   if (spec === 'collection') return 'collection';
+  if (spec === 'lorebook') return 'lorebook';
   return 'v3';
 }
 
 // Check if a spec is a collection
 export function isCollectionSpec(spec: Spec): boolean {
   return spec === 'collection';
+}
+
+// Check if a spec is a lorebook
+export function isLorebookSpec(spec: Spec): boolean {
+  return spec === 'lorebook';
 }
 
 // ============================================================================
@@ -588,7 +594,7 @@ export interface FieldContext {
   fieldName?: string;
   field?: string;
   currentValue?: string;
-  spec?: 'v2' | 'v3' | 'collection';
+  spec?: 'v2' | 'v3' | 'collection' | 'lorebook';
   cardName?: string;
   cardData?: Record<string, unknown>;
   selection?: string;
@@ -627,3 +633,9 @@ export interface CCv3LorebookEntry {
 export type SnippetCategory = 'general' | 'personality' | 'scenario' | 'dialogue' | 'custom' | string;
 
 export type TemplateCategory = 'general' | 'fantasy' | 'modern' | 'sci-fi' | 'custom' | string;
+
+// ============================================================================
+// DIFF UTILITIES (re-exported from diff-utils.ts)
+// ============================================================================
+
+export type { DiffViewMode, EntryDiffStatus, EntryDiffResult, LorebookDiff, LorebookDiffSummary, FieldChange, CharacterBook, CardDiff } from './diff-utils';
