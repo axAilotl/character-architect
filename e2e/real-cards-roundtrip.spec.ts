@@ -33,8 +33,8 @@ function getTimeoutForFile(filePath: string): number {
   }
 }
 
-// Test file paths
-const TESTING_DIR = '/mnt/samesung/ai/card_doctor/testing';
+// Test file paths - using real cards from docs/internal/testing/ directory
+const TESTING_DIR = path.join(__dirname, '../docs/internal/testing');
 
 // Test cards
 const CCv2_PNG = path.join(TESTING_DIR, 'chub/main_shana-e03c661ffb1d_spec_v2.png');

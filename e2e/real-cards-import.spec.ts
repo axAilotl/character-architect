@@ -27,8 +27,8 @@ function getTimeoutForFile(filePath: string): number {
   }
 }
 
-// Test file paths - using real cards from testing/ directory
-const TESTING_DIR = '/mnt/samesung/ai/card_doctor/testing';
+// Test file paths - using real cards from docs/internal/testing/ directory
+const TESTING_DIR = path.join(__dirname, '../docs/internal/testing');
 
 // CCv2 cards from ChubAI
 const CCv2_PNG = path.join(TESTING_DIR, 'chub/main_shana-e03c661ffb1d_spec_v2.png');
@@ -41,7 +41,7 @@ const RISU_V3_MONSTER = path.join(TESTING_DIR, 'risu_v3/Monster Musume Paradise.
 const RISU_V3_WEDDING = path.join(TESTING_DIR, 'risu_v3/Absolute Mother (wedding).png');
 
 // CharX format cards
-const CHARX_AILU = path.join(TESTING_DIR, 'risu_charx/Ailu Narukami.charx');
+const CHARX_AILU = path.join(TESTING_DIR, 'Ailu Narukami.charx');
 const CHARX_HARPER = path.join(TESTING_DIR, 'risu_charx/Harper.charx');
 const CHARX_HOGWARTS = path.join(TESTING_DIR, 'risu_charx/Hogwarts -IF-.charx');
 const CHARX_KOREAN = path.join(TESTING_DIR, 'risu_charx/오가미 이토코 v4.51.charx');

@@ -3,6 +3,31 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Polyfill Node.js modules for browser compatibility
+      module: '/src/polyfills/module-shim.ts',
+    },
+  },
+  build: {
+    rollupOptions: {
+      // Externalize node-specific modules from @character-foundry/core
+      external: ['module'],
+      output: {
+        globals: {
+          module: '{}',
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    exclude: ['@character-foundry/core'],
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
