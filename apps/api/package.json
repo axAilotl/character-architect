@@ -35,7 +35,8 @@
     "nanoid": "^5.0.4",
     "pdf-parse": "^1.1.4",
     "sharp": "^0.33.2",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",

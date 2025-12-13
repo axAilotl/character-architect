@@ -4,11 +4,7 @@
  */
 
 import type { FastifyInstance } from 'fastify';
-import type {
-  LLMInvokeRequest,
-  LLMAssistRequest,
-  LLMSettings,
-} from '../types/index.js';
+import type { LLMSettings } from '../types/index.js';
 import { openaiResponses, openaiChat } from '../providers/openai.js';
 import { anthropicMessages } from '../providers/anthropic.js';
 import { getSettings, saveSettings } from '../utils/settings.js';
@@ -16,6 +12,13 @@ import { buildPrompt } from '../utils/llm-prompts.js';
 import { computeDiff } from '../utils/diff.js';
 import { getTokenizer } from '../utils/tokenizer.js';
 import { validateLLMProviderURL } from '../utils/ssrf-protection.js';
+import { validateBody } from '../middleware/validate.js';
+import {
+  updateLLMSettingsSchema,
+  testConnectionSchema,
+  llmInvokeSchema,
+  llmAssistSchema,
+} from '../schemas/index.js';
 
 export async function llmRoutes(fastify: FastifyInstance) {
   /**
@@ -42,9 +45,12 @@ export async function llmRoutes(fastify: FastifyInstance) {
   /**
    * Update LLM settings
    */
-  fastify.post<{ Body: Partial<LLMSettings> }>('/llm/settings', async (request, reply) => {
+  fastify.post('/llm/settings', async (request, reply) => {
+    const validated = validateBody(updateLLMSettingsSchema, request.body, reply);
+    if (!validated.success) return;
+
     try {
-      const updates = request.body;
+      const updates = validated.data;
       const currentSettings = await getSettings();
 
       // Merge providers while preserving existing secrets when values are redacted or omitted
@@ -81,11 +87,14 @@ export async function llmRoutes(fastify: FastifyInstance) {
   /**
    * Test provider connection
    */
-  fastify.post<{ Body: { providerId: string } }>(
+  fastify.post(
     '/llm/test-connection',
     async (request, reply) => {
+      const validated = validateBody(testConnectionSchema, request.body, reply);
+      if (!validated.success) return;
+
       try {
-        const { providerId } = request.body;
+        const { providerId } = validated.data;
         const settings = await getSettings();
         const provider = settings.providers.find((p) => p.id === providerId);
 
@@ -149,10 +158,13 @@ export async function llmRoutes(fastify: FastifyInstance) {
   /**
    * Invoke LLM (low-level)
    */
-  fastify.post<{ Body: LLMInvokeRequest }>('/llm/invoke', async (request, reply) => {
+  fastify.post('/llm/invoke', async (request, reply) => {
+    const validated = validateBody(llmInvokeSchema, request.body, reply);
+    if (!validated.success) return;
+
     try {
       const { providerId, model, mode, messages, system, temperature, maxTokens, stream } =
-        request.body;
+        validated.data;
 
       const settings = await getSettings();
       const provider = settings.providers.find((p) => p.id === providerId);
@@ -233,7 +245,10 @@ export async function llmRoutes(fastify: FastifyInstance) {
   /**
    * LLM Assist (high-level with prompt building)
    */
-  fastify.post<{ Body: LLMAssistRequest }>('/llm/assist', async (request, reply) => {
+  fastify.post('/llm/assist', async (request, reply) => {
+    const validated = validateBody(llmAssistSchema, request.body, reply);
+    if (!validated.success) return;
+
     try {
       const {
         providerId,
@@ -244,7 +259,7 @@ export async function llmRoutes(fastify: FastifyInstance) {
         temperature,
         maxTokens,
         stream,
-      } = request.body;
+      } = validated.data;
 
       const settings = await getSettings();
       const provider = settings.providers.find((p) => p.id === providerId);

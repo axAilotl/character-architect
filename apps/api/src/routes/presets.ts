@@ -1,6 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { PresetRepository } from '../db/preset-repository.js';
-import type { CreatePresetRequest } from '../types/index.js';
+import { validateBody } from '../middleware/validate.js';
+import {
+  createPresetSchema,
+  updatePresetSchema,
+  copyPresetSchema,
+  importPresetsSchema,
+} from '../schemas/index.js';
 
 export async function presetRoutes(fastify: FastifyInstance) {
   const presetRepo = new PresetRepository(fastify.db);
@@ -25,26 +31,12 @@ export async function presetRoutes(fastify: FastifyInstance) {
   });
 
   // Create new preset
-  fastify.post<{ Body: CreatePresetRequest }>('/presets', async (request, reply) => {
-    const { name, description, instruction, category } = request.body;
-
-    if (!name || !instruction) {
-      reply.code(400);
-      return { error: 'Name and instruction are required' };
-    }
-
-    if (name.length > 100) {
-      reply.code(400);
-      return { error: 'Name must be 100 characters or less' };
-    }
-
-    if (instruction.length > 5000) {
-      reply.code(400);
-      return { error: 'Instruction must be 5000 characters or less' };
-    }
+  fastify.post('/presets', async (request, reply) => {
+    const validated = validateBody(createPresetSchema, request.body, reply);
+    if (!validated.success) return;
 
     try {
-      const preset = presetRepo.create({ name, description, instruction, category });
+      const preset = presetRepo.create(validated.data);
       reply.code(201);
       return { preset };
     } catch (err) {
@@ -55,24 +47,14 @@ export async function presetRoutes(fastify: FastifyInstance) {
   });
 
   // Update preset
-  fastify.patch<{ Params: { id: string }; Body: Partial<CreatePresetRequest> }>(
+  fastify.patch<{ Params: { id: string } }>(
     '/presets/:id',
     async (request, reply) => {
-      const { id } = request.params;
-      const updates = request.body;
-
-      if (updates.name && updates.name.length > 100) {
-        reply.code(400);
-        return { error: 'Name must be 100 characters or less' };
-      }
-
-      if (updates.instruction && updates.instruction.length > 5000) {
-        reply.code(400);
-        return { error: 'Instruction must be 5000 characters or less' };
-      }
+      const validated = validateBody(updatePresetSchema, request.body, reply);
+      if (!validated.success) return;
 
       try {
-        const preset = presetRepo.update({ id, ...updates });
+        const preset = presetRepo.update({ id: request.params.id, ...validated.data });
         if (!preset) {
           reply.code(404);
           return { error: 'Preset not found' };
@@ -127,11 +109,14 @@ export async function presetRoutes(fastify: FastifyInstance) {
   });
 
   // Copy a preset (creates a new user preset from any preset including built-in)
-  fastify.post<{ Params: { id: string }; Body: { name?: string } }>(
+  fastify.post<{ Params: { id: string } }>(
     '/presets/:id/copy',
     async (request, reply) => {
+      const validated = validateBody(copyPresetSchema, request.body || {}, reply);
+      if (!validated.success) return;
+
       try {
-        const preset = presetRepo.copy(request.params.id, request.body?.name);
+        const preset = presetRepo.copy(request.params.id, validated.data.name);
         if (!preset) {
           reply.code(404);
           return { error: 'Preset not found' };
@@ -173,26 +158,17 @@ export async function presetRoutes(fastify: FastifyInstance) {
   });
 
   // Import presets from JSON
-  fastify.post<{ Body: { presets: CreatePresetRequest[] } }>(
+  fastify.post(
     '/presets/import',
     async (request, reply) => {
-      const { presets } = request.body;
-
-      if (!Array.isArray(presets)) {
-        reply.code(400);
-        return { error: 'Invalid import format: presets must be an array' };
-      }
+      const validated = validateBody(importPresetsSchema, request.body, reply);
+      if (!validated.success) return;
 
       const imported: string[] = [];
       const failed: Array<{ name: string; error: string }> = [];
 
-      for (const preset of presets) {
+      for (const preset of validated.data.presets) {
         try {
-          if (!preset.name || !preset.instruction) {
-            failed.push({ name: preset.name || 'Unknown', error: 'Missing required fields' });
-            continue;
-          }
-
           const created = presetRepo.create(preset);
           imported.push(created.id);
         } catch (err: any) {

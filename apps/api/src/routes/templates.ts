@@ -9,6 +9,16 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import type { Template, Snippet } from '../types/index.js';
+import { validateBody } from '../middleware/validate.js';
+import {
+  createTemplateSchema,
+  updateTemplateSchema,
+  importTemplatesSchema,
+  createSnippetSchema,
+  updateSnippetSchema,
+  importSnippetsSchema,
+  importElaraVossNamesSchema,
+} from '../schemas/index.js';
 
 import { DEFAULT_TEMPLATES, DEFAULT_SNIPPETS } from '@card-architect/defaults';
 
@@ -144,23 +154,19 @@ export async function templateRoutes(fastify: FastifyInstance) {
   });
 
   // Create new template
-  fastify.post<{ Body: Partial<Template> }>('/templates', async (request, reply) => {
-    const { name, description, category, targetFields, content } = request.body;
-
-    if (!name) {
-      reply.code(400);
-      return { error: 'Name is required' };
-    }
+  fastify.post('/templates', async (request, reply) => {
+    const validated = validateBody(createTemplateSchema, request.body, reply);
+    if (!validated.success) return;
 
     const templates = loadTemplates();
     const now = new Date().toISOString();
     const newTemplate: Template = {
       id: `tpl-${randomUUID()}`,
-      name,
-      description: description || '',
-      category: category || 'custom',
-      targetFields: targetFields || 'all',
-      content: content || {},
+      name: validated.data.name,
+      description: validated.data.description || '',
+      category: validated.data.category || 'custom',
+      targetFields: validated.data.targetFields || 'all',
+      content: validated.data.content || {},
       createdAt: now,
       updatedAt: now,
       isDefault: false,
@@ -174,12 +180,13 @@ export async function templateRoutes(fastify: FastifyInstance) {
   });
 
   // Update template
-  fastify.patch<{ Params: { id: string }; Body: Partial<Template> }>(
+  fastify.patch<{ Params: { id: string } }>(
     '/templates/:id',
     async (request, reply) => {
-      const { id } = request.params;
-      const updates = request.body;
+      const validated = validateBody(updateTemplateSchema, request.body, reply);
+      if (!validated.success) return;
 
+      const { id } = request.params;
       const templates = loadTemplates();
       const index = templates.findIndex(t => t.id === id);
 
@@ -191,7 +198,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
       const now = new Date().toISOString();
       templates[index] = {
         ...templates[index],
-        ...updates,
+        ...validated.data,
         id, // preserve ID
         updatedAt: now,
       };
@@ -231,26 +238,24 @@ export async function templateRoutes(fastify: FastifyInstance) {
   });
 
   // Import templates
-  fastify.post<{ Body: { templates: Template[]; replace?: boolean } }>(
+  fastify.post(
     '/templates/import',
     async (request, reply) => {
-      const { templates: importedTemplates, replace } = request.body;
+      const validated = validateBody(importTemplatesSchema, request.body, reply);
+      if (!validated.success) return;
 
-      if (!Array.isArray(importedTemplates)) {
-        reply.code(400);
-        return { error: 'Invalid import format: templates must be an array' };
-      }
-
+      const { templates: importedTemplates, replace } = validated.data;
       const now = new Date().toISOString();
       const existingTemplates = replace ? [] : loadTemplates();
 
       const imported: string[] = [];
       for (const tpl of importedTemplates) {
-        if (!tpl.name) continue;
-
         const newTemplate: Template = {
           ...tpl,
           id: tpl.id || `tpl-${randomUUID()}`,
+          category: tpl.category || 'custom',
+          targetFields: tpl.targetFields || 'all',
+          content: tpl.content || {},
           createdAt: tpl.createdAt || now,
           updatedAt: now,
         };
@@ -300,22 +305,18 @@ export async function templateRoutes(fastify: FastifyInstance) {
   });
 
   // Create new snippet
-  fastify.post<{ Body: Partial<Snippet> }>('/snippets', async (request, reply) => {
-    const { name, description, category, content } = request.body;
-
-    if (!name) {
-      reply.code(400);
-      return { error: 'Name is required' };
-    }
+  fastify.post('/snippets', async (request, reply) => {
+    const validated = validateBody(createSnippetSchema, request.body, reply);
+    if (!validated.success) return;
 
     const snippets = loadSnippets();
     const now = new Date().toISOString();
     const newSnippet: Snippet = {
       id: `snip-${randomUUID()}`,
-      name,
-      description: description || '',
-      category: category || 'custom',
-      content: content || '',
+      name: validated.data.name,
+      description: validated.data.description || '',
+      category: validated.data.category || 'custom',
+      content: validated.data.content || '',
       createdAt: now,
       updatedAt: now,
       isDefault: false,
@@ -329,12 +330,13 @@ export async function templateRoutes(fastify: FastifyInstance) {
   });
 
   // Update snippet
-  fastify.patch<{ Params: { id: string }; Body: Partial<Snippet> }>(
+  fastify.patch<{ Params: { id: string } }>(
     '/snippets/:id',
     async (request, reply) => {
-      const { id } = request.params;
-      const updates = request.body;
+      const validated = validateBody(updateSnippetSchema, request.body, reply);
+      if (!validated.success) return;
 
+      const { id } = request.params;
       const snippets = loadSnippets();
       const index = snippets.findIndex(s => s.id === id);
 
@@ -346,7 +348,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
       const now = new Date().toISOString();
       snippets[index] = {
         ...snippets[index],
-        ...updates,
+        ...validated.data,
         id, // preserve ID
         updatedAt: now,
       };
@@ -386,26 +388,23 @@ export async function templateRoutes(fastify: FastifyInstance) {
   });
 
   // Import snippets
-  fastify.post<{ Body: { snippets: Snippet[]; replace?: boolean } }>(
+  fastify.post(
     '/snippets/import',
     async (request, reply) => {
-      const { snippets: importedSnippets, replace } = request.body;
+      const validated = validateBody(importSnippetsSchema, request.body, reply);
+      if (!validated.success) return;
 
-      if (!Array.isArray(importedSnippets)) {
-        reply.code(400);
-        return { error: 'Invalid import format: snippets must be an array' };
-      }
-
+      const { snippets: importedSnippets, replace } = validated.data;
       const now = new Date().toISOString();
       const existingSnippets = replace ? [] : loadSnippets();
 
       const imported: string[] = [];
       for (const snip of importedSnippets) {
-        if (!snip.name) continue;
-
         const newSnippet: Snippet = {
           ...snip,
           id: snip.id || `snip-${randomUUID()}`,
+          category: snip.category || 'custom',
+          content: snip.content || '',
           createdAt: snip.createdAt || now,
           updatedAt: now,
         };
@@ -452,23 +451,13 @@ export async function templateRoutes(fastify: FastifyInstance) {
   });
 
   // Import ELARA VOSS names (replace all)
-  fastify.post<{ Body: { names: ElaraVossName[]; merge?: boolean } }>(
+  fastify.post(
     '/elara-voss/names/import',
     async (request, reply) => {
-      const { names: importedNames, merge } = request.body;
+      const validated = validateBody(importElaraVossNamesSchema, request.body, reply);
+      if (!validated.success) return;
 
-      if (!Array.isArray(importedNames)) {
-        reply.code(400);
-        return { error: 'Invalid import format: names must be an array' };
-      }
-
-      // Validate entries
-      const validNames = importedNames.filter(n =>
-        n.name &&
-        typeof n.name === 'string' &&
-        ['male', 'female', 'neutral'].includes(n.gender) &&
-        ['first', 'last'].includes(n.type)
-      );
+      const { names: validNames, merge } = validated.data;
 
       if (validNames.length === 0) {
         reply.code(400);

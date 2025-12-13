@@ -1,6 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository, CardAssetRepository } from '../db/repository.js';
 import { CardService } from '../services/card.service.js';
+import { validateBody } from '../middleware/validate.js';
+import {
+  createCardSchema,
+  updateCardSchema,
+  createVersionSchema,
+} from '../schemas/index.js';
 
 export async function cardRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);
@@ -75,9 +81,10 @@ export async function cardRoutes(fastify: FastifyInstance) {
 
   // Create card
   fastify.post('/cards', async (request, reply) => {
-    const body = request.body as { data: unknown; meta?: unknown };
+    const validated = validateBody(createCardSchema, request.body, reply);
+    if (!validated.success) return;
 
-    const result = cardService.create({ data: body.data, meta: body.meta });
+    const result = cardService.create({ data: validated.data.data, meta: validated.data.meta });
 
     if ('error' in result) {
       reply.code(400);
@@ -90,9 +97,10 @@ export async function cardRoutes(fastify: FastifyInstance) {
 
   // Update card
   fastify.patch<{ Params: { id: string } }>('/cards/:id', async (request, reply) => {
-    const body = request.body as { data?: unknown; meta?: unknown };
+    const validated = validateBody(updateCardSchema, request.body, reply);
+    if (!validated.success) return;
 
-    const result = cardService.update(request.params.id, { data: body.data, meta: body.meta });
+    const result = cardService.update(request.params.id, { data: validated.data.data, meta: validated.data.meta });
 
     if (result === null) {
       reply.code(404);
@@ -128,8 +136,10 @@ export async function cardRoutes(fastify: FastifyInstance) {
 
   // Create version snapshot
   fastify.post<{ Params: { id: string } }>('/cards/:id/versions', async (request, reply) => {
-    const body = request.body as { message?: string };
-    const version = cardService.createVersion(request.params.id, body.message);
+    const validated = validateBody(createVersionSchema, request.body, reply);
+    if (!validated.success) return;
+
+    const version = cardService.createVersion(request.params.id, validated.data.message);
 
     if (!version) {
       reply.code(404);
