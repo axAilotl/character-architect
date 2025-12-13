@@ -53,8 +53,10 @@ From `@character-foundry/*` (GitHub Packages):
 Cards have a `meta.spec` field:
 - `v2` - CCv2 character card
 - `v3` - CCv3 character card
-- `collection` - Voxta collection (multi-character package)
+- `collection` - Voxta collection (multi-character package, stores original .voxpkg)
 - `lorebook` - Standalone lorebook
+
+Collection cards have `memberCount` in meta and store `package-original` asset for delta export.
 
 ## Data Structure
 
@@ -111,9 +113,9 @@ Use pnpm overrides in root `package.json` to force transitive dependency version
 {
   "pnpm": {
     "overrides": {
-      "@character-foundry/core": "0.0.4",
+      "@character-foundry/core": "0.1.0",
       "@character-foundry/loader": "0.1.8",
-      "@character-foundry/voxta": "0.1.8"
+      "@character-foundry/voxta": "0.1.9"
     }
   }
 }

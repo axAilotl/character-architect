@@ -9,6 +9,8 @@
 - **Full CCv2/CCv3 Support** - Read, edit, validate both specifications with proper wrapped/unwrapped format handling
 - **CHARX Support** - Full support for CHARX v1.0 format (ZIP-based cards with embedded assets)
 - **Voxta Support** - Import/Export `.voxpkg` files with full asset and metadata preservation
+  - Multi-character packages imported as Collections with linked character cards
+  - Single-character export or full collection re-export
 - **Real-time Token Counting** - Per-field and global token estimates using Hugging Face tokenizers
 - **Lorebook Editor** - Complete CCv3 character book with all fields (keywords, secondary, priority, selective AND/NOT, probability, constant, insertion order/position)
 - **Standalone Lorebooks** - Create, import, and manage lorebooks independently from character cards
