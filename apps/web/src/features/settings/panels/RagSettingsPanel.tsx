@@ -1,8 +1,28 @@
+/**
+ * RAG Settings Panel
+ *
+ * Configure RAG (Retrieval-Augmented Generation) for LLM Assist.
+ * Uses AutoForm for configuration forms, with manual handling for
+ * database list, upload operations, and documents management.
+ */
+
 import { useState, useEffect } from 'react';
+import { AutoForm } from '@character-foundry/app-framework';
 import { useLLMStore } from '../../../store/llm-store';
 import { useCardStore } from '../../../store/card-store';
 import { extractCardData } from '../../../lib/card-utils';
 import { api } from '../../../lib/api';
+import {
+  ragConfigSchema,
+  ragConfigUiHints,
+  createDatabaseSchema,
+  createDatabaseUiHints,
+  freeTextEntrySchema,
+  freeTextEntryUiHints,
+  type RagConfig,
+  type CreateDatabase,
+  type FreeTextEntry,
+} from '../../../lib/schemas/settings/rag';
 
 export function RagSettingsPanel() {
   const {
@@ -220,56 +240,31 @@ export function RagSettingsPanel() {
         </p>
       </div>
 
-      <div className="space-y-4 border border-dark-border rounded-lg p-4">
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="ragEnabled"
-            checked={settings.rag?.enabled ?? false}
-            onChange={(e) =>
-              useLLMStore
-                .getState()
-                .saveSettings({ rag: { ...settings.rag, enabled: e.target.checked } })
+      <div className="border border-dark-border rounded-lg p-4">
+        <AutoForm
+          schema={ragConfigSchema}
+          values={{
+            enabled: settings.rag?.enabled ?? false,
+            topK: settings.rag?.topK ?? 5,
+            tokenCap: settings.rag?.tokenCap ?? 2000,
+          }}
+          onChange={(updated: RagConfig) => {
+            // Only update if values actually changed to prevent infinite loops
+            const currentEnabled = settings.rag?.enabled ?? false;
+            const currentTopK = settings.rag?.topK ?? 5;
+            const currentTokenCap = settings.rag?.tokenCap ?? 2000;
+            if (
+              updated.enabled !== currentEnabled ||
+              updated.topK !== currentTopK ||
+              updated.tokenCap !== currentTokenCap
+            ) {
+              useLLMStore.getState().saveSettings({
+                rag: { ...settings.rag, ...updated },
+              });
             }
-            className="rounded"
-          />
-          <label htmlFor="ragEnabled" className="text-sm font-medium">
-            Enable RAG for LLM Assist
-          </label>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Top-K Snippets</label>
-            <input
-              type="number"
-              value={settings.rag?.topK ?? 5}
-              min={1}
-              onChange={(e) =>
-                useLLMStore
-                  .getState()
-                  .saveSettings({ rag: { ...settings.rag, topK: parseInt(e.target.value) } })
-              }
-              className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Token Cap</label>
-            <input
-              type="number"
-              value={settings.rag?.tokenCap ?? 2000}
-              min={200}
-              onChange={(e) =>
-                useLLMStore
-                  .getState()
-                  .saveSettings({
-                    rag: { ...settings.rag, tokenCap: parseInt(e.target.value) || 0 },
-                  })
-              }
-              className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-            />
-          </div>
-        </div>
+          }}
+          uiHints={ragConfigUiHints}
+        />
       </div>
 
       <div className="flex items-center justify-between">
@@ -300,18 +295,17 @@ export function RagSettingsPanel() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="border border-dark-border rounded-lg p-4 space-y-3">
           <h5 className="font-semibold">Create Knowledge Base</h5>
-          <input
-            type="text"
-            placeholder="Name (e.g., Warhammer 40K Lore)"
-            value={newDbName}
-            onChange={(e) => setNewDbName(e.target.value)}
-            className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
-          />
-          <textarea
-            placeholder="Optional description"
-            value={newDbDescription}
-            onChange={(e) => setNewDbDescription(e.target.value)}
-            className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm h-24 resize-none"
+          <AutoForm
+            schema={createDatabaseSchema}
+            values={{
+              label: newDbName,
+              description: newDbDescription,
+            }}
+            onChange={(updated: CreateDatabase) => {
+              if (updated.label !== newDbName) setNewDbName(updated.label);
+              if (updated.description !== newDbDescription) setNewDbDescription(updated.description || '');
+            }}
+            uiHints={createDatabaseUiHints}
           />
           <button
             onClick={handleCreateDatabase}
@@ -434,19 +428,17 @@ export function RagSettingsPanel() {
             {/* Free Text Entry */}
             <div className="space-y-2">
               <h6 className="font-semibold text-sm">Add Free Text</h6>
-              <input
-                type="text"
-                placeholder="Title (e.g., Writing Guide)"
-                value={freeTextTitle}
-                onChange={(e) => setFreeTextTitle(e.target.value)}
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
-              />
-              <textarea
-                placeholder="Paste your documentation, notes, or guidelines here..."
-                value={freeTextContent}
-                onChange={(e) => setFreeTextContent(e.target.value)}
-                rows={3}
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm resize-none"
+              <AutoForm
+                schema={freeTextEntrySchema}
+                values={{
+                  title: freeTextTitle,
+                  content: freeTextContent,
+                }}
+                onChange={(updated: FreeTextEntry) => {
+                  if (updated.title !== freeTextTitle) setFreeTextTitle(updated.title);
+                  if (updated.content !== freeTextContent) setFreeTextContent(updated.content);
+                }}
+                uiHints={freeTextEntryUiHints}
               />
               <button
                 onClick={handleAddFreeText}

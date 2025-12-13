@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useLLMStore } from '../../../store/llm-store';
+import { AutoForm } from '@character-foundry/app-framework';
 import { useSettingsStore } from '../../../store/settings-store';
 import { api } from '../../../lib/api';
 import { getDeploymentConfig } from '../../../config/deployment';
 import { defaultPresets } from '../../../lib/default-presets';
+import {
+  presetEditorSchema,
+  presetEditorUiHints,
+  aiPromptsSchema,
+  aiPromptsUiHints,
+  type PresetEditor,
+  type AIPrompts,
+} from '../../../lib/schemas/settings/presets';
 import type { UserPreset, CreatePresetRequest } from '../../../lib/types';
 
 export function PresetsSettingsPanel() {
-  const { } = useLLMStore();
   const { aiPrompts, setTagsSystemPrompt, setTaglineSystemPrompt } = useSettingsStore();
 
   const [presets, setPresets] = useState<UserPreset[]>([]);
@@ -485,122 +492,69 @@ export function PresetsSettingsPanel() {
             {editingPreset.id ? 'Edit Preset' : 'New Preset'}
           </h4>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name *</label>
-              <input
-                type="text"
-                value={editingPreset.name || ''}
-                onChange={(e) =>
-                  setEditingPreset({ ...editingPreset, name: e.target.value })
-                }
-                placeholder="e.g., Tighten to 100 tokens"
-                maxLength={100}
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-              />
-            </div>
+          <AutoForm
+            schema={presetEditorSchema}
+            values={{
+              name: editingPreset.name || '',
+              description: editingPreset.description || '',
+              category: (editingPreset.category as PresetEditor['category']) || 'custom',
+              instruction: editingPreset.instruction || '',
+            }}
+            onChange={(updated: PresetEditor) => {
+              // Only update if values actually changed to prevent infinite loops
+              const currentName = editingPreset.name || '';
+              const currentDesc = editingPreset.description || '';
+              const currentCat = editingPreset.category || 'custom';
+              const currentInst = editingPreset.instruction || '';
+              if (
+                updated.name !== currentName ||
+                updated.description !== currentDesc ||
+                updated.category !== currentCat ||
+                updated.instruction !== currentInst
+              ) {
+                setEditingPreset({ ...editingPreset, ...updated });
+              }
+            }}
+            uiHints={presetEditorUiHints}
+          />
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <input
-                type="text"
-                value={editingPreset.description || ''}
-                onChange={(e) =>
-                  setEditingPreset({ ...editingPreset, description: e.target.value })
-                }
-                placeholder="Brief description of what this preset does"
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Category</label>
-              <select
-                value={editingPreset.category || 'custom'}
-                onChange={(e) =>
-                  setEditingPreset({
-                    ...editingPreset,
-                    category: e.target.value as any,
-                  })
-                }
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-              >
-                <option value="rewrite">Rewrite</option>
-                <option value="format">Format</option>
-                <option value="generate">Generate</option>
-                <option value="custom">Custom</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Instruction *</label>
-              <textarea
-                value={editingPreset.instruction || ''}
-                onChange={(e) =>
-                  setEditingPreset({ ...editingPreset, instruction: e.target.value })
-                }
-                placeholder="The prompt/instruction to send to the LLM"
-                maxLength={5000}
-                rows={8}
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
-              />
-              <p className="text-xs text-dark-muted mt-1">
-                {editingPreset.instruction?.length || 0} / 5000 characters
-              </p>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setEditingPreset(null)}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSavePreset}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-              >
-                Save
-              </button>
-            </div>
+          <div className="flex gap-2 justify-end pt-4 border-t border-dark-border">
+            <button
+              onClick={() => setEditingPreset(null)}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSavePreset}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Save
+            </button>
           </div>
         </div>
       )}
 
       {/* AI Generation Prompts */}
       <div className="mt-8 border-t border-dark-border pt-6">
-        <h3 className="text-lg font-semibold mb-4">AI Generation Prompts</h3>
+        <h3 className="text-lg font-semibold mb-2">AI Generation Prompts</h3>
         <p className="text-dark-muted mb-4">
           System prompts for the AI generate buttons (tags, tagline).
         </p>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Tags Generation</label>
-            <p className="text-xs text-dark-muted mb-2">
-              5-10 single-word slugs. Hyphens for compound words.
-            </p>
-            <textarea
-              value={aiPrompts.tagsSystemPrompt}
-              onChange={(e) => setTagsSystemPrompt(e.target.value)}
-              rows={3}
-              className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Tagline Generation</label>
-            <p className="text-xs text-dark-muted mb-2">
-              Catchy text, up to 500 characters.
-            </p>
-            <textarea
-              value={aiPrompts.taglineSystemPrompt}
-              onChange={(e) => setTaglineSystemPrompt(e.target.value)}
-              rows={3}
-              className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
+        <AutoForm
+          schema={aiPromptsSchema}
+          values={aiPrompts}
+          onChange={(updated: AIPrompts) => {
+            if (updated.tagsSystemPrompt !== aiPrompts.tagsSystemPrompt) {
+              setTagsSystemPrompt(updated.tagsSystemPrompt);
+            }
+            if (updated.taglineSystemPrompt !== aiPrompts.taglineSystemPrompt) {
+              setTaglineSystemPrompt(updated.taglineSystemPrompt);
+            }
+          }}
+          uiHints={aiPromptsUiHints}
+        />
       </div>
     </div>
   );

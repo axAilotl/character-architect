@@ -1,8 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useLLMStore } from '../../../store/llm-store';
+/**
+ * Providers Settings Panel
+ *
+ * Configure LLM providers with connection testing and model fetching.
+ * Uses AutoForm for the provider editor form, with manual handling for
+ * provider list CRUD operations and model selection.
+ */
 
-import type { ProviderConfig, ProviderKind, OpenAIMode } from '../../../lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import { AutoForm } from '@character-foundry/app-framework';
+import { useLLMStore } from '../../../store/llm-store';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import {
+  providerConfigSchema,
+  providerConfigUiHints,
+} from '../../../lib/schemas/settings/provider';
+import type { ProviderConfig } from '../../../lib/types';
+
+// Create a schema without the defaultModel field (handled separately)
+const providerEditorSchema = providerConfigSchema.omit({ defaultModel: true });
 
 export function ProvidersSettingsPanel() {
   const {
@@ -46,7 +61,7 @@ export function ProvidersSettingsPanel() {
     setEditingProvider({
       id: `provider-${Date.now()}`,
       kind: 'openai',
-      label: 'New Provider',
+      name: 'New Provider',
       baseURL: 'https://api.openai.com',
       apiKey: '',
       defaultModel: 'gpt-4',
@@ -56,6 +71,12 @@ export function ProvidersSettingsPanel() {
       maxTokens: 2048,
     });
   };
+
+  // Memoize UI hints to avoid object recreation
+  const editorUiHints = useMemo(() => {
+    const { defaultModel: _, ...rest } = providerConfigUiHints;
+    return rest;
+  }, []);
 
   return (
     <div>
@@ -78,7 +99,7 @@ export function ProvidersSettingsPanel() {
           >
             <div className="flex justify-between items-start">
               <div>
-                <h4 className="font-semibold">{provider.label}</h4>
+                <h4 className="font-semibold">{provider.name}</h4>
                 <p className="text-sm text-dark-muted">
                   {provider.kind} • {provider.defaultModel}
                 </p>
@@ -140,120 +161,44 @@ export function ProvidersSettingsPanel() {
           </h4>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Label</label>
-              <input
-                type="text"
-                value={editingProvider.label || ''}
-                onChange={(e) =>
-                  setEditingProvider({ ...editingProvider, label: e.target.value })
+            {/* AutoForm handles most fields */}
+            <AutoForm
+              schema={providerEditorSchema}
+              values={{
+                id: editingProvider.id ?? '',
+                name: editingProvider.name ?? '',
+                kind: editingProvider.kind ?? 'openai',
+                baseURL: editingProvider.baseURL ?? '',
+                apiKey: editingProvider.apiKey ?? '',
+                temperature: editingProvider.temperature,
+                maxTokens: editingProvider.maxTokens,
+                streamDefault: editingProvider.streamDefault,
+                mode: editingProvider.mode,
+                organization: editingProvider.organization,
+                anthropicVersion: editingProvider.anthropicVersion,
+              }}
+              onChange={(updated) => {
+                // Only update if values actually changed to prevent infinite loops
+                const hasChanges =
+                  updated.id !== (editingProvider.id ?? '') ||
+                  updated.name !== (editingProvider.name ?? '') ||
+                  updated.kind !== (editingProvider.kind ?? 'openai') ||
+                  updated.baseURL !== (editingProvider.baseURL ?? '') ||
+                  updated.apiKey !== (editingProvider.apiKey ?? '') ||
+                  updated.temperature !== editingProvider.temperature ||
+                  updated.maxTokens !== editingProvider.maxTokens ||
+                  updated.streamDefault !== editingProvider.streamDefault ||
+                  updated.mode !== editingProvider.mode ||
+                  updated.organization !== editingProvider.organization ||
+                  updated.anthropicVersion !== editingProvider.anthropicVersion;
+                if (hasChanges) {
+                  setEditingProvider({ ...editingProvider, ...updated });
                 }
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-              />
-            </div>
+              }}
+              uiHints={editorUiHints}
+            />
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Provider Type</label>
-              <select
-                value={editingProvider.kind || 'openai'}
-                onChange={(e) =>
-                  setEditingProvider({
-                    ...editingProvider,
-                    kind: e.target.value as ProviderKind,
-                  })
-                }
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-              >
-                <option value="openai">OpenAI</option>
-                <option value="openai-compatible">OpenAI-Compatible</option>
-                <option value="anthropic">Anthropic</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Base URL</label>
-              <input
-                type="text"
-                value={editingProvider.baseURL || ''}
-                onChange={(e) =>
-                  setEditingProvider({ ...editingProvider, baseURL: e.target.value })
-                }
-                placeholder="https://api.openai.com"
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">API Key</label>
-              <input
-                type="password"
-                value={editingProvider.apiKey || ''}
-                onChange={(e) =>
-                  setEditingProvider({ ...editingProvider, apiKey: e.target.value })
-                }
-                placeholder="sk-..."
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-              />
-            </div>
-
-            {(editingProvider.kind === 'openai' ||
-              editingProvider.kind === 'openai-compatible') && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Mode</label>
-                  <select
-                    value={editingProvider.mode || 'chat'}
-                    onChange={(e) =>
-                      setEditingProvider({
-                        ...editingProvider,
-                        mode: e.target.value as OpenAIMode,
-                      })
-                    }
-                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                  >
-                    <option value="chat">Chat Completions</option>
-                    <option value="responses">Responses API</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Organization ID (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={editingProvider.organization || ''}
-                    onChange={(e) =>
-                      setEditingProvider({
-                        ...editingProvider,
-                        organization: e.target.value,
-                      })
-                    }
-                    className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                  />
-                </div>
-              </>
-            )}
-
-            {editingProvider.kind === 'anthropic' && (
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Anthropic Version
-                </label>
-                <input
-                  type="text"
-                  value={editingProvider.anthropicVersion || '2023-06-01'}
-                  onChange={(e) =>
-                    setEditingProvider({
-                      ...editingProvider,
-                      anthropicVersion: e.target.value,
-                    })
-                  }
-                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                />
-              </div>
-            )}
-
+            {/* Model selector - handled manually due to async fetch behavior */}
             <div>
               <label className="block text-sm font-medium mb-1">Default Model</label>
               <div className="flex gap-2">
@@ -296,7 +241,6 @@ export function ProvidersSettingsPanel() {
                     if (!result.success) {
                       setModelFetchError(result.error || 'Failed to fetch models');
                     } else if (!editingProvider.defaultModel && result.models && result.models.length > 0) {
-                      // Auto-select first model if none selected
                       setEditingProvider({
                         ...editingProvider,
                         defaultModel: result.models[0],
@@ -315,60 +259,7 @@ export function ProvidersSettingsPanel() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Temperature</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="2"
-                  value={editingProvider.temperature ?? 0.7}
-                  onChange={(e) =>
-                    setEditingProvider({
-                      ...editingProvider,
-                      temperature: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Max Tokens</label>
-                <input
-                  type="number"
-                  value={editingProvider.maxTokens ?? 2048}
-                  onChange={(e) =>
-                    setEditingProvider({
-                      ...editingProvider,
-                      maxTokens: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="streamDefault"
-                checked={editingProvider.streamDefault ?? true}
-                onChange={(e) =>
-                  setEditingProvider({
-                    ...editingProvider,
-                    streamDefault: e.target.checked,
-                  })
-                }
-                className="rounded"
-              />
-              <label htmlFor="streamDefault" className="text-sm">
-                Enable streaming by default
-              </label>
-            </div>
-
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-4 border-t border-dark-border">
               <button
                 onClick={() => setEditingProvider(null)}
                 className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"

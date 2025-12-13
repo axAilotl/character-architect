@@ -16,7 +16,8 @@ export const openAIModeSchema = z.enum(['chat', 'responses']);
 
 export const providerConfigSchema = z.object({
   id: z.string().describe('Unique provider ID'),
-  label: z.string().min(1).describe('Display name'),
+  name: z.string().min(1).describe('Display name'),
+  label: z.string().optional().describe('Optional label'),
   kind: providerKindSchema.describe('Provider type'),
   baseURL: z.string().url().describe('API base URL'),
   apiKey: z.string().describe('API key (secret)'),
@@ -25,15 +26,15 @@ export const providerConfigSchema = z.object({
     .number()
     .min(0)
     .max(2)
-    .default(0.7)
+    .optional()
     .describe('Temperature'),
   maxTokens: z
     .number()
     .int()
     .positive()
-    .default(2048)
+    .optional()
     .describe('Max tokens'),
-  streamDefault: z.boolean().default(true).describe('Enable streaming'),
+  streamDefault: z.boolean().optional().describe('Enable streaming'),
   // Conditional fields (optional)
   mode: openAIModeSchema.optional().describe('OpenAI mode'),
   organization: z.string().optional().describe('Organization ID'),
@@ -46,11 +47,12 @@ export type OpenAIMode = z.infer<typeof openAIModeSchema>;
 
 export const providerConfigUiHints: UIHints<ProviderConfig> = {
   id: { hidden: true },
-  label: {
-    label: 'Label',
+  name: {
+    label: 'Name',
     placeholder: 'My Provider',
     helperText: 'A friendly name for this provider.',
   },
+  label: { hidden: true },
   kind: {
     label: 'Provider Type',
     widget: 'select',

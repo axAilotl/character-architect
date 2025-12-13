@@ -2,11 +2,19 @@
  * wwwyzzerdd Settings Panel
  *
  * Configure the AI character creation wizard prompts and personality.
+ * Uses AutoForm for the prompt set editor form, with manual handling for
+ * prompt set list CRUD operations, import/export, and active selection.
  */
 
 import { useState, useEffect } from 'react';
+import { AutoForm } from '@character-foundry/app-framework';
 import { useSettingsStore } from '../../../store/settings-store';
 import { getDeploymentConfig } from '../../../config/deployment';
+import {
+  promptSetEditorSchema,
+  promptSetEditorUiHints,
+  type PromptSetEditor,
+} from '../../../lib/schemas/settings/wwwyzzerdd';
 import {
   type WwwyzzerddPromptSet,
   defaultWwwyzzerddPrompts,
@@ -430,87 +438,48 @@ export function WwwyzzerddSettings() {
             {editingPromptSet.id ? 'Edit Prompt Set' : 'New Prompt Set'}
           </h4>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name *</label>
-                <input
-                  type="text"
-                  value={editingPromptSet.name || ''}
-                  onChange={(e) =>
-                    setEditingPromptSet({ ...editingPromptSet, name: e.target.value })
-                  }
-                  placeholder="e.g., Creative Wizard"
-                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <input
-                  type="text"
-                  value={editingPromptSet.description || ''}
-                  onChange={(e) =>
-                    setEditingPromptSet({ ...editingPromptSet, description: e.target.value })
-                  }
-                  placeholder="Brief description"
-                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2"
-                />
-              </div>
-            </div>
+          <AutoForm
+            schema={promptSetEditorSchema}
+            values={{
+              name: editingPromptSet.name || '',
+              description: editingPromptSet.description || '',
+              characterPrompt: editingPromptSet.characterPrompt || '',
+              lorePrompt: editingPromptSet.lorePrompt || '',
+              personality: editingPromptSet.personality || '',
+            }}
+            onChange={(updated: PromptSetEditor) => {
+              // Only update if values actually changed to prevent infinite loops
+              const currentName = editingPromptSet.name || '';
+              const currentDesc = editingPromptSet.description || '';
+              const currentChar = editingPromptSet.characterPrompt || '';
+              const currentLore = editingPromptSet.lorePrompt || '';
+              const currentPersonality = editingPromptSet.personality || '';
+              if (
+                updated.name !== currentName ||
+                updated.description !== currentDesc ||
+                updated.characterPrompt !== currentChar ||
+                updated.lorePrompt !== currentLore ||
+                updated.personality !== currentPersonality
+              ) {
+                setEditingPromptSet({ ...editingPromptSet, ...updated });
+              }
+            }}
+            uiHints={promptSetEditorUiHints}
+          />
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Character Prompt *</label>
-              <textarea
-                value={editingPromptSet.characterPrompt || ''}
-                onChange={(e) =>
-                  setEditingPromptSet({ ...editingPromptSet, characterPrompt: e.target.value })
-                }
-                placeholder="System prompt for character creation assistance..."
-                rows={6}
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Lore Prompt *</label>
-              <textarea
-                value={editingPromptSet.lorePrompt || ''}
-                onChange={(e) =>
-                  setEditingPromptSet({ ...editingPromptSet, lorePrompt: e.target.value })
-                }
-                placeholder="System prompt for lore/worldbuilding assistance..."
-                rows={4}
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Personality *</label>
-              <textarea
-                value={editingPromptSet.personality || ''}
-                onChange={(e) =>
-                  setEditingPromptSet({ ...editingPromptSet, personality: e.target.value })
-                }
-                placeholder="How wwwyzzerdd should speak and behave..."
-                rows={3}
-                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 font-mono text-sm"
-              />
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setEditingPromptSet(null)}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSavePromptSet}
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-              >
-                Save
-              </button>
-            </div>
+          <div className="flex gap-2 justify-end pt-4 border-t border-dark-border">
+            <button
+              onClick={() => setEditingPromptSet(null)}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSavePromptSet}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+            >
+              Save
+            </button>
           </div>
         </div>
       )}

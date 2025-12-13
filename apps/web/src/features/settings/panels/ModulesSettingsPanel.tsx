@@ -1,24 +1,17 @@
+/**
+ * Modules Settings Panel
+ *
+ * Enable and configure optional modules from the registry.
+ * Note: This panel uses dynamic registry data rather than AutoForm
+ * since module fields are generated at runtime.
+ */
+
 import { useSettingsStore } from '../../../store/settings-store';
 import { useModules } from '../../../lib/registry/hooks';
 import { registry } from '../../../lib/registry';
 import { getDeploymentConfig } from '../../../config/deployment';
+import { getModuleToggleColors } from '../../../lib/schemas/settings/modules';
 import type { ModuleDefinition } from '../../../lib/registry/types';
-
-// Helper to get toggle switch classes based on module color
-const getToggleColorClasses = (color: ModuleDefinition['color']) => {
-  const colorMap: Record<string, { ring: string; bg: string; badge: string; text: string }> = {
-    blue: { ring: 'peer-focus:ring-blue-500', bg: 'peer-checked:bg-blue-500', badge: 'bg-blue-500/20 text-blue-400', text: 'text-blue-400' },
-    purple: { ring: 'peer-focus:ring-purple-500', bg: 'peer-checked:bg-purple-500', badge: 'bg-purple-500/20 text-purple-400', text: 'text-purple-400' },
-    green: { ring: 'peer-focus:ring-green-500', bg: 'peer-checked:bg-green-500', badge: 'bg-green-500/20 text-green-400', text: 'text-green-400' },
-    orange: { ring: 'peer-focus:ring-orange-500', bg: 'peer-checked:bg-orange-500', badge: 'bg-orange-500/20 text-orange-400', text: 'text-orange-400' },
-    red: { ring: 'peer-focus:ring-red-500', bg: 'peer-checked:bg-red-500', badge: 'bg-red-500/20 text-red-400', text: 'text-red-400' },
-    pink: { ring: 'peer-focus:ring-pink-500', bg: 'peer-checked:bg-pink-500', badge: 'bg-pink-500/20 text-pink-400', text: 'text-pink-400' },
-    cyan: { ring: 'peer-focus:ring-cyan-500', bg: 'peer-checked:bg-cyan-500', badge: 'bg-cyan-500/20 text-cyan-400', text: 'text-cyan-400' },
-    amber: { ring: 'peer-focus:ring-amber-500', bg: 'peer-checked:bg-amber-500', badge: 'bg-amber-500/20 text-amber-400', text: 'text-amber-400' },
-    teal: { ring: 'peer-focus:ring-teal-500', bg: 'peer-checked:bg-teal-500', badge: 'bg-teal-500/20 text-teal-400', text: 'text-teal-400' },
-  };
-  return colorMap[color || 'blue'] || colorMap.blue;
-};
 
 export function ModulesSettingsPanel() {
   const allRegisteredModules = useModules();
@@ -54,7 +47,7 @@ export function ModulesSettingsPanel() {
 
       {/* Dynamic Module Toggles */}
       {registeredModules.map((module) => {
-        const colorClasses = getToggleColorClasses(module.color);
+        const colorClasses = getModuleToggleColors(module.color);
         const enabled = isModuleEnabled(module);
         return (
           <div key={module.id} className="border border-dark-border rounded-lg p-6 space-y-4">

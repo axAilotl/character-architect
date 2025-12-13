@@ -2,49 +2,14 @@
  * Federation Settings Panel
  *
  * Configure federation platforms and sync settings.
+ * Note: Per-platform cards use local form state with async operations,
+ * not AutoForm, since each card manages its own test/connect/disconnect flow.
  */
 
 import { useState, useEffect } from 'react';
 import { useFederationStore } from '../lib/federation-store';
+import { PLATFORM_INFO, normalizeUrl, platformRequiresApiKey } from '../../../lib/schemas/settings/federation';
 import type { PlatformId } from '../lib/types';
-
-const PLATFORM_INFO: Record<PlatformId, { name: string; description: string; placeholder: string }> = {
-  sillytavern: {
-    name: 'SillyTavern',
-    description: 'Sync via CForge federation plugin. Requires CForge plugin with federation support.',
-    placeholder: 'http://localhost:8000',
-  },
-  hub: {
-    name: 'CardsHub',
-    description: 'Central hub for sharing and discovering character cards.',
-    placeholder: 'https://cardshub.example.com',
-  },
-  archive: {
-    name: 'Character Archive',
-    description: 'Personal archive for storing and organizing your cards.',
-    placeholder: 'https://archive.example.com',
-  },
-  editor: {
-    name: 'Character Architect',
-    description: 'Local editor storage (always enabled).',
-    placeholder: '',
-  },
-  risu: {
-    name: 'RisuAI',
-    description: 'Sync with RisuAI character library.',
-    placeholder: 'https://risuai.example.com',
-  },
-  chub: {
-    name: 'Chub.ai',
-    description: 'Sync with Chub.ai character library.',
-    placeholder: 'https://chub.ai',
-  },
-  custom: {
-    name: 'Custom Platform',
-    description: 'Connect to a custom federation-compatible platform.',
-    placeholder: 'https://custom.example.com',
-  },
-};
 
 function PlatformConfigCard({ platform }: { platform: PlatformId }) {
   const { settings, updatePlatformConfig, testConnection, connectPlatform, disconnectPlatform } =
@@ -69,9 +34,6 @@ function PlatformConfigCard({ platform }: { platform: PlatformId }) {
 
   // Skip editor - it's always enabled
   if (platform === 'editor') return null;
-
-  // Normalize URL - remove trailing slashes
-  const normalizeUrl = (u: string) => u.replace(/\/+$/, '');
 
   const handleTest = async () => {
     setTesting(true);
@@ -132,7 +94,7 @@ function PlatformConfigCard({ platform }: { platform: PlatformId }) {
           />
         </div>
 
-        {(platform === 'hub' || platform === 'archive') && (
+        {platformRequiresApiKey(platform) && (
           <div>
             <label className="block text-sm font-medium mb-1">API Key (optional)</label>
             <input

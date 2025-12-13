@@ -5,8 +5,14 @@
  */
 
 import { useState } from 'react';
+import { AutoForm } from '@character-foundry/app-framework';
 import { useSettingsStore } from '../../../store/settings-store';
 import { COMFY_BRIDGE_EXTENSION_CODE } from '../../../lib/comfy-bridge-extension';
+import {
+  comfyUISettingsSchema,
+  comfyUISettingsUiHints,
+  type ComfyUISettings as ComfyUISettingsType,
+} from '../../../lib/schemas/settings/comfyui';
 
 export function ComfyUISettings() {
   const [testing, setTesting] = useState(false);
@@ -18,6 +24,20 @@ export function ComfyUISettings() {
   const quietMode = useSettingsStore((state) => state.comfyUI.quietMode);
   const setQuietMode = useSettingsStore((state) => state.setComfyUIQuietMode);
 
+  const values: ComfyUISettingsType = {
+    serverUrl: comfyUrl,
+    quietMode,
+  };
+
+  const handleChange = (updated: ComfyUISettingsType) => {
+    if (updated.serverUrl !== comfyUrl) {
+      setComfyUrl(updated.serverUrl);
+    }
+    if (updated.quietMode !== quietMode) {
+      setQuietMode(updated.quietMode);
+    }
+  };
+
   const testConnection = async () => {
     if (!comfyUrl) {
       setTestResult({ success: false, message: 'Please enter a URL first' });
@@ -28,7 +48,6 @@ export function ComfyUISettings() {
     setTestResult(null);
 
     try {
-      // Try to fetch system stats from ComfyUI
       const response = await fetch(`${comfyUrl}/system_stats`, {
         signal: AbortSignal.timeout(5000),
       });
@@ -64,7 +83,6 @@ export function ComfyUISettings() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for older browsers
       const textarea = document.createElement('textarea');
       textarea.value = COMFY_BRIDGE_EXTENSION_CODE;
       document.body.appendChild(textarea);
@@ -85,31 +103,26 @@ export function ComfyUISettings() {
         </p>
       </div>
 
-      {/* Server URL */}
+      {/* Server Connection - AutoForm */}
       <div className="border border-dark-border rounded-lg p-6 space-y-4">
         <h4 className="font-medium">Server Connection</h4>
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium">ComfyUI Server URL</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={comfyUrl}
-              onChange={(e) => setComfyUrl(e.target.value)}
-              placeholder="http://127.0.0.1:8188"
-              className="flex-1 bg-dark-card border border-dark-border rounded px-3 py-2"
-            />
-            <button
-              onClick={testConnection}
-              disabled={testing || !comfyUrl}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {testing ? 'Testing...' : 'Test'}
-            </button>
-          </div>
-          <p className="text-xs text-dark-muted">
-            The address of your ComfyUI server (e.g., http://127.0.0.1:8188 or https://comfy.example.com)
-          </p>
+        <AutoForm
+          schema={comfyUISettingsSchema}
+          values={values}
+          onChange={handleChange}
+          uiHints={comfyUISettingsUiHints}
+        />
+
+        {/* Test Connection Button */}
+        <div className="flex gap-2 pt-2">
+          <button
+            onClick={testConnection}
+            disabled={testing || !comfyUrl}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {testing ? 'Testing...' : 'Test Connection'}
+          </button>
         </div>
 
         {testResult && (
@@ -123,23 +136,6 @@ export function ComfyUISettings() {
             {testResult.message}
           </div>
         )}
-
-        {/* Quiet Mode */}
-        <div className="flex items-center gap-3 pt-2">
-          <input
-            type="checkbox"
-            id="comfy-quiet-mode"
-            checked={quietMode}
-            onChange={(e) => setQuietMode(e.target.checked)}
-            className="w-4 h-4 rounded border-dark-border bg-dark-card"
-          />
-          <label htmlFor="comfy-quiet-mode" className="text-sm">
-            <span className="font-medium">Quiet Mode</span>
-            <span className="text-dark-muted ml-2">
-              - Save images silently without showing confirmation panel
-            </span>
-          </label>
-        </div>
       </div>
 
       {/* CORS Instructions */}
