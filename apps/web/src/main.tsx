@@ -2,15 +2,21 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { initializeModules } from './lib/modules';
+import { registerCustomWidgets } from './lib/schemas/widgets';
 import './index.css';
+import './styles/autoform.css';
 
 /**
  * Bootstrap the application
  *
- * 1. Initialize all modules (core tabs + optional modules based on feature flags)
- * 2. Render the React application
+ * 1. Register custom widgets for app-framework
+ * 2. Initialize all modules (core tabs + optional modules based on feature flags)
+ * 3. Render the React application
  */
 async function bootstrap() {
+  // Register custom widgets with app-framework
+  registerCustomWidgets();
+
   // Initialize modules before rendering
   await initializeModules();
 

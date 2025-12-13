@@ -69,8 +69,10 @@ describe('API Endpoints', () => {
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(Array.isArray(body)).toBe(true);
-      expect(body.length).toBeGreaterThan(0);
+      expect(body).toHaveProperty('items');
+      expect(body).toHaveProperty('total');
+      expect(Array.isArray(body.items)).toBe(true);
+      expect(body.items.length).toBeGreaterThan(0);
     });
 
     it('should update a card', async () => {

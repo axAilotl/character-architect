@@ -144,12 +144,15 @@ export const useFederationStore = create<FederationStore>((set, get) => ({
       // Create sync state store
       const stateStore = createIndexedDBSyncStore();
 
-      // Create sync engine with actorId
+      // Create sync engine with actorId and security options
       const baseUrl = window.location.origin;
+      const secureHashing = localStorage.getItem('ca-federation-secure-hashing') === 'true';
       const engine = new SyncEngine({
         baseUrl,
         actorId: `${baseUrl}/user`,
         stateStore,
+        // Use SHA-256 for change detection if secure hashing is enabled
+        secureHashing,
       });
 
       // Always register the local editor adapter
@@ -184,7 +187,7 @@ export const useFederationStore = create<FederationStore>((set, get) => ({
       // Load sync states
       await get().refreshSyncStates();
 
-      console.log('[Federation] Initialized');
+      console.log('[Federation] Initialized', secureHashing ? '(secure hashing enabled)' : '');
     } catch (err) {
       console.error('[Federation] Failed to initialize:', err);
       set({ error: err instanceof Error ? err.message : String(err) });

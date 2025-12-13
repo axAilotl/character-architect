@@ -39,7 +39,7 @@ const TESTING_DIR = path.join(__dirname, '../docs/internal/testing');
 // Test cards
 const CCv2_PNG = path.join(TESTING_DIR, 'chub/main_shana-e03c661ffb1d_spec_v2.png');
 const CCv2_JSON = path.join(TESTING_DIR, 'chub/main_shana-e03c661ffb1d_spec_v2.json');
-const CHARX_AILU = path.join(TESTING_DIR, 'risu_charx/Ailu Narukami.charx');
+const CHARX_AILU = path.join(TESTING_DIR, 'Ailu Narukami.charx');
 const CHARX_HARPER = path.join(TESTING_DIR, 'risu_charx/Harper.charx');
 const CHARX_KOREAN = path.join(TESTING_DIR, 'risu_charx/오가미 이토코 v4.51.charx');
 const VOXTA_2B = path.join(TESTING_DIR, 'voxta/2B.1.0.0.voxpkg');

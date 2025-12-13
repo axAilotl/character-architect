@@ -18,6 +18,9 @@ import { EditPanelV2 as EditPanel } from './components/EditPanelV2';
 const AssetsPanel = lazy(() =>
   import('./components/AssetsPanel').then((m) => ({ default: m.AssetsPanel }))
 );
+const LorebookEditor = lazy(() =>
+  import('./components/LorebookEditor').then((m) => ({ default: m.LorebookEditor }))
+);
 const FocusedEditor = lazy(() =>
   import('./components/FocusedEditor').then((m) => ({ default: m.FocusedEditor }))
 );
@@ -47,6 +50,17 @@ export function registerCoreTabs(): void {
     component: EditPanel,
     order: 0,
     contexts: ['card', 'template', 'lorebook', 'collection', 'all'],
+  });
+
+  // Lorebook - Character book / world info editor (order: 5)
+  // Available for cards, lorebooks, and collections
+  registry.registerTab({
+    id: 'lorebook',
+    label: 'Lorebook',
+    component: LorebookEditor,
+    order: 5,
+    color: 'green',
+    contexts: ['card', 'lorebook', 'collection'],
   });
 
   // Assets - Image/asset management (order: 10)
@@ -118,5 +132,5 @@ export function registerCoreTabs(): void {
 
   // Note: Web Import and SillyTavern settings are registered by their own modules
 
-  console.log('[CoreTabs] Registered 5 core editor tabs and 2 settings panels');
+  console.log('[CoreTabs] Registered 6 core editor tabs and 2 settings panels');
 }

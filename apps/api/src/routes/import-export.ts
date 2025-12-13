@@ -494,19 +494,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       }
     }
 
-    // For PNG imports: Create main icon asset from the PNG container image
-    // The PNG container IS the primary character image, not a fallback
-    if (originalImage && originalImage.length > 0) {
-      try {
-        await cardImportService.createMainIconFromPng(card.meta.id, originalImage, {
-          storagePath: config.storagePath,
-        });
-        fastify.log.info({ cardId: card.meta.id }, 'Created main icon asset from PNG container');
-      } catch (err) {
-        fastify.log.error({ error: err }, 'Failed to create main icon from PNG');
-        warnings.push('Failed to create main icon from PNG container');
-      }
-    }
+    // NOTE: Do NOT create main icon asset on PNG import!
+    // Main icon is created at CHARX export time if needed.
+    // Creating it on import would turn V2 cards into asset-having cards.
 
     fastify.log.info({
       url,
@@ -545,8 +535,35 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         await fs.writeFile(tempPath, findZipStart(buffer));
 
         try {
-          // TODO: Add Voxta support here if needed, similar to import-multiple
-          
+          if (isVoxPkg) {
+            // Handle Voxta package import
+            const cardIds = await voxtaImportService.importPackage(tempPath);
+
+            if (cardIds.length === 0) {
+              throw new Error('No cards found in Voxta package');
+            }
+
+            // For single-file import, return the first card (usually collection or first character)
+            const card = cardRepo.get(cardIds[0]);
+            if (!card) {
+              throw new Error('Failed to retrieve imported card');
+            }
+
+            fastify.log.info({
+              cardId: card.meta.id,
+              totalCards: cardIds.length,
+            }, 'Successfully imported Voxta package');
+
+            return {
+              success: true,
+              card,
+              assetsImported: 0, // TODO: count assets from Voxta import
+              warnings: cardIds.length > 1
+                ? [`Imported ${cardIds.length} cards from Voxta package.`]
+                : [],
+            };
+          }
+
           // Import CHARX
           const result = await cardImportService.importCharxFromFile(tempPath, {
             storagePath: config.storagePath,
@@ -913,19 +930,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       }
     }
 
-    // For PNG imports: Create main icon asset from the PNG container image
-    // The PNG container IS the primary character image, not a fallback
-    if (originalImage && originalImage.length > 0) {
-      try {
-        await cardImportService.createMainIconFromPng(card.meta.id, originalImage, {
-          storagePath: config.storagePath,
-        });
-        fastify.log.info({ cardId: card.meta.id }, 'Created main icon asset from PNG container');
-      } catch (err) {
-        fastify.log.error({ error: err }, 'Failed to create main icon from PNG');
-        warnings.push('Failed to create main icon from PNG container');
-      }
-    }
+    // NOTE: Do NOT create main icon asset on PNG import!
+    // Main icon is created at CHARX export time if needed.
+    // Creating it on import would turn V2 cards into asset-having cards.
 
     // Debug: Verify lorebook is in the created card
     const createdCardData = card.data as any;
@@ -1564,6 +1571,39 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         }
       } else if (format === 'voxta') {
         try {
+          // For collection cards, return the stored original package if available
+          if (card.meta.spec === 'collection') {
+            const allAssets = cardAssetRepo.listByCardWithDetails(request.params.id);
+            const originalPackageAsset = allAssets.find(a => a.type === 'package-original');
+
+            if (originalPackageAsset && originalPackageAsset.asset) {
+              // Read and return the original package
+              const originalPath = join(config.storagePath, originalPackageAsset.asset.filename);
+              try {
+                const originalBuffer = await fs.readFile(originalPath);
+
+                reply.header('Content-Type', 'application/octet-stream');
+                reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.voxpkg"`);
+
+                fastify.log.info({
+                  cardId: request.params.id,
+                  size: originalBuffer.length,
+                }, 'Returning stored original Voxta package for collection export');
+
+                return originalBuffer;
+              } catch (err) {
+                fastify.log.warn({ error: err, cardId: request.params.id }, 'Failed to read original package, falling back to rebuild');
+              }
+            }
+
+            // Collections without original package cannot be exported via rebuild (yet)
+            reply.code(400);
+            return {
+              error: 'Collection export requires stored original package',
+              details: 'This collection was imported without preserving the original .voxpkg file. Re-import the collection to enable export.',
+            };
+          }
+
           let assets = cardAssetRepo.listByCardWithDetails(request.params.id);
 
           // If no main icon asset exists, use the card's uploaded PNG as the icon (same as CHARX export)
@@ -1687,11 +1727,14 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             ...(voxtaSettings.charxExport as CharxExportSettings),
           };
 
+          // Note: Collection cards return early with stored original package
+          // This code path only runs for single character cards (v2, v3)
           const result = await buildVoxtaPackage(
             voxtaData,
             assets,
             {
               storagePath: config.storagePath,
+              includePackageJson: false, // Single character export
               optimization: {
                 enabled: !!(voxtaExportSettings.convertToWebp || voxtaExportSettings.convertMp4ToWebm),
                 convertToWebp: voxtaExportSettings.convertToWebp,

@@ -113,7 +113,7 @@ export function AssetsPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // View mode state
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 

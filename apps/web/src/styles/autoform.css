@@ -1,0 +1,96 @@
+/**
+ * AutoForm Styling
+ *
+ * Styles for @character-foundry/app-framework AutoForm components.
+ * Uses Tailwind CSS utilities via @apply.
+ */
+
+/* Field container */
+[data-field] {
+  @apply mb-4;
+}
+
+/* Field labels */
+[data-field] label {
+  @apply block text-sm font-medium mb-1;
+}
+
+/* Text inputs */
+[data-field] input[type='text'],
+[data-field] input[type='number'],
+[data-field] input[type='password'],
+[data-field] input[type='url'],
+[data-field] input[type='email'] {
+  @apply w-full bg-dark-surface border border-dark-border rounded px-3 py-2 text-dark-text;
+}
+
+[data-field] input:focus {
+  @apply outline-none ring-2 ring-blue-500 border-blue-500;
+}
+
+/* Select dropdowns */
+[data-field] select {
+  @apply w-full bg-dark-surface border border-dark-border rounded px-3 py-2 text-dark-text;
+}
+
+[data-field] select:focus {
+  @apply outline-none ring-2 ring-blue-500 border-blue-500;
+}
+
+/* Textareas */
+[data-field] textarea {
+  @apply w-full bg-dark-surface border border-dark-border rounded px-3 py-2 text-dark-text resize-none font-mono text-sm;
+}
+
+[data-field] textarea:focus {
+  @apply outline-none ring-2 ring-blue-500 border-blue-500;
+}
+
+/* Checkboxes */
+[data-field] input[type='checkbox'] {
+  @apply rounded;
+}
+
+/* Helper text */
+[data-helper] {
+  @apply text-xs text-dark-muted mt-1;
+}
+
+/* Error messages */
+[data-error-message] {
+  @apply text-xs text-red-400 mt-1;
+}
+
+/* Field groups */
+[data-fieldgroup] {
+  @apply border border-dark-border rounded-lg p-6 space-y-4;
+}
+
+[data-fieldgroup-title] {
+  @apply font-semibold;
+}
+
+[data-fieldgroup-description] {
+  @apply text-sm text-dark-muted;
+}
+
+/* Nested object styling */
+[data-nested-fieldset] {
+  @apply border-none p-0;
+}
+
+[data-nested-legend] {
+  @apply font-semibold mb-2;
+}
+
+/* Form sections */
+[data-section] {
+  @apply space-y-4;
+}
+
+/* Disabled state */
+[data-field] input:disabled,
+[data-field] select:disabled,
+[data-field] textarea:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}

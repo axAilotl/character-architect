@@ -234,7 +234,8 @@ export function LorebookEditor() {
   const selectedEntry = selectedEntryIndex !== null ? entries[selectedEntryIndex] : null;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-auto p-6">
+      <div className="max-w-5xl mx-auto w-full">
       {!hasLorebook ? (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
@@ -748,6 +749,7 @@ export function LorebookEditor() {
           </div>
         </div>
       )}
+      </div>
 
       {/* LLM Assist Sidebar */}
       {llmAssistOpen && (

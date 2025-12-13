@@ -45,12 +45,17 @@ import {
   validatePNGSize as validatePNGSizeBuffer,
 } from '@character-foundry/png';
 
-// Core utilities (ZIP, MIME)
+// Core utilities (ZIP, MIME, Security)
 import {
   isZipBuffer as isZipBufferUtil,
   findZipStart as findZipStartUtil,
   getMimeTypeFromExt,
+  preflightZipSizes,
+  isPathSafe,
+  type ZipSizeLimits,
 } from '@character-foundry/core';
+
+import { config } from '../config.js';
 
 import type { CharxData } from '@character-foundry/charx';
 import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
@@ -141,7 +146,24 @@ export {
   voxtaToCCv3,
   ccv3ToVoxta,
   ccv3LorebookToVoxtaBook,
+  isPathSafe,
 };
+
+/**
+ * Build ZipSizeLimits from application config
+ */
+function getZipSizeLimits(): ZipSizeLimits {
+  const zipConfig = config.security.zipSecurity;
+  return {
+    maxFileSize: zipConfig.maxFileSize,
+    maxTotalSize: zipConfig.maxUncompressedSize,
+    maxFiles: zipConfig.maxFiles,
+    unsafePathHandling: zipConfig.unsafePathHandling,
+    onUnsafePath: (path, reason) => {
+      console.warn(`[Security] Unsafe path detected: ${path} - ${reason}`);
+    },
+  };
+}
 
 /**
  * Check if a buffer is a ZIP file
@@ -184,15 +206,25 @@ export async function extractCharx(
   options?: CharxExtractionOptions
 ): Promise<CharxData> {
   const buffer = await fs.readFile(filePath);
+  const zipBuffer = new Uint8Array(buffer);
+
+  // Preflight ZIP validation (ZIP bomb protection)
+  const limits = getZipSizeLimits();
+  const preflight = preflightZipSizes(zipBuffer, limits);
+
+  // Log any warnings for monitoring
+  if (preflight.totalUncompressedSize > limits.maxTotalSize * 0.8) {
+    console.warn(`[CHARX] Large archive: ${(preflight.totalUncompressedSize / 1024 / 1024).toFixed(1)} MB uncompressed`);
+  }
 
   // Use async extraction if remote fetching is enabled
   const data = options?.fetchRemoteAssets
-    ? await extractCharxBufferAsync(new Uint8Array(buffer), {
+    ? await extractCharxBufferAsync(zipBuffer, {
         ...options,
         fetchRemoteAssets: true,
         assetFetcher: defaultAssetFetcher,
       })
-    : extractCharxBuffer(new Uint8Array(buffer), options);
+    : extractCharxBuffer(zipBuffer, options);
 
   // Convert Uint8Array buffers back to Buffer for API compatibility
   return {
@@ -299,7 +331,18 @@ export async function extractVoxtaPackage(
   options?: VoxtaExtractionOptions
 ): Promise<VoxtaData> {
   const buffer = await fs.readFile(filePath);
-  const data = extractVoxtaBuffer(new Uint8Array(buffer), options);
+  const zipBuffer = new Uint8Array(buffer);
+
+  // Preflight ZIP validation (ZIP bomb protection)
+  const limits = getZipSizeLimits();
+  const preflight = preflightZipSizes(zipBuffer, limits);
+
+  // Log any warnings for monitoring
+  if (preflight.totalUncompressedSize > limits.maxTotalSize * 0.8) {
+    console.warn(`[Voxta] Large archive: ${(preflight.totalUncompressedSize / 1024 / 1024).toFixed(1)} MB uncompressed`);
+  }
+
+  const data = extractVoxtaBuffer(zipBuffer, options);
 
   // Convert Uint8Array buffers back to Buffer for API compatibility
   return {
@@ -394,7 +437,16 @@ export async function buildVoxtaPackage(
     console.log(`[Voxta Build] Media optimization saved ${(totalSaved / 1024).toFixed(1)} KB`);
   }
 
-  const result = buildVoxtaBuffer(card, assetData, options);
+  // Explicitly pass includePackageJson option (default false for single character export)
+  const writeOptions = {
+    compressionLevel: options.compressionLevel,
+    includePackageJson: options.includePackageJson ?? false,
+    characterId: options.characterId,
+    packageId: options.packageId,
+  };
+  console.log(`[Voxta Build] includePackageJson: ${writeOptions.includePackageJson}`);
+
+  const result = buildVoxtaBuffer(card, assetData, writeOptions);
 
   return {
     buffer: Buffer.from(result.buffer),

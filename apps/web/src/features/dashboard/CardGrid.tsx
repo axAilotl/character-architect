@@ -671,6 +671,15 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     return data.assets?.length ?? 0;
   };
 
+  // Check if card is a member of a collection
+  const isCollectionItem = (cardId: string): boolean => {
+    return cards.some(c => {
+      if (c.meta.spec !== 'collection') return false;
+      const data = c.data as any;
+      return data.members?.some((m: any) => m.cardId === cardId);
+    });
+  };
+
   // Check if card is synced to SillyTavern
   const isSyncedToST = (cardId: string): boolean => {
     const syncState = cardSyncMap.get(cardId);
@@ -1112,6 +1121,12 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                       {getDeploymentConfig().mode === 'full' && isSyncedToHub(card.meta.id) && (
                         <span className="px-2 py-0.5 rounded text-xs font-semibold bg-violet-600/20 text-violet-300" title="Synced to CardsHub">
                           HUB
+                        </span>
+                      )}
+                      {/* Collection Item Badge */}
+                      {isCollectionItem(card.meta.id) && (
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-purple-600/20 text-purple-300" title="Member of a Collection">
+                          CI
                         </span>
                       )}
                       {/* Voxta Badge */}

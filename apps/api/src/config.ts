@@ -37,5 +37,25 @@ export const config = {
     ssrfProtectionEnabled: process.env.SSRF_PROTECTION_ENABLED !== 'false',
     // Allowed external hosts for LLM providers (comma-separated)
     allowedLLMHosts: process.env.ALLOWED_LLM_HOSTS || 'api.openai.com,api.anthropic.com,api.together.xyz,openrouter.ai,api.groq.com,localhost,127.0.0.1',
+
+    // ZIP/Archive Security (Core 0.1.0)
+    zipSecurity: {
+      // How to handle unsafe paths in ZIP files: 'skip' (ignore), 'warn' (log), 'reject' (throw)
+      unsafePathHandling: (process.env.ZIP_UNSAFE_PATH_HANDLING || 'warn') as 'skip' | 'warn' | 'reject',
+      // Maximum uncompressed archive size in bytes (default 50MB, prevents ZIP bombs)
+      maxUncompressedSize: parseInt(process.env.ZIP_MAX_UNCOMPRESSED_SIZE_MB || '50', 10) * 1024 * 1024,
+      // Maximum individual file size in bytes (default 25MB)
+      maxFileSize: parseInt(process.env.ZIP_MAX_FILE_SIZE_MB || '25', 10) * 1024 * 1024,
+      // Maximum number of files in archive (default 1000)
+      maxFiles: parseInt(process.env.ZIP_MAX_FILES || '1000', 10),
+    },
+
+    // Federation Security (Federation 0.2.0)
+    federation: {
+      // Enable strict HTTP signature verification (requires signed headers)
+      strictMode: process.env.FEDERATION_STRICT_MODE === 'true',
+      // Use SHA-256 instead of djb2 for hashing (recommended for cross-system federation)
+      secureHashing: process.env.FEDERATION_SECURE_HASHING === 'true',
+    },
   },
 };

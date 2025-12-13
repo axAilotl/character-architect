@@ -1,4 +1,4 @@
-import { Suspense, useRef } from 'react';
+import { Suspense, useRef, useEffect } from 'react';
 import { useUIStore } from '../../store/ui-store';
 import { useCardStore } from '../../store/card-store';
 import { useEditorTabs, useAvailableTabIds } from '../../lib/registry/hooks';
@@ -35,7 +35,17 @@ const PERSISTENT_TABS = ['comfyui'];
 
 export function CardEditor({ context: contextProp }: CardEditorProps) {
   const activeTab = useUIStore((state) => state.activeTab);
+  const setActiveTab = useUIStore((state) => state.setActiveTab);
   const currentCard = useCardStore((state) => state.currentCard);
+
+  // Reset to edit tab when card changes
+  const prevCardId = useRef<string | null>(null);
+  useEffect(() => {
+    if (currentCard?.meta?.id && currentCard.meta.id !== prevCardId.current) {
+      setActiveTab('edit');
+      prevCardId.current = currentCard.meta.id;
+    }
+  }, [currentCard?.meta?.id, setActiveTab]);
 
   // Auto-detect context from card spec if not provided
   const context = contextProp ?? getTabContext(currentCard?.meta?.spec);

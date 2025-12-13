@@ -5,9 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@character-foundry/core': 0.0.4
+  '@character-foundry/core': 0.1.0
   '@character-foundry/loader': 0.1.8
-  '@character-foundry/voxta': 0.1.8
+  '@character-foundry/voxta': 0.1.9
 
 importers:
 
@@ -20,11 +20,11 @@ importers:
         specifier: ^0.0.4
         version: 0.0.4
       '@character-foundry/core':
-        specifier: 0.0.4
-        version: 0.0.4
+        specifier: 0.1.0
+        version: 0.1.0
       '@character-foundry/federation':
-        specifier: ^0.1.6
-        version: 0.1.6
+        specifier: ^0.2.0
+        version: 0.2.0
       '@character-foundry/loader':
         specifier: 0.1.8
         version: 0.1.8
@@ -32,11 +32,11 @@ importers:
         specifier: ^0.0.4
         version: 0.0.4
       '@character-foundry/schemas':
-        specifier: ^0.1.1
-        version: 0.1.1
+        specifier: ^0.2.0
+        version: 0.2.0
       '@character-foundry/voxta':
-        specifier: 0.1.8
-        version: 0.1.8
+        specifier: 0.1.9
+        version: 0.1.9
       '@codemirror/commands':
         specifier: ^6.10.0
         version: 6.10.0
@@ -99,11 +99,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/defaults
       '@character-foundry/charx':
-        specifier: ^0.0.3
-        version: 0.0.3
-      '@character-foundry/core':
-        specifier: 0.0.4
+        specifier: ^0.0.4
         version: 0.0.4
+      '@character-foundry/core':
+        specifier: 0.1.0
+        version: 0.1.0
       '@character-foundry/loader':
         specifier: 0.1.8
         version: 0.1.8
@@ -111,17 +111,17 @@ importers:
         specifier: ^0.0.2
         version: 0.0.2
       '@character-foundry/png':
-        specifier: ^0.0.3
-        version: 0.0.3
+        specifier: ^0.0.4
+        version: 0.0.4
       '@character-foundry/schemas':
-        specifier: ^0.1.0
-        version: 0.1.1
+        specifier: ^0.2.0
+        version: 0.2.0
       '@character-foundry/tokenizers':
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: ^0.1.1
+        version: 0.1.1
       '@character-foundry/voxta':
-        specifier: 0.1.8
-        version: 0.1.8
+        specifier: 0.1.9
+        version: 0.1.9
       '@fastify/cors':
         specifier: ^8.5.0
         version: 8.5.0
@@ -213,15 +213,18 @@ importers:
       '@card-architect/defaults':
         specifier: workspace:*
         version: link:../../packages/defaults
+      '@character-foundry/app-framework':
+        specifier: ^0.2.1
+        version: 0.2.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@character-foundry/charx':
-        specifier: ^0.0.3
-        version: 0.0.3
-      '@character-foundry/core':
-        specifier: 0.0.4
+        specifier: ^0.0.4
         version: 0.0.4
+      '@character-foundry/core':
+        specifier: 0.1.0
+        version: 0.1.0
       '@character-foundry/federation':
-        specifier: ^0.1.5
-        version: 0.1.6
+        specifier: ^0.2.0
+        version: 0.2.0
       '@character-foundry/loader':
         specifier: 0.1.8
         version: 0.1.8
@@ -229,17 +232,17 @@ importers:
         specifier: ^0.0.2
         version: 0.0.2
       '@character-foundry/png':
-        specifier: ^0.0.3
-        version: 0.0.3
+        specifier: ^0.0.4
+        version: 0.0.4
       '@character-foundry/schemas':
-        specifier: ^0.1.0
-        version: 0.1.1
+        specifier: ^0.2.0
+        version: 0.2.0
       '@character-foundry/tokenizers':
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: ^0.1.1
+        version: 0.1.1
       '@character-foundry/voxta':
-        specifier: 0.1.8
-        version: 0.1.8
+        specifier: 0.1.9
+        version: 0.1.9
       '@codemirror/commands':
         specifier: ^6.10.0
         version: 6.10.0
@@ -276,6 +279,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@18.3.1)
+      '@hookform/resolvers':
+        specifier: ^3.9.0
+        version: 3.10.0(react-hook-form@7.68.0(react@18.3.1))
       '@milkdown/core':
         specifier: ^7.17.1
         version: 7.17.3
@@ -336,9 +342,15 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
+      react-hook-form:
+        specifier: ^7.53.0
+        version: 7.68.0(react@18.3.1)
       react-router-dom:
         specifier: ^7.9.6
         version: 7.10.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
       zustand:
         specifier: ^4.5.0
         version: 4.5.7(@types/react@18.3.27)(react@18.3.1)
@@ -954,23 +966,29 @@ packages:
     resolution: {integrity: sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA==}
     engines: {node: '>=6.9.0'}
 
+  '@character-foundry/app-framework@0.2.1':
+    resolution: {integrity: sha512-Xhs+KWKY482IGOn9zr0PAOK7uFTqjsTMP7SuE2hBzeaV9jYQXZ1Esn2oTfyOX7fQ+RhEpn3IVFXrwKm7Mks9pg==, tarball: https://npm.pkg.github.com/download/@character-foundry/app-framework/0.2.1/60a28277ef2a31f168b7a4b54190aa96155be5dc}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+
   '@character-foundry/character-foundry@0.1.1':
     resolution: {integrity: sha512-vcIT2SSozIy7r2iXXlTgTQZKK7FDterT4J5O7LiQ/rcaMoEd95WUcXmsf549IhxDaBMChJby6yJioqGmOeBhaQ==, tarball: https://npm.pkg.github.com/download/@character-foundry/character-foundry/0.1.1/976c9c0f59818ba94e214541bad82d5e0ee2ef14}
-
-  '@character-foundry/charx@0.0.3':
-    resolution: {integrity: sha512-V1cKPVPexn8Xj13tJl8yQNYIl9AnfyHga/Sa29xxFGkj6v4Y8ofHLrF4HqDKK1PU7HCI5t8qz0Eh1mtDfbpjCg==, tarball: https://npm.pkg.github.com/download/@character-foundry/charx/0.0.3/586549ee35d240313e858d2e6a82ac4ebe928501}
 
   '@character-foundry/charx@0.0.4':
     resolution: {integrity: sha512-HgbUFb/bJRO5y68QVtEZflZCRty2R8KTAF3IiPqly936D9wlbseUte8w26wkLuLBlUg/PB5RPA7jgOhawcTOSA==, tarball: https://npm.pkg.github.com/download/@character-foundry/charx/0.0.4/50cc1c6623e56e476963811ef82bcfc75bb49962}
 
-  '@character-foundry/core@0.0.4':
-    resolution: {integrity: sha512-gnSupjhABp0BjMG6DMYMfoGalDPh3bcqXo4D/x9QmOsiyzU+ic85C4v9PCzZHT80vGPXJgH4OylsHeq7Q2QViQ==, tarball: https://npm.pkg.github.com/download/@character-foundry/core/0.0.4/28d3dc0abd082dc2bb3c17a29458e4cc012089b0}
+  '@character-foundry/core@0.1.0':
+    resolution: {integrity: sha512-kjDK3zT7mt0UEevEdGqiWfRzPGIchjJg8CQMsA58tNma4PAK53uUkYbXbsEH104KRoDNdY7ZGgqz9GXPX3IOzA==, tarball: https://npm.pkg.github.com/download/@character-foundry/core/0.1.0/54d5d5350e6c3456404dfec17e99cdc6206365c3}
 
   '@character-foundry/exporter@0.1.2':
     resolution: {integrity: sha512-/ZQ3/TMcZZMQcq9eXC8iWi8y4xGuee9IUdmKiIVcYAb4T4Zwmjn/MmmzdfwIpUh9dajCfNnK8r5IRflpk8RWCg==, tarball: https://npm.pkg.github.com/download/@character-foundry/exporter/0.1.2/8b210a76087a8b931fdb39c914dbb1422b348769}
 
   '@character-foundry/federation@0.1.6':
     resolution: {integrity: sha512-nQJ09dO6SgSUFCRgZbGzL4oIbkoxxsIcaa7FX++k1FvdWFQbj5qknvLBzJRGfqCKtkMifsn13s0pH8NN2axvTA==, tarball: https://npm.pkg.github.com/download/@character-foundry/federation/0.1.6/45b2c2acda3daee431d9b7bc3ea471686700ccc2}
+
+  '@character-foundry/federation@0.2.0':
+    resolution: {integrity: sha512-6LKqLYWWsmLztWz4hWGF/Se8dSTxK+pQc7erL1aoSh7bb4gIz3qTJqmkTtSfrTk2PB8OjEclLb4JBgbMw0PiPw==, tarball: https://npm.pkg.github.com/download/@character-foundry/federation/0.2.0/35d796a0a654c875ebdc6d9db7af48abff6fe939}
 
   '@character-foundry/loader@0.1.8':
     resolution: {integrity: sha512-PrD28aNMDFHjgF/GsmmRFAxDGCgWbxj1id05NDgbns8st6fx8v9lG6sINdwATWw0RdqDc0XBemFeeipTYMrLYg==, tarball: https://npm.pkg.github.com/download/@character-foundry/loader/0.1.8/91b5706b2687292a2b372990c347148ab79ba7d8}
@@ -984,29 +1002,23 @@ packages:
   '@character-foundry/normalizer@0.1.2':
     resolution: {integrity: sha512-JJlyPvobdpW5cgoj8gj1tuVGlJCUrJi5QmQZc7GP+GLvCPs2As0sjJpPMmanvL6rkCJOUvszuzhJEFZbuexGow==, tarball: https://npm.pkg.github.com/download/@character-foundry/normalizer/0.1.2/e2102a8182a6533ed12995ac1aad0f72fe6a7929}
 
-  '@character-foundry/png@0.0.3':
-    resolution: {integrity: sha512-WEmNAbKLWCuni0pG8H1zg4W3G/1Wp7eFZKDgjMr3UihfaP9pIf3JHhDpbg4sLPdLBmPV7Jw1KtX5PTdiuTpTUg==, tarball: https://npm.pkg.github.com/download/@character-foundry/png/0.0.3/1842646ee4d154a30f000359ebd234aaed5acffb}
-
   '@character-foundry/png@0.0.4':
     resolution: {integrity: sha512-WMmomrxutcC69Po7v4KlG6qD4B2h7iB/2AOy6Iegfme25z7ybxsa9G0BXUH0hhYNMGP+aBcBeMornDSAFJ5xgA==, tarball: https://npm.pkg.github.com/download/@character-foundry/png/0.0.4/0d776641cace0d7f4cfbb712f7abbf0a2a4aa091}
 
   '@character-foundry/schemas@0.0.1':
     resolution: {integrity: sha512-RXzJ++pmW4aK/VlXYm/FQmg3Yjw/D9jf6d582x1lHu7Egk+dxZzRfHEVg/r32ZlEn2EJehMNm7LjXJWPf5AAnA==, tarball: https://npm.pkg.github.com/download/@character-foundry/schemas/0.0.1/f6038a5da2788c39c2a647b01079ff5394dd149d}
 
-  '@character-foundry/schemas@0.1.0':
-    resolution: {integrity: sha512-ed+4n53EotnNkvgWSH5peG0HYQyXto4XiA3nRRiYB9z6zCwsvjiLumhIBt/271OCjQ+0XACyck9r6xlt2jWlUg==, tarball: https://npm.pkg.github.com/download/@character-foundry/schemas/0.1.0/79f0395fe2131edd9f78ed9f55032923de65c8a1}
-
   '@character-foundry/schemas@0.1.1':
     resolution: {integrity: sha512-t1AwzjMGv0iA9tqWlBi3MKmNVqCfPAMmeFYrNCnPsV7Tjk+CmZL5T5ab9jNIN+j4lLjsnESz9De1SOcs/AxLjg==, tarball: https://npm.pkg.github.com/download/@character-foundry/schemas/0.1.1/e30ef345ff9f07fde129a616a7d93cc669cea045}
 
-  '@character-foundry/tokenizers@0.0.1':
-    resolution: {integrity: sha512-SAvwsI8u5fROswOajehE8+XZchEjEB6NokOJRNs8jNL3EAXtrBg/MuTnVAXy6NJ4MGEqKGTEyg7O4pCq2ylDUw==, tarball: https://npm.pkg.github.com/download/@character-foundry/tokenizers/0.0.1/6fce5e8a668f286af4182bfe73e55fc471bc1149}
+  '@character-foundry/schemas@0.2.0':
+    resolution: {integrity: sha512-Lh4+ufg5U37pX2CMtBo7vQ4LAgRwqBWMDn7MF+FgnmlSaYVNMS840cxhZ040LEwJYAX0EuuR1Bf8RZnvGz/7rQ==, tarball: https://npm.pkg.github.com/download/@character-foundry/schemas/0.2.0/c075d38c53a37bbd45a4812b80ff202f0d2ba935}
 
   '@character-foundry/tokenizers@0.1.1':
     resolution: {integrity: sha512-eVc71jA0nn8hvitHlLb79ekf5tpO3zzXMDoBwC8w20SMU/To+RIQsy7j5qSX6VYNAwkAMMdlAw9EM0uSYqyGaQ==, tarball: https://npm.pkg.github.com/download/@character-foundry/tokenizers/0.1.1/5bd4fb5c2e9e1ae7be076ee6ff5c170c1ef32744}
 
-  '@character-foundry/voxta@0.1.8':
-    resolution: {integrity: sha512-TZb1y1r8haKiK2jDlCaf8Ipa4CzaZ900F6MY3GfafAXlG12iZb9EognRgIE1xY/D4oM4vS1VPlnOupSDQlG3hA==, tarball: https://npm.pkg.github.com/download/@character-foundry/voxta/0.1.8/c8ab04ff9ec0e124406b8edd4ee915892d81022f}
+  '@character-foundry/voxta@0.1.9':
+    resolution: {integrity: sha512-UOVAv59gEtIHrjqTt+SKO0cP3R5dz/IzndbIaSaD3JMarNnESqVrUdq3tMEaZzEgWRXFNkQmoT9vVhlf2Yc/yw==, tarball: https://npm.pkg.github.com/download/@character-foundry/voxta/0.1.9/b221c1eefce1ba94dd19f23eadd19a2271f3c768}
 
   '@codemirror/autocomplete@6.20.0':
     resolution: {integrity: sha512-bOwvTOIJcG5FVo5gUUupiwYh8MioPLQ4UcqbcRf7UQ98X90tCa9E1kZ3Z7tqwpZxYyOvh1YTYbmZE9RTfTp5hg==}
@@ -1555,6 +1567,11 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+
+  '@hookform/resolvers@3.10.0':
+    resolution: {integrity: sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag==}
+    peerDependencies:
+      react-hook-form: ^7.0.0
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -4132,6 +4149,12 @@ packages:
     peerDependencies:
       react: ^18.3.1
 
+  react-hook-form@7.68.0:
+    resolution: {integrity: sha512-oNN3fjrZ/Xo40SWlHf1yCjlMK417JxoSJVUXQjGdvdRCU07NTFei1i1f8ApUAts+IVh14e4EdakeLEA+BEAs/Q==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      react: ^16.8.0 || ^17 || ^18 || ^19
+
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
     engines: {node: '>=0.10.0'}
@@ -5052,6 +5075,9 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
     engines: {node: '>=12.7.0'}
@@ -5774,10 +5800,17 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
+  '@character-foundry/app-framework@0.2.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@character-foundry/schemas': 0.2.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      zod: 3.25.76
+
   '@character-foundry/character-foundry@0.1.1':
     dependencies:
       '@character-foundry/charx': 0.0.4
-      '@character-foundry/core': 0.0.4
+      '@character-foundry/core': 0.1.0
       '@character-foundry/exporter': 0.1.2
       '@character-foundry/federation': 0.1.6
       '@character-foundry/loader': 0.1.8
@@ -5787,50 +5820,51 @@ snapshots:
       '@character-foundry/png': 0.0.4
       '@character-foundry/schemas': 0.1.1
       '@character-foundry/tokenizers': 0.1.1
-      '@character-foundry/voxta': 0.1.8
-
-  '@character-foundry/charx@0.0.3':
-    dependencies:
-      '@character-foundry/core': 0.0.4
-      '@character-foundry/schemas': 0.1.0
-      fflate: 0.8.2
+      '@character-foundry/voxta': 0.1.9
 
   '@character-foundry/charx@0.0.4':
     dependencies:
-      '@character-foundry/core': 0.0.4
+      '@character-foundry/core': 0.1.0
       '@character-foundry/schemas': 0.1.1
       fflate: 0.8.2
 
-  '@character-foundry/core@0.0.4': {}
+  '@character-foundry/core@0.1.0': {}
 
   '@character-foundry/exporter@0.1.2':
     dependencies:
       '@character-foundry/charx': 0.0.4
-      '@character-foundry/core': 0.0.4
+      '@character-foundry/core': 0.1.0
       '@character-foundry/png': 0.0.4
       '@character-foundry/schemas': 0.1.1
-      '@character-foundry/voxta': 0.1.8
+      '@character-foundry/voxta': 0.1.9
 
   '@character-foundry/federation@0.1.6':
     dependencies:
-      '@character-foundry/core': 0.0.4
+      '@character-foundry/core': 0.1.0
       '@character-foundry/exporter': 0.1.2
       '@character-foundry/loader': 0.1.8
       '@character-foundry/schemas': 0.1.1
 
+  '@character-foundry/federation@0.2.0':
+    dependencies:
+      '@character-foundry/core': 0.1.0
+      '@character-foundry/exporter': 0.1.2
+      '@character-foundry/loader': 0.1.8
+      '@character-foundry/schemas': 0.2.0
+
   '@character-foundry/loader@0.1.8':
     dependencies:
       '@character-foundry/charx': 0.0.4
-      '@character-foundry/core': 0.0.4
+      '@character-foundry/core': 0.1.0
       '@character-foundry/lorebook': 0.0.2
       '@character-foundry/normalizer': 0.1.2
       '@character-foundry/png': 0.0.4
       '@character-foundry/schemas': 0.1.1
-      '@character-foundry/voxta': 0.1.8
+      '@character-foundry/voxta': 0.1.9
 
   '@character-foundry/lorebook@0.0.2':
     dependencies:
-      '@character-foundry/core': 0.0.4
+      '@character-foundry/core': 0.1.0
       '@character-foundry/schemas': 0.1.1
 
   '@character-foundry/media@0.1.1':
@@ -5839,39 +5873,31 @@ snapshots:
 
   '@character-foundry/normalizer@0.1.2':
     dependencies:
-      '@character-foundry/core': 0.0.4
+      '@character-foundry/core': 0.1.0
       '@character-foundry/schemas': 0.1.1
-
-  '@character-foundry/png@0.0.3':
-    dependencies:
-      '@character-foundry/core': 0.0.4
-      '@character-foundry/schemas': 0.1.0
-      fflate: 0.8.2
 
   '@character-foundry/png@0.0.4':
     dependencies:
-      '@character-foundry/core': 0.0.4
+      '@character-foundry/core': 0.1.0
       '@character-foundry/schemas': 0.1.1
       fflate: 0.8.2
 
   '@character-foundry/schemas@0.0.1': {}
 
-  '@character-foundry/schemas@0.1.0': {}
-
   '@character-foundry/schemas@0.1.1': {}
 
-  '@character-foundry/tokenizers@0.0.1':
+  '@character-foundry/schemas@0.2.0':
     dependencies:
-      gpt-tokenizer: 3.4.0
+      zod: 3.25.76
 
   '@character-foundry/tokenizers@0.1.1':
     dependencies:
       gpt-tokenizer: 3.4.0
 
-  '@character-foundry/voxta@0.1.8':
+  '@character-foundry/voxta@0.1.9':
     dependencies:
-      '@character-foundry/core': 0.0.4
-      '@character-foundry/schemas': 0.1.1
+      '@character-foundry/core': 0.1.0
+      '@character-foundry/schemas': 0.2.0
       fflate: 0.8.2
 
   '@codemirror/autocomplete@6.20.0':
@@ -6456,6 +6482,10 @@ snapshots:
       '@floating-ui/utils': 0.2.10
 
   '@floating-ui/utils@0.2.10': {}
+
+  '@hookform/resolvers@3.10.0(react-hook-form@7.68.0(react@18.3.1))':
+    dependencies:
+      react-hook-form: 7.68.0(react@18.3.1)
 
   '@humanfs/core@0.19.1': {}
 
@@ -9623,6 +9653,10 @@ snapshots:
       react: 18.3.1
       scheduler: 0.23.2
 
+  react-hook-form@7.68.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+
   react-refresh@0.17.0: {}
 
   react-router-dom@7.10.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
@@ -10759,6 +10793,8 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@0.1.0: {}
+
+  zod@3.25.76: {}
 
   zustand@4.5.7(@types/react@18.3.27)(react@18.3.1):
     dependencies:
