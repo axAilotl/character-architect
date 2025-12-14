@@ -1,6 +1,7 @@
-# Card Architect
+# Character Architect
+![Gemini_Generated_Image_fe3wjzfe3wjzfe3w](https://github.com/user-attachments/assets/89cfe2fe-ca37-4502-a98a-619761839b70)
 
-**Card Architect** is a modern, self-hostable character card editor for CCv2 and CCv3 formats. Built as a single-user application with always-saving drafts, version history, and accurate token estimation.
+**Character Architect** is a modern, self-hostable character card editor for CCv2 and CCv3 formats. Built as a single-user application with always-saving drafts, version history, and accurate token estimation.
 
 ## Features
 
