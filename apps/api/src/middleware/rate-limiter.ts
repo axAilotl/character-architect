@@ -28,22 +28,35 @@ setInterval(() => {
 
 /**
  * Get client IP from request
+ * Only trusts proxy headers when TRUST_PROXY is configured
  */
 function getClientIP(request: FastifyRequest): string {
-  // Check X-Forwarded-For header (when behind proxy)
-  const forwarded = request.headers['x-forwarded-for'];
-  if (forwarded) {
-    const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
-    return ips.trim();
+  // Only trust proxy headers if trustProxy is configured
+  const trustProxy = config.security.trustProxy;
+
+  if (trustProxy) {
+    // Check X-Forwarded-For header (when behind proxy)
+    const forwarded = request.headers['x-forwarded-for'];
+    if (forwarded) {
+      const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',');
+      // If trustProxy is a number, get the IP at that position from the right
+      // (the rightmost IP is added by the closest proxy)
+      if (typeof trustProxy === 'number' && Array.isArray(ips)) {
+        const index = Math.max(0, ips.length - trustProxy);
+        return ips[index].trim();
+      }
+      // Otherwise just use the first IP
+      return (Array.isArray(ips) ? ips[0] : ips.split(',')[0]).trim();
+    }
+
+    // Check X-Real-IP header
+    const realIP = request.headers['x-real-ip'];
+    if (realIP) {
+      return Array.isArray(realIP) ? realIP[0] : realIP;
+    }
   }
 
-  // Check X-Real-IP header
-  const realIP = request.headers['x-real-ip'];
-  if (realIP) {
-    return Array.isArray(realIP) ? realIP[0] : realIP;
-  }
-
-  // Fall back to connection IP
+  // Fall back to connection IP (always trusted)
   return request.ip;
 }
 

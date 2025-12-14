@@ -32,8 +32,8 @@ function getTimeoutForFile(filePath: string): number {
   }
 }
 
-// Test file paths
-const TESTING_DIR = '/mnt/samesung/ai/card_doctor/testing';
+// Test file paths - relative to repo, uses docs/internal/testing (gitignored)
+const TESTING_DIR = process.env.E2E_TESTING_DIR || path.join(__dirname, '../docs/internal/testing');
 const DOWNLOADS_DIR = path.join(__dirname, 'test-downloads');
 
 // Sample cards for export testing

@@ -29,6 +29,10 @@ export const config = {
   security: {
     // CORS: comma-separated list of allowed origins, or '*' for all (dev only)
     corsOrigins: process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173',
+    // Trust proxy: number of proxy hops to trust, or false to not trust any
+    // Set to 1 when running behind nginx/reverse proxy (e.g., Docker)
+    // Set to false (default) when running directly exposed
+    trustProxy: process.env.TRUST_PROXY === 'true' ? 1 : (parseInt(process.env.TRUST_PROXY || '0', 10) || false),
     // Rate limiting
     rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== 'false',
     rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '1000', 10), // requests per window

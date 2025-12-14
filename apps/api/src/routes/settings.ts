@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, readdirSync } from 'fs';
-import { join, dirname, extname } from 'path';
+import { join, dirname, extname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import { isFilenameSafe, sanitizeFilename } from '../utils/path-security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -116,7 +117,23 @@ export async function settingsRoutes(fastify: FastifyInstance) {
   // Serve theme images
   fastify.get<{ Params: { filename: string } }>('/settings/theme/images/:filename', async (request, reply) => {
     const { filename } = request.params;
-    const filepath = join(THEME_IMAGES_PATH, filename);
+
+    // Path traversal protection
+    if (!isFilenameSafe(filename)) {
+      reply.code(400);
+      return { error: 'Invalid filename' };
+    }
+
+    const safeFilename = sanitizeFilename(filename);
+    const filepath = join(THEME_IMAGES_PATH, safeFilename);
+
+    // Verify the path is within THEME_IMAGES_PATH
+    const resolvedPath = resolve(filepath);
+    const resolvedBase = resolve(THEME_IMAGES_PATH);
+    if (!resolvedPath.startsWith(resolvedBase)) {
+      reply.code(400);
+      return { error: 'Invalid filename' };
+    }
 
     if (!existsSync(filepath)) {
       reply.code(404);
@@ -124,7 +141,7 @@ export async function settingsRoutes(fastify: FastifyInstance) {
     }
 
     // Determine content type
-    const ext = extname(filename).toLowerCase();
+    const ext = extname(safeFilename).toLowerCase();
     const contentTypes: Record<string, string> = {
       '.png': 'image/png',
       '.jpg': 'image/jpeg',
@@ -143,7 +160,23 @@ export async function settingsRoutes(fastify: FastifyInstance) {
   // Delete theme background image
   fastify.delete<{ Params: { filename: string } }>('/settings/theme/images/:filename', async (request, reply) => {
     const { filename } = request.params;
-    const filepath = join(THEME_IMAGES_PATH, filename);
+
+    // Path traversal protection
+    if (!isFilenameSafe(filename)) {
+      reply.code(400);
+      return { error: 'Invalid filename' };
+    }
+
+    const safeFilename = sanitizeFilename(filename);
+    const filepath = join(THEME_IMAGES_PATH, safeFilename);
+
+    // Verify the path is within THEME_IMAGES_PATH
+    const resolvedPath = resolve(filepath);
+    const resolvedBase = resolve(THEME_IMAGES_PATH);
+    if (!resolvedPath.startsWith(resolvedBase)) {
+      reply.code(400);
+      return { error: 'Invalid filename' };
+    }
 
     if (!existsSync(filepath)) {
       reply.code(404);

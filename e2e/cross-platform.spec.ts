@@ -18,12 +18,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { waitForAppLoad, validateJsonCard, validatePngCard } from './utils/test-helpers';
 
-// Platform URLs
+// Platform URLs - PRODUCTION_URL requires explicit env var (no default)
 const LOCAL_URL = process.env.FULL_MODE_URL || 'http://localhost:5173';
-const PRODUCTION_URL = process.env.PRODUCTION_URL || 'https://ca.axailotl.ai';
+const PRODUCTION_URL = process.env.PRODUCTION_URL;
 
-// Test file paths
-const TESTING_DIR = '/mnt/samesung/ai/card_doctor/testing';
+// Test file paths - relative to repo, uses docs/internal/testing (gitignored)
+const TESTING_DIR = process.env.E2E_TESTING_DIR || path.join(__dirname, '../docs/internal/testing');
 const CCv2_PNG = path.join(TESTING_DIR, 'chub/main_shana-e03c661ffb1d_spec_v2.png');
 const CCv2_JSON = path.join(TESTING_DIR, 'chub/main_shana-e03c661ffb1d_spec_v2.json');
 const CHARX_AILU = path.join(TESTING_DIR, 'risu_charx/Ailu Narukami.charx');
@@ -98,7 +98,11 @@ async function exportCardFromPlatform(page: Page, format: 'JSON' | 'PNG' | 'CHAR
   }
 }
 
+// Skip entire suite if PRODUCTION_URL is not configured
 test.describe('Cross-Platform Comparison', () => {
+  // Skip if production URL not set
+  test.skip(!PRODUCTION_URL, 'PRODUCTION_URL environment variable not set');
+
   let localBrowser: Browser;
   let prodBrowser: Browser;
   let localContext: BrowserContext;
@@ -127,7 +131,7 @@ test.describe('Cross-Platform Comparison', () => {
 
     // Navigate to respective platforms
     await localPage.goto(LOCAL_URL);
-    await prodPage.goto(PRODUCTION_URL);
+    await prodPage.goto(PRODUCTION_URL!);
 
     await waitForAppLoad(localPage);
     await waitForAppLoad(prodPage);

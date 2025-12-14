@@ -59,10 +59,10 @@ export interface WwwyzzerddPromptSet {
 // IMPORTS
 // ==========================================
 
-import templatesData from '../assets/templates.json';
-import snippetsData from '../assets/snippets.json';
-import presetsData from '../assets/presets.json';
-import wwwyzzerddData from '../assets/wwwyzzerdd-prompts.json';
+import templatesData from '../assets/templates.json' with { type: 'json' };
+import snippetsData from '../assets/snippets.json' with { type: 'json' };
+import presetsData from '../assets/presets.json' with { type: 'json' };
+import wwwyzzerddData from '../assets/wwwyzzerdd-prompts.json' with { type: 'json' };
 
 // ==========================================
 // EXPORTS

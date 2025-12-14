@@ -1,53 +1,62 @@
 # Multi-stage build for Character Architect
+# Uses pnpm workspaces for proper dependency resolution
 
-# Stage 1: Build packages
-FROM node:20-alpine AS packages
+# Build arg for GitHub Packages authentication
+ARG GITHUB_TOKEN
+
+# Stage 1: Base with pnpm
+FROM node:20-slim AS base
+RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
-COPY package*.json ./
+# Stage 2: Install all dependencies and build
+FROM base AS builder
+ARG GITHUB_TOKEN
+
+# Install build tools for native modules (better-sqlite3, sharp)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy workspace config files first for better caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* .npmrc ./
+COPY packages/defaults/package.json ./packages/defaults/
+COPY packages/plugins/package.json ./packages/plugins/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+
+# Install all dependencies (ignore-scripts=false is set in .npmrc)
+RUN GITHUB_TOKEN=${GITHUB_TOKEN} pnpm install --frozen-lockfile
+
+# Copy source files
+COPY tsconfig.json ./
 COPY packages/ ./packages/
-COPY tsconfig.json ./
+COPY apps/ ./apps/
 
-RUN npm ci
-RUN npm run build --workspaces --if-present
+# Build packages first, then apps
+RUN pnpm run build:packages
+RUN pnpm run build:api
+RUN pnpm run build:web
 
-# Stage 2: Build API
-FROM node:20-alpine AS api-builder
-WORKDIR /app
+# Stage 3: Production API
+FROM base AS api
 
-COPY --from=packages /app/package*.json ./
-COPY --from=packages /app/packages ./packages
-COPY apps/api ./apps/api
-COPY tsconfig.json ./
+# Copy workspace config and node_modules from builder (includes compiled native modules)
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml* ./
+COPY --from=builder /app/.npmrc ./
+COPY --from=builder /app/node_modules ./node_modules
 
-WORKDIR /app/apps/api
-RUN npm ci --production
-RUN npm run build
+# Copy packages structure with deps
+COPY --from=builder /app/packages/defaults/package.json ./packages/defaults/
+COPY --from=builder /app/packages/defaults/dist ./packages/defaults/dist
+COPY --from=builder /app/packages/defaults/assets ./packages/defaults/assets
+COPY --from=builder /app/packages/defaults/node_modules ./packages/defaults/node_modules
 
-# Stage 3: Build Web
-FROM node:20-alpine AS web-builder
-WORKDIR /app
-
-COPY --from=packages /app/package*.json ./
-COPY --from=packages /app/packages ./packages
-COPY apps/web ./apps/web
-COPY tsconfig.json ./
-
-WORKDIR /app/apps/web
-RUN npm ci
-RUN npm run build
-
-# Stage 4: Production API
-FROM node:20-alpine AS api
-WORKDIR /app
-
-# Install production dependencies
-COPY --from=api-builder /app/apps/api/package*.json ./
-RUN npm ci --production --ignore-scripts
-
-# Copy built application
-COPY --from=api-builder /app/apps/api/dist ./dist
-COPY --from=packages /app/packages ./packages
+# Copy API with deps
+COPY --from=builder /app/apps/api/package.json ./apps/api/
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 
 # Create data and storage directories
 RUN mkdir -p /app/data /app/storage
@@ -60,10 +69,11 @@ ENV STORAGE_PATH=/app/storage
 
 EXPOSE 3456
 
+WORKDIR /app/apps/api
 CMD ["node", "dist/index.js"]
 
-# Stage 5: Production Web (Nginx)
+# Stage 4: Production Web (Nginx)
 FROM nginx:alpine AS web
-COPY --from=web-builder /app/apps/web/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

@@ -11,6 +11,7 @@ import type {
 } from '../types/index.js';
 import { estimateTokensMany } from './tokenizer.js';
 import { embedPassages, embedQuery, cosineSimilarity } from './embedding.js';
+import { sanitizeFilename } from './path-security.js';
 
 const MANIFEST_FILE = 'db.json';
 const CHUNKS_FILE = 'chunks.json';
@@ -318,7 +319,9 @@ export async function addDocument(
 
   const totalTokens = chunkRecords.reduce((sum, chunk) => sum + chunk.tokenCount, 0);
 
-  const storedPath = join(SOURCES_DIR, sourceId, input.filename);
+  // Sanitize filename to prevent path traversal
+  const safeFilename = sanitizeFilename(input.filename);
+  const storedPath = join(SOURCES_DIR, sourceId, safeFilename);
   const relativePath = storedPath.replace(/\\/g, '/');
   await ensureDir(join(dbDir, SOURCES_DIR, sourceId));
   await fs.writeFile(join(dbDir, storedPath), input.buffer);
@@ -326,9 +329,9 @@ export async function addDocument(
   const source: RagSource = {
     id: sourceId,
     databaseId: manifest.id,
-    name: input.filename,
-    title: input.title || input.filename,
-    filename: input.filename,
+    name: safeFilename,
+    title: input.title || safeFilename,
+    filename: safeFilename,
     path: relativePath,
     type,
     size: input.buffer.length,

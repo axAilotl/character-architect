@@ -49,10 +49,10 @@ Comprehensive end-to-end tests for Character Architect using **real character ca
 
 ## Test Data
 
-All tests use **real character card files** from the `/testing/` directory:
+Tests use **real character card files** from `docs/internal/testing/` directory (gitignored, must be provided separately):
 
 ```
-testing/
+docs/internal/testing/
 ├── chub/              # CCv2 cards from ChubAI
 ├── risu_v3/           # RisuAI v3 PNG cards
 ├── risu_charx/        # CharX format cards
@@ -60,6 +60,8 @@ testing/
 ├── CharacterTavern/   # CharacterTavern format
 └── wyvern/            # Wyvern format cards
 ```
+
+**Note:** Test card files are not included in the repo. Set `E2E_TESTING_DIR` to point to your test cards.
 
 ## Running Tests
 
@@ -136,8 +138,11 @@ export FULL_MODE_URL=http://localhost:5173
 # Light mode URL (default: http://localhost:4173)
 export LIGHT_MODE_URL=http://localhost:4173
 
-# Production URL for cross-platform tests (default: https://ca.axailotl.ai)
-export PRODUCTION_URL=https://ca.axailotl.ai
+# Production URL for cross-platform tests (no default - must be explicitly set)
+export PRODUCTION_URL=https://your-production-url.example
+
+# Path to test card files (default: docs/internal/testing/)
+export E2E_TESTING_DIR=/path/to/your/test-cards
 ```
 
 ## Test Organization
@@ -289,7 +294,7 @@ npx playwright show-trace trace.zip
 ## Test Maintenance
 
 ### Adding New Format Support
-1. Add test card files to `/testing/[format-name]/`
+1. Add test card files to `docs/internal/testing/[format-name]/`
 2. Add import tests to `real-cards-import.spec.ts`
 3. Add export tests to `real-cards-export.spec.ts`
 4. Add round-trip tests to `real-cards-roundtrip.spec.ts`
@@ -344,7 +349,7 @@ Tests are configured to run in CI with:
 ## Contributing
 
 When adding tests:
-1. Use real card files from `/testing/` directory
+1. Use real card files from `docs/internal/testing/` directory (or `E2E_TESTING_DIR`)
 2. Follow existing test patterns
 3. Add descriptive test names
 4. Include error handling tests

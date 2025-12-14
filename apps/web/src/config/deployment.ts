@@ -106,7 +106,7 @@ const LIGHT_CONFIG: DeploymentConfig = {
     comfyui: false, // Disabled - no ComfyUI server
     sillytavern: true,
     webimport: false, // Disabled - requires server processing
-    charxOptimizer: true,
+    charxOptimizer: false, // Disabled - requires server-side Sharp
     federation: true, // Works client-side
   },
 };
@@ -135,7 +135,7 @@ const STATIC_CONFIG: DeploymentConfig = {
     comfyui: false,
     sillytavern: true,
     webimport: false, // No server
-    charxOptimizer: true,
+    charxOptimizer: false, // Disabled - requires server-side Sharp
     federation: true, // Works client-side
   },
 };

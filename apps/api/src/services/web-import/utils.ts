@@ -22,6 +22,7 @@ import {
   APP_USER_AGENT,
   TIMESTAMP_THRESHOLD,
 } from './constants.js';
+import { validateURL } from '../../utils/ssrf-protection.js';
 
 // ============================================================================
 // Image Processing
@@ -41,6 +42,12 @@ export async function downloadAndProcessAsset(
   settings: WebImportSettings
 ): Promise<ProcessedImage | null> {
   const config = type === 'icon' ? settings.icons : settings.emotions;
+
+  // SSRF protection: validate URL before fetching
+  const urlValidation = validateURL(assetUrl);
+  if (!urlValidation.valid) {
+    throw new Error(`Asset URL blocked: ${urlValidation.error}`);
+  }
 
   // Download asset
   const response = await fetch(assetUrl, {
@@ -157,6 +164,12 @@ export async function downloadAndProcessImage(
   }
 
   // Download from URL for other types (background, custom)
+  // SSRF protection: validate URL before fetching
+  const bgUrlValidation = validateURL(asset.url);
+  if (!bgUrlValidation.valid) {
+    throw new Error(`Asset URL blocked: ${bgUrlValidation.error}`);
+  }
+
   const response = await fetch(asset.url, {
     headers: { 'User-Agent': APP_USER_AGENT },
   });
@@ -232,6 +245,12 @@ export async function downloadAndProcessAudio(
   }
 
   // Download the audio
+  // SSRF protection: validate URL before fetching
+  const audioUrlValidation = validateURL(assetUrl);
+  if (!audioUrlValidation.valid) {
+    throw new Error(`Audio URL blocked: ${audioUrlValidation.error}`);
+  }
+
   console.log(`[Audio] Downloading: ${assetUrl}`);
   const response = await fetch(assetUrl, {
     headers: { 'User-Agent': APP_USER_AGENT },

@@ -190,12 +190,7 @@ call npm run build:packages
 
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to build packages. Trying individual builds...
-    cd packages\schemas && call npm run build && cd ..\..
-    cd packages\utils && call npm run build && cd ..\..
-    cd packages\png && call npm run build && cd ..\..
-    cd packages\charx && call npm run build && cd ..\..
-    cd packages\voxta && call npm run build && cd ..\..
-    cd packages\tokenizers && call npm run build && cd ..\..
+    cd packages\defaults && call npm run build && cd ..\..
     cd packages\plugins && call npm run build && cd ..\..
 )
 

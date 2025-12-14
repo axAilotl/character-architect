@@ -3,9 +3,11 @@ import { CardRepository, AssetRepository, CardAssetRepository } from '../db/repo
 import { config } from '../config.js';
 import { nanoid } from 'nanoid';
 import sharp from 'sharp';
-import { join, basename, extname } from 'path';
+import { join, basename, extname, resolve } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
+import { isURLSafeForFetch } from '../utils/ssrf-protection.js';
+import { sanitizeFilename as sanitizeFilenameSecure, isFilenameSafe } from '../utils/path-security.js';
 
 /**
  * Extract image URLs from markdown content
@@ -43,6 +45,12 @@ function extractImageUrls(content: string): Array<{ url: string; fullMatch: stri
  * Download an image from URL
  */
 async function downloadImage(url: string): Promise<{ buffer: Buffer; mimeType: string; ext: string }> {
+  // SSRF Protection: Validate URL before fetching
+  const ssrfCheck = isURLSafeForFetch(url);
+  if (!ssrfCheck.valid) {
+    throw new Error(`URL blocked: ${ssrfCheck.error}`);
+  }
+
   const response = await fetch(url, {
     headers: {
       'User-Agent': 'Card-Architect/1.0 (image-archival)',
@@ -619,6 +627,15 @@ export async function userImagesRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { characterName, filename } = request.params;
 
+      // Path traversal protection: validate filename
+      if (!isFilenameSafe(filename)) {
+        reply.code(400);
+        return { error: 'Invalid filename' };
+      }
+
+      // Sanitize filename for extra safety
+      const safeFilename = sanitizeFilenameSecure(filename);
+
       // Search for the file across all cards (since we don't have card ID in the URL)
       const storagePath = config.storagePath;
 
@@ -629,7 +646,18 @@ export async function userImagesRoutes(fastify: FastifyInstance) {
         const cardDirs = await readdir(storagePath);
 
         for (const cardDir of cardDirs) {
-          const filePath = join(storagePath, cardDir, filename);
+          // Additional safety: ensure cardDir is safe too
+          if (!isFilenameSafe(cardDir)) continue;
+
+          const filePath = join(storagePath, cardDir, safeFilename);
+
+          // Verify the resolved path is within storagePath
+          const resolvedPath = resolve(filePath);
+          const resolvedBase = resolve(storagePath);
+          if (!resolvedPath.startsWith(resolvedBase)) {
+            continue; // Skip this iteration if path escapes storage
+          }
+
           if (existsSync(filePath)) {
             // Found it - serve the file
             const buffer = await readFile(filePath);

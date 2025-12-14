@@ -422,8 +422,8 @@ importers:
   packages/defaults:
     dependencies:
       '@character-foundry/schemas':
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       typescript:
         specifier: ^5.3.3
@@ -1022,9 +1022,6 @@ packages:
 
   '@character-foundry/png@0.0.4':
     resolution: {integrity: sha512-WMmomrxutcC69Po7v4KlG6qD4B2h7iB/2AOy6Iegfme25z7ybxsa9G0BXUH0hhYNMGP+aBcBeMornDSAFJ5xgA==, tarball: https://npm.pkg.github.com/download/@character-foundry/png/0.0.4/0d776641cace0d7f4cfbb712f7abbf0a2a4aa091}
-
-  '@character-foundry/schemas@0.0.1':
-    resolution: {integrity: sha512-RXzJ++pmW4aK/VlXYm/FQmg3Yjw/D9jf6d582x1lHu7Egk+dxZzRfHEVg/r32ZlEn2EJehMNm7LjXJWPf5AAnA==, tarball: https://npm.pkg.github.com/download/@character-foundry/schemas/0.0.1/f6038a5da2788c39c2a647b01079ff5394dd149d}
 
   '@character-foundry/schemas@0.1.1':
     resolution: {integrity: sha512-t1AwzjMGv0iA9tqWlBi3MKmNVqCfPAMmeFYrNCnPsV7Tjk+CmZL5T5ab9jNIN+j4lLjsnESz9De1SOcs/AxLjg==, tarball: https://npm.pkg.github.com/download/@character-foundry/schemas/0.1.1/e30ef345ff9f07fde129a616a7d93cc669cea045}
@@ -5974,8 +5971,6 @@ snapshots:
       '@character-foundry/core': 0.1.0
       '@character-foundry/schemas': 0.1.1
       fflate: 0.8.2
-
-  '@character-foundry/schemas@0.0.1': {}
 
   '@character-foundry/schemas@0.1.1': {}
 

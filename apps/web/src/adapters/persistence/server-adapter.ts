@@ -268,28 +268,17 @@ export class ServerPersistenceAdapter implements PersistenceAdapter {
   }
 
   // ============================================
-  // Settings
+  // Settings (not implemented - API doesn't have generic KV store)
   // ============================================
 
-  async getSetting<T>(key: string): Promise<T | null> {
-    try {
-      const response = await fetch(`${API_BASE}/settings/${key}`);
-      if (!response.ok) return null;
-      const data = await response.json();
-      return data.value ?? null;
-    } catch {
-      return null;
-    }
+  async getSetting<T>(_key: string): Promise<T | null> {
+    // Note: The API only has specific settings endpoints (/api/settings, /api/settings/sillytavern)
+    // Generic KV settings are stored client-side in localStorage via settings-store
+    return null;
   }
 
-  async saveSetting<T>(key: string, value: T): Promise<void> {
-    const response = await fetch(`${API_BASE}/settings/${key}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value }),
-    });
-    if (!response.ok) {
-      console.error('[ServerAdapter] saveSetting error:', response.status);
-    }
+  async saveSetting<T>(_key: string, _value: T): Promise<void> {
+    // Note: Generic settings are stored client-side in localStorage via settings-store
+    // This is a no-op for the server adapter
   }
 }

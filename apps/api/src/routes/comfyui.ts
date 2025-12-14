@@ -7,6 +7,48 @@
 
 import type { FastifyInstance } from 'fastify';
 
+// Allowed ComfyUI hosts (localhost variants by default)
+const ALLOWED_COMFYUI_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  '[::1]',
+]);
+
+/**
+ * Validate ComfyUI server URL
+ * Only allows localhost connections by default for security
+ */
+function isComfyUIUrlAllowed(serverUrl: string): { allowed: boolean; error?: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(serverUrl);
+  } catch {
+    return { allowed: false, error: 'Invalid URL format' };
+  }
+
+  // Only allow http (ComfyUI typically runs on localhost without TLS)
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { allowed: false, error: 'Only HTTP/HTTPS protocols allowed' };
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Check against allowed hosts
+  if (!ALLOWED_COMFYUI_HOSTS.has(hostname)) {
+    // Also check if it's explicitly configured in environment
+    const extraHosts = process.env.COMFYUI_ALLOWED_HOSTS?.split(',').map(h => h.trim().toLowerCase()) || [];
+    if (!extraHosts.includes(hostname)) {
+      return {
+        allowed: false,
+        error: `ComfyUI server must be localhost. Got: ${hostname}. Set COMFYUI_ALLOWED_HOSTS to allow additional hosts.`
+      };
+    }
+  }
+
+  return { allowed: true };
+}
+
 export async function comfyuiRoutes(fastify: FastifyInstance) {
   /**
    * Proxy image from ComfyUI server
@@ -27,6 +69,13 @@ export async function comfyuiRoutes(fastify: FastifyInstance) {
     if (!serverUrl || !filename) {
       reply.code(400);
       return { error: 'serverUrl and filename are required' };
+    }
+
+    // SSRF Protection: Only allow localhost ComfyUI servers
+    const urlCheck = isComfyUIUrlAllowed(serverUrl);
+    if (!urlCheck.allowed) {
+      reply.code(403);
+      return { error: urlCheck.error };
     }
 
     try {

@@ -1,12 +1,14 @@
-version: '3.8'
-
 services:
   api:
     build:
       context: .
       target: api
-    ports:
-      - "3456:3456"
+      args:
+        - GITHUB_TOKEN=${GITHUB_TOKEN}
+    # API is internal-only; access via nginx on port 8765
+    # Uncomment below to expose API directly for debugging:
+    # ports:
+    #   - "3456:3456"
     volumes:
       - ./data:/app/data
       - ./storage:/app/storage
@@ -20,9 +22,11 @@ services:
       - MAX_PNG_SIZE_MB=4
       - WARN_PNG_SIZE_MB=2
       - WARN_CARD_SIZE_MB=2
+      # Trust nginx proxy for rate limiting (1 hop)
+      - TRUST_PROXY=1
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3456/health"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3456/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -31,6 +35,8 @@ services:
     build:
       context: .
       target: web
+      args:
+        - GITHUB_TOKEN=${GITHUB_TOKEN}
     ports:
       - "8765:80"
     depends_on:

@@ -30,6 +30,8 @@ import { tmpdir } from 'os';
 import { CardImportService } from '../services/card-import.service.js';
 import { VoxtaImportService } from '../services/voxta-import.service.js';
 import { normalizeCardData, normalizeLorebookEntries } from '../handlers/index.js';
+import { isURLSafeForFetch } from '../utils/ssrf-protection.js';
+import { sanitizeFilename } from '../utils/path-security.js';
 
 /**
  * Download a file from a URL and determine its type
@@ -39,18 +41,13 @@ async function downloadFromURL(url: string): Promise<{
   mimetype: string;
   filename: string;
 }> {
-  // Validate URL
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(url);
-  } catch (err) {
-    throw new Error('Invalid URL provided');
+  // SSRF Protection: Validate URL before fetching
+  const ssrfCheck = isURLSafeForFetch(url);
+  if (!ssrfCheck.valid) {
+    throw new Error(`URL blocked: ${ssrfCheck.error}`);
   }
 
-  // Only allow http and https
-  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-    throw new Error('Only HTTP and HTTPS URLs are supported');
-  }
+  const parsedUrl = ssrfCheck.url!;
 
   // Download the file
   const response = await fetch(url, {
@@ -129,7 +126,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       return { error: 'File must be a .voxpkg or .zip file' };
     }
 
-    const tempPath = join(tmpdir(), `voxta-${Date.now()}-${data.filename}`);
+    const tempPath = join(tmpdir(), `voxta-${Date.now()}-${sanitizeFilename(data.filename || 'upload.voxpkg')}`);
     await fs.writeFile(tempPath, await data.toBuffer());
 
     try {
@@ -196,7 +193,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
     if (isVoxPkg) {
       // Handle Voxta Import - use findZipStart for SFX archive support
-      const tempPath = join(tmpdir(), `voxta-${Date.now()}-${filename}`);
+      const tempPath = join(tmpdir(), `voxta-${Date.now()}-${sanitizeFilename(filename)}`);
       await fs.writeFile(tempPath, findZipStart(buffer));
 
       try {
@@ -231,7 +228,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       try {
         // Write buffer to temp file (yauzl requires file path)
         // Use findZipStart to handle SFX (self-extracting) archives
-        const tempPath = join(tmpdir(), `charx-${Date.now()}-${filename}`);
+        const tempPath = join(tmpdir(), `charx-${Date.now()}-${sanitizeFilename(filename)}`);
         await fs.writeFile(tempPath, findZipStart(buffer));
 
         try {
@@ -531,7 +528,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       try {
         // Write buffer to temp file (yauzl requires file path)
         // Use findZipStart to handle SFX (self-extracting) archives
-        const tempPath = join(tmpdir(), `import-${Date.now()}-${data.filename || 'upload.zip'}`);
+        const tempPath = join(tmpdir(), `import-${Date.now()}-${sanitizeFilename(data.filename || 'upload.zip')}`);
         await fs.writeFile(tempPath, findZipStart(buffer));
 
         try {
@@ -976,7 +973,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         if (isZip || isVoxPkg || isCharxExt) {
           let archiveSuccess = false;
           // Use findZipStart to handle SFX (self-extracting) archives
-          const tempPath = join(tmpdir(), `upload-${Date.now()}-${filename}`);
+          const tempPath = join(tmpdir(), `upload-${Date.now()}-${sanitizeFilename(filename)}`);
           await fs.writeFile(tempPath, findZipStart(buffer));
 
           try {
