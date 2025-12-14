@@ -116,46 +116,97 @@ cd card-architect
 # Start with Docker Compose
 docker-compose up -d
 
-# Access the application
-# Web UI: http://localhost:8765
-# API: http://localhost:3456
+# Access the application at http://localhost:8765
 ```
 
-### Standalone Container
-
-```bash
-# Build standalone image
-docker build -f docker/standalone.Dockerfile -t card-architect .
-
-# Run
-docker run -p 3456:3456 -p 8765:8765 \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/storage:/app/storage \
-  card-architect
-
-# Access at http://localhost:8765
-```
+The API runs internally within Docker and is only accessible via the nginx proxy.
+To expose the API port directly (for debugging), uncomment the `ports` section in `docker-compose.yml`.
 
 ### Local Development
 
 ```bash
-# Prerequisites: Node.js 20+, npm 10+
+# Prerequisites: Node.js 20+, pnpm
 
 # Set up GitHub Packages authentication (required for @character-foundry packages)
 # Create a GitHub Personal Access Token with read:packages scope
 export GITHUB_TOKEN=your_token_here
 
 # Install dependencies
-npm install
+pnpm install
 
 # Start development servers
-npm run dev
+pnpm run dev
 
 # API will run on http://localhost:3456
 # Web UI will run on http://localhost:5173
 ```
 
 **Note:** The project uses `@character-foundry/*` packages from GitHub Packages registry. The `.npmrc` file is configured to authenticate using the `GITHUB_TOKEN` environment variable.
+
+## Deployment Modes
+
+Character Architect supports three deployment modes, set via `VITE_DEPLOYMENT_MODE`:
+
+| Mode | Use Case | Server Required | Best For |
+|------|----------|-----------------|----------|
+| `full` | Self-hosted | Yes (API + SQLite) | Local dev, home server, full features |
+| `light` | Cheap VPS | Minimal | $5/mo VPS, most features client-side |
+| `static` | Static hosting | No | Cloudflare Pages, GitHub Pages |
+
+### Full Mode (Default)
+
+All features enabled with full server backend:
+- Server-side RAG with FastEmbed
+- Server-side LLM proxy
+- Web Import via userscript
+- ComfyUI integration
+- Sharp image optimization
+
+```bash
+# Docker or local dev - full mode auto-detected on localhost
+docker-compose up -d
+```
+
+### Light Mode
+
+Client-side processing with minimal server (just serves static files + SQLite):
+- Client-side RAG (Transformers.js + WebGPU)
+- Direct LLM calls (OpenRouter, Anthropic)
+- Canvas API for image processing
+- No ComfyUI, Web Import, or CHARX Optimizer
+
+```bash
+# Set mode in your build
+VITE_DEPLOYMENT_MODE=light pnpm run build:web
+```
+
+### Static Mode
+
+No server at all - pure client-side with IndexedDB:
+- All data stored in browser
+- No sync between devices
+- Works on free static hosting
+
+```bash
+# Build for static deployment
+VITE_DEPLOYMENT_MODE=static pnpm run build:web
+# Deploy dist/ to Cloudflare Pages, GitHub Pages, etc.
+```
+
+### Feature Availability by Mode
+
+| Feature | Full | Light | Static |
+|---------|------|-------|--------|
+| Card editing | ✓ | ✓ | ✓ |
+| Token counting | ✓ | ✓ | ✓ |
+| Import/Export | ✓ | ✓ | ✓ |
+| LLM Assist | Server | Client | Client |
+| RAG | Server | Client | Client |
+| Web Import | ✓ | ✗ | ✗ |
+| ComfyUI | ✓ | ✗ | ✗ |
+| CHARX Optimizer | ✓ | ✗ | ✗ |
+| SillyTavern Push | ✓ | ✓ | ✓ |
+| Data Sync | SQLite | SQLite | IndexedDB only |
 
 ## Architecture
 
@@ -164,9 +215,8 @@ Character Architect is a monorepo with:
 ```
 /apps/api              # Fastify backend (Node 20 + SQLite)
 /apps/web              # React frontend (Vite + TypeScript + Tailwind)
-/packages/defaults     # Shared default templates, snippets, and presets (Single Source of Truth)
+/packages/defaults     # Shared default templates, snippets, and presets
 /packages/plugins      # Plugin SDK (stub)
-/packages/utils        # Card-architect specific utilities
 ```
 
 **External Dependencies** (from `@character-foundry/*` on GitHub Packages):
