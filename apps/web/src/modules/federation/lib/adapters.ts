@@ -2,7 +2,7 @@
  * Platform Adapters
  *
  * Re-export adapters from @character-foundry/federation package
- * and add local editor adapter for Card Architect.
+ * and add local editor adapter for Character Architect.
  */
 
 import type { CCv3Data } from '../../../lib/types';

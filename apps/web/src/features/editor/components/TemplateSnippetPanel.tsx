@@ -118,7 +118,7 @@ export function TemplateSnippetPanel({
   const handleElaraVossImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const config = getDeploymentConfig();
     if (config.mode === 'light' || config.mode === 'static') {
-      setElaraVossStatus('ELARA VOSS requires server. Run Card Architect locally.');
+      setElaraVossStatus('ELARA VOSS requires server. Run Character Architect locally.');
       setTimeout(() => setElaraVossStatus(null), 5000);
       return;
     }
@@ -157,7 +157,7 @@ export function TemplateSnippetPanel({
   const handleElaraVossExport = async () => {
     const config = getDeploymentConfig();
     if (config.mode === 'light' || config.mode === 'static') {
-      alert('ELARA VOSS requires server. Run Card Architect locally.');
+      alert('ELARA VOSS requires server. Run Character Architect locally.');
       return;
     }
     window.location.href = '/api/elara-voss/names/export';
@@ -167,7 +167,7 @@ export function TemplateSnippetPanel({
   const handleElaraVossReset = async () => {
     const config = getDeploymentConfig();
     if (config.mode === 'light' || config.mode === 'static') {
-      alert('ELARA VOSS requires server. Run Card Architect locally.');
+      alert('ELARA VOSS requires server. Run Character Architect locally.');
       return;
     }
 

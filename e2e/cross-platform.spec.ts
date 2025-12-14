@@ -1,7 +1,7 @@
 /**
  * Cross-Platform E2E Tests
  *
- * Tests Card Architect behavior across different deployment targets:
+ * Tests Character Architect behavior across different deployment targets:
  * - Local server (full mode): http://localhost:5173
  * - Production Cloudflare (light mode): https://ca.axailotl.ai
  *

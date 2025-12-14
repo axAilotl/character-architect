@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         Card Architect - Web Import (Client-Side)
+// @name         Character Architect - Web Import (Client-Side)
 // @namespace    https://card-architect.local
 // @version      2.0.0
-// @description  Import character cards from supported sites directly to Card Architect (works with hosted/static deployments)
-// @author       Card Architect
+// @description  Import character cards from supported sites directly to Character Architect (works with hosted/static deployments)
+// @author       Character Architect
 // @match        https://chub.ai/characters/*
 // @match        https://www.chub.ai/characters/*
 // @match        https://venus.chub.ai/characters/*
@@ -18,7 +18,7 @@
 (function() {
     'use strict';
 
-    // Default Card Architect URL - can be configured via menu
+    // Default Character Architect URL - can be configured via menu
     const DEFAULT_APP_URL = 'https://ca.axailotl.ai';
 
     const BUTTON_STYLES = `
@@ -104,7 +104,7 @@
     function createButton() {
         const btn = document.createElement('button');
         btn.className = 'ca-import-btn';
-        btn.innerHTML = `${IMPORT_ICON} Send to Card Architect`;
+        btn.innerHTML = `${IMPORT_ICON} Send to Character Architect`;
         btn.addEventListener('click', handleImport);
         return btn;
     }
@@ -317,11 +317,11 @@
             // Store in localStorage for the web app to pick up
             localStorage.setItem('ca-pending-import', JSON.stringify(importData));
 
-            // Open Card Architect
+            // Open Character Architect
             const appUrl = getAppUrl();
             btn.innerHTML = `${IMPORT_ICON} Opening app...`;
 
-            showToast('Opening Card Architect...', 'success', 3000);
+            showToast('Opening Character Architect...', 'success', 3000);
             window.open(`${appUrl}/#/import-pending`, '_blank');
 
         } catch (err) {
@@ -329,7 +329,7 @@
             showToast(`Import failed: ${err.message}`, 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = `${IMPORT_ICON} Send to Card Architect`;
+            btn.innerHTML = `${IMPORT_ICON} Send to Character Architect`;
         }
     }
 
@@ -397,9 +397,9 @@
     };
 
     // Menu command to configure URL
-    GM_registerMenuCommand('Configure Card Architect URL', () => {
+    GM_registerMenuCommand('Configure Character Architect URL', () => {
         const current = getAppUrl();
-        const newUrl = prompt('Enter Card Architect URL:', current);
+        const newUrl = prompt('Enter Character Architect URL:', current);
         if (newUrl && newUrl.trim()) {
             setAppUrl(newUrl.trim());
             showToast(`App URL updated to: ${newUrl.trim()}`, 'success');

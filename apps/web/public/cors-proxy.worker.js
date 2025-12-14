@@ -1,5 +1,5 @@
 /**
- * Card Architect CORS Proxy
+ * Character Architect CORS Proxy
  *
  * Deploy to Cloudflare Workers for free (100k req/day)
  * Used for: LLM APIs without CORS, web imports from CORS-blocked sites

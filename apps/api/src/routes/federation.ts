@@ -1,7 +1,7 @@
 /**
  * Federation API Routes
  *
- * Exposes Card Architect as a federation-compatible platform.
+ * Exposes Character Architect as a federation-compatible platform.
  * Other platforms (SillyTavern, Character Archive, CardsHub) can sync with us.
  *
  * Endpoints:
@@ -46,7 +46,7 @@ export async function federationRoutes(fastify: FastifyInstance) {
       '@context': 'https://www.w3.org/ns/activitystreams',
       id: `${baseUrl}/api/federation/actor`,
       type: 'Service',
-      name: 'Card Architect',
+      name: 'Character Architect',
       preferredUsername: 'card-architect',
       summary: 'Character card editor and federation hub',
       inbox: `${baseUrl}/api/federation/inbox`,

@@ -97,7 +97,7 @@ For Windows users who are new to development:
 1. Download or clone this repository
 2. Right-click `install-windows.bat` and select **"Run as administrator"**
 3. Follow the prompts (this will install Node.js, build tools, and dependencies)
-4. Once complete, double-click `start-dev.bat` to run Card Architect
+4. Once complete, double-click `start-dev.bat` to run Character Architect
 5. Open http://localhost:5173 in your browser
 
 The installer will set up:
@@ -159,7 +159,7 @@ npm run dev
 
 ## Architecture
 
-Card Architect is a monorepo with:
+Character Architect is a monorepo with:
 
 ```
 /apps/api              # Fastify backend (Node 20 + SQLite)
@@ -394,7 +394,7 @@ POST   /api/web-import                 # Import card from URL
 
 **MIT License**
 
-Copyright (c) 2024 Card Architect Contributors
+Copyright (c) 2024 Character Architect Contributors
 
 ## Acknowledgments
 
@@ -407,4 +407,4 @@ For bug reports, feature requests, or questions, please open an issue on GitHub.
 
 ---
 
-**Card Architect** - Professional character card editor with AI-powered tools, self-hosted, open source
+**Character Architect** - Professional character card editor with AI-powered tools, self-hosted, open source

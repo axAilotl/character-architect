@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Card Architect - Linux/macOS Installer
+# Character Architect - Linux/macOS Installer
 # ============================================
 
 set -e
@@ -17,7 +17,7 @@ NODE_VERSION="22"
 NVM_VERSION="0.40.1"
 
 echo -e "${BLUE}============================================${NC}"
-echo -e "${BLUE}   Card Architect - Linux/macOS Installer${NC}"
+echo -e "${BLUE}   Character Architect - Linux/macOS Installer${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
 
@@ -133,7 +133,7 @@ cd "$SCRIPT_DIR"
 
 if [ ! -f "package.json" ]; then
     echo -e "${RED}[ERROR] package.json not found.${NC}"
-    echo "        Make sure you're running this script from the Card Architect directory."
+    echo "        Make sure you're running this script from the Character Architect directory."
     exit 1
 fi
 
@@ -180,7 +180,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 
-echo "Starting Card Architect development servers..."
+echo "Starting Character Architect development servers..."
 echo ""
 echo "Web UI will be available at: http://localhost:5173"
 echo "API will be available at: http://localhost:3456"
@@ -201,7 +201,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 
-echo "Building Card Architect for production..."
+echo "Building Character Architect for production..."
 npm run build
 
 echo ""
@@ -248,7 +248,7 @@ echo -e "${BLUE}============================================${NC}"
 echo -e "${GREEN}   Installation Complete!${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
-echo "To start Card Architect:"
+echo "To start Character Architect:"
 echo ""
 echo "  Development mode:"
 echo "    ./start-dev.sh"

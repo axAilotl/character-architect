@@ -44,7 +44,7 @@ export default defineConfig({
         'userscript.js',
       ],
       manifest: {
-        name: 'Card Architect',
+        name: 'Character Architect',
         short_name: 'CardArch',
         description: 'CCv2/CCv3 character card editor with offline support',
         theme_color: '#1e293b',

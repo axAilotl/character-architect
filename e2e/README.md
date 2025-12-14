@@ -1,6 +1,6 @@
-# Card Architect E2E Test Suite
+# Character Architect E2E Test Suite
 
-Comprehensive end-to-end tests for Card Architect using **real character card files** from various formats and sources.
+Comprehensive end-to-end tests for Character Architect using **real character card files** from various formats and sources.
 
 ## Test Files Overview
 
@@ -354,6 +354,6 @@ When adding tests:
 ## Resources
 
 - [Playwright Documentation](https://playwright.dev/)
-- [Card Architect Documentation](../README.md)
+- [Character Architect Documentation](../README.md)
 - [Character Card Specs](https://github.com/malfoyslastname/character-card-spec-v2)
 - [CharX Format Spec](https://github.com/SillyTavern/SillyTavern-CharX-Spec)

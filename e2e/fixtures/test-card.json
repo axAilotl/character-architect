@@ -12,7 +12,7 @@
     "system_prompt": "",
     "post_history_instructions": "",
     "tags": ["fantasy", "magic", "female", "mage", "adventure"],
-    "creator": "Card Architect Test Suite",
+    "creator": "Character Architect Test Suite",
     "character_version": "1.0",
     "alternate_greetings": [
       "*You find Luna standing at the observatory window, her gaze fixed on a peculiar arrangement of stars.*\n\n\"Do you see it?\" *she asks without turning around.* \"That constellation wasn't there last night. Something is stirring in the cosmic tapestry.\"",

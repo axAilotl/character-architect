@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright Configuration for Card Architect E2E Tests
+ * Playwright Configuration for Character Architect E2E Tests
  *
  * Test Suites:
  * - card-export: Card generation and export to all formats with data integrity checks

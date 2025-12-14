@@ -84,7 +84,7 @@ export function Header({ onBack }: HeaderProps) {
 
   // Get card type label for header title
   const getCardTypeLabel = () => {
-    if (!currentCard) return 'Card Architect';
+    if (!currentCard) return 'Character Architect';
     const spec = currentCard.meta.spec;
     if (spec === 'collection') return 'Collection';
     if (spec === 'lorebook') return 'Lorebook';
@@ -348,7 +348,7 @@ export function Header({ onBack }: HeaderProps) {
         </button>
 
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Card Architect" className="w-6 h-6" />
+          <img src="/logo.png" alt="Character Architect" className="w-6 h-6" />
           <h1 className="text-lg font-semibold text-dark-muted">{getCardTypeLabel()}</h1>
         </div>
 

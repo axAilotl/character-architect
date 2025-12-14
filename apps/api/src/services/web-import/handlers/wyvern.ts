@@ -12,7 +12,7 @@
  * 1. Userscript intercepts PNG blob from Wyvern's export
  * 2. Userscript fetches gallery images via Wyvern's image proxy
  * 3. Userscript fetches emotion sprites via Wyvern's image proxy
- * 4. All data sent to Card Architect as base64
+ * 4. All data sent to Character Architect as base64
  * 5. Server just extracts card data from PNG tEXt chunk
  *
  * ## Why Client-Side?

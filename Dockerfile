@@ -1,4 +1,4 @@
-# Multi-stage build for Card Architect
+# Multi-stage build for Character Architect
 
 # Stage 1: Build packages
 FROM node:20-alpine AS packages

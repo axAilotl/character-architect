@@ -96,7 +96,7 @@ async function callOpenRouter(request: ClientLLMRequest): Promise<ClientLLMRespo
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${provider.apiKey}`,
         'HTTP-Referer': window.location.origin,
-        'X-Title': 'Card Architect',
+        'X-Title': 'Character Architect',
       },
       body: JSON.stringify({
         model: model || provider.defaultModel,

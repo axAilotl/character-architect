@@ -1,8 +1,8 @@
-# CLAUDE.md - AI Assistant Guide for Card Architect
+# CLAUDE.md - AI Assistant Guide for Character Architect
 
 ## Project Overview
 
-Card Architect is a self-hostable CCv2/CCv3 character card editor with AI-powered tools. It's a monorepo using pnpm workspaces.
+Character Architect is a self-hostable CCv2/CCv3 character card editor with AI-powered tools. It's a monorepo using pnpm workspaces.
 
 ## Quick Commands
 

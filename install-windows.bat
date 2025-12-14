@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 echo ============================================
-echo    Card Architect - Windows Installer
+echo    Character Architect - Windows Installer
 echo ============================================
 echo.
 
@@ -164,7 +164,7 @@ cd /d "%~dp0"
 :: Check if package.json exists
 if not exist "package.json" (
     echo [ERROR] package.json not found.
-    echo         Make sure you're running this script from the Card Architect directory.
+    echo         Make sure you're running this script from the Character Architect directory.
     pause
     exit /b 1
 )
@@ -216,7 +216,7 @@ echo [6/6] Creating startup scripts...
 (
 echo @echo off
 echo cd /d "%%~dp0"
-echo echo Starting Card Architect development servers...
+echo echo Starting Character Architect development servers...
 echo echo.
 echo echo Web UI will be available at: http://localhost:5173
 echo echo API will be available at: http://localhost:3456
@@ -231,7 +231,7 @@ echo pause
 (
 echo @echo off
 echo cd /d "%%~dp0"
-echo echo Starting Card Architect production build...
+echo echo Starting Character Architect production build...
 echo echo.
 echo call npm run build
 echo echo.
@@ -254,7 +254,7 @@ echo ============================================
 echo    Installation Complete!
 echo ============================================
 echo.
-echo To start Card Architect:
+echo To start Character Architect:
 echo.
 echo   Development mode:
 echo     Double-click start-dev.bat

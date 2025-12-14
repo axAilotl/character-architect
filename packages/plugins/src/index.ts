@@ -33,7 +33,7 @@ export interface Plugin {
 }
 
 /**
- * Plugin manager for Card Architect
+ * Plugin manager for Character Architect
  */
 export class PluginManager {
   private plugins = new Map<string, Plugin>();

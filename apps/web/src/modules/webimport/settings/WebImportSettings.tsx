@@ -141,7 +141,7 @@ export function WebImportSettings() {
           <div className="border border-dark-border rounded-lg p-6 space-y-4">
             <h4 className="font-semibold">Userscript Installation</h4>
             <p className="text-sm text-dark-muted">
-              Install this userscript in Tampermonkey, Violentmonkey, or Greasemonkey to add "Send to Card Architect" buttons on supported sites.
+              Install this userscript in Tampermonkey, Violentmonkey, or Greasemonkey to add "Send to Character Architect" buttons on supported sites.
             </p>
             <button
               onClick={handleDownloadUserscript}

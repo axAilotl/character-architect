@@ -1,13 +1,13 @@
 # Comprehensive Codebase Review & Complexity Analysis
 **Date:** December 9, 2025
-**Project:** Card Architect
+**Project:** Character Architect
 **Scope:** Full Stack (API, Web, Packages)
 
 ---
 
 ## 1. Executive Summary
 
-**Card Architect** is a modern, well-structured monorepo built on robust technologies (**Fastify**, **React**, **Vite**, **SQLite**). The high-level architecture is sound, utilizing npm workspaces to separate deployable applications from shared libraries.
+**Character Architect** is a modern, well-structured monorepo built on robust technologies (**Fastify**, **React**, **Vite**, **SQLite**). The high-level architecture is sound, utilizing npm workspaces to separate deployable applications from shared libraries.
 
 However, a deep dive into the implementation reveals significant **extensibility bottlenecks**. While the application performs well today, the codebase exhibits high coupling between the UI/API layers and the specific data formats (CCv2/CCv3). Adding a new feature—or worse, a new format like "CCv4"—would currently require extensive, risky "shotgun surgery" across the entire stack.
 

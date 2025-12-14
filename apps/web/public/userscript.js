@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         Card Architect - Web Import (Static)
+// @name         Character Architect - Web Import (Static)
 // @namespace    https://ca.axailotl.ai
 // @version      2.0.0
-// @description  Send character cards from supported sites to Card Architect (client-side version)
-// @author       Card Architect
+// @description  Send character cards from supported sites to Character Architect (client-side version)
+// @author       Character Architect
 // @match        https://chub.ai/characters/*
 // @match        https://www.chub.ai/characters/*
 // @match        https://venus.chub.ai/characters/*
@@ -107,7 +107,7 @@
     function createButton() {
         const btn = document.createElement('button');
         btn.className = 'ca-import-btn';
-        btn.innerHTML = `${IMPORT_ICON} Send to Card Architect`;
+        btn.innerHTML = `${IMPORT_ICON} Send to Character Architect`;
         btn.addEventListener('click', handleImport);
         return btn;
     }
@@ -300,22 +300,22 @@
                 importData.pngBase64 = await fetchWyvernPng();
             }
 
-            btn.innerHTML = `${IMPORT_ICON} Opening Card Architect...`;
+            btn.innerHTML = `${IMPORT_ICON} Opening Character Architect...`;
 
             // Store data for postMessage transfer
             pendingImportData = importData;
 
-            // Open Card Architect import page
+            // Open Character Architect import page
             const importUrl = `${webUrl}/#/import-pending`;
             caWindow = window.open(importUrl, '_blank');
 
-            showToast('Card Architect opened! Check the new tab.', 'success');
+            showToast('Character Architect opened! Check the new tab.', 'success');
         } catch (err) {
-            console.error('Card Architect import error:', err);
+            console.error('Character Architect import error:', err);
             showToast(`Import failed: ${err.message}`, 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = `${IMPORT_ICON} Send to Card Architect`;
+            btn.innerHTML = `${IMPORT_ICON} Send to Character Architect`;
         }
     }
 
@@ -369,9 +369,9 @@
         }
     };
 
-    GM_registerMenuCommand('Configure Card Architect URL', () => {
+    GM_registerMenuCommand('Configure Character Architect URL', () => {
         const current = getWebUrl();
-        const newUrl = prompt('Enter Card Architect URL:', current);
+        const newUrl = prompt('Enter Character Architect URL:', current);
         if (newUrl && newUrl.trim()) {
             setWebUrl(newUrl.trim());
             showToast(`URL updated to: ${newUrl.trim()}`, 'success');
@@ -386,9 +386,9 @@
         if (injector) injector();
     }
 
-    // Listen for Card Architect requesting import data
+    // Listen for Character Architect requesting import data
     window.addEventListener('message', (event) => {
-        // Verify origin is Card Architect
+        // Verify origin is Character Architect
         const webUrl = getWebUrl();
         if (!event.origin.includes(new URL(webUrl).hostname) &&
             !event.origin.includes('localhost') &&
@@ -403,7 +403,7 @@
                     type: 'CA_IMPORT_DATA',
                     data: pendingImportData
                 }, '*');
-                console.log('[CA Userscript] Sent import data to Card Architect');
+                console.log('[CA Userscript] Sent import data to Character Architect');
                 // Clear after sending
                 pendingImportData = null;
             } else {

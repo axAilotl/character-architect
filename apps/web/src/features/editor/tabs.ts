@@ -2,7 +2,7 @@
  * Core Editor Tabs Registration
  *
  * Registers the built-in editor tabs with the UI registry.
- * These are the default tabs that ship with Card Architect.
+ * These are the default tabs that ship with Character Architect.
  */
 
 import { lazy } from 'react';

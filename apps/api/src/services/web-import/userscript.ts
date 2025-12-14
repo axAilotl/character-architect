@@ -55,11 +55,11 @@ export function generateUserscript(
   const webUrl = `http://${hostname}:${webPort}`;
 
   return `// ==UserScript==
-// @name         Card Architect - Web Import
+// @name         Character Architect - Web Import
 // @namespace    https://card-architect.local
 // @version      1.0.9
-// @description  Send character cards from supported sites to Card Architect
-// @author       Card Architect
+// @description  Send character cards from supported sites to Character Architect
+// @author       Character Architect
 // @match        https://chub.ai/characters/*
 // @match        https://www.chub.ai/characters/*
 // @match        https://venus.chub.ai/characters/*
@@ -78,7 +78,7 @@ export function generateUserscript(
 (function() {
     'use strict';
 
-    // Configuration - auto-configured from your Card Architect server
+    // Configuration - auto-configured from your Character Architect server
     const DEFAULT_API_URL = '${apiUrl}';
     const BUTTON_STYLES = \`
         .ca-import-btn {
@@ -173,7 +173,7 @@ export function generateUserscript(
     function createButton() {
         const btn = document.createElement('button');
         btn.className = 'ca-import-btn';
-        btn.innerHTML = \`\${IMPORT_ICON} Send to Card Architect\`;
+        btn.innerHTML = \`\${IMPORT_ICON} Send to Character Architect\`;
         btn.addEventListener('click', handleImport);
         return btn;
     }
@@ -631,7 +631,7 @@ export function generateUserscript(
             if (result.success) {
                 const cardUrl = \`${webUrl}/#/cards/\${result.cardId}\`;
                 showToast(
-                    \`Successfully imported "\${result.name}"!<br><a href="\${cardUrl}" target="_blank">Open in Card Architect</a>\`,
+                    \`Successfully imported "\${result.name}"!<br><a href="\${cardUrl}" target="_blank">Open in Character Architect</a>\`,
                     'success',
                     8000
                 );
@@ -639,11 +639,11 @@ export function generateUserscript(
                 throw new Error(result.error || 'Import failed');
             }
         } catch (err) {
-            console.error('Card Architect import error:', err);
+            console.error('Character Architect import error:', err);
             showToast(\`Import failed: \${err.message}\`, 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = \`\${IMPORT_ICON} Send to Card Architect\`;
+            btn.innerHTML = \`\${IMPORT_ICON} Send to Character Architect\`;
         }
     }
 
@@ -763,9 +763,9 @@ export function generateUserscript(
         }
     };
 
-    GM_registerMenuCommand('Configure Card Architect API URL', () => {
+    GM_registerMenuCommand('Configure Character Architect API URL', () => {
         const current = getApiUrl();
-        const newUrl = prompt('Enter Card Architect API URL:', current);
+        const newUrl = prompt('Enter Character Architect API URL:', current);
         if (newUrl && newUrl.trim()) {
             setApiUrl(newUrl.trim());
             showToast(\`API URL updated to: \${newUrl.trim()}\`, 'success');
