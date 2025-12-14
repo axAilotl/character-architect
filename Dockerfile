@@ -1,9 +1,6 @@
 # Multi-stage build for Character Architect
 # Uses pnpm workspaces for proper dependency resolution
 
-# Build arg for GitHub Packages authentication
-ARG GITHUB_TOKEN
-
 # Stage 1: Base with pnpm
 FROM node:20-slim AS base
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -11,7 +8,6 @@ WORKDIR /app
 
 # Stage 2: Install all dependencies and build
 FROM base AS builder
-ARG GITHUB_TOKEN
 
 # Install build tools for native modules (better-sqlite3, sharp)
 RUN apt-get update && apt-get install -y \
@@ -27,7 +23,7 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 
 # Install all dependencies (ignore-scripts=false is set in .npmrc)
-RUN GITHUB_TOKEN=${GITHUB_TOKEN} pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Copy source files
 COPY tsconfig.json ./

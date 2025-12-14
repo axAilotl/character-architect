@@ -3,8 +3,6 @@ services:
     build:
       context: .
       target: api
-      args:
-        - GITHUB_TOKEN=${GITHUB_TOKEN}
     # API is internal-only; access via nginx on port 8765
     # Uncomment below to expose API directly for debugging:
     # ports:
@@ -35,8 +33,6 @@ services:
     build:
       context: .
       target: web
-      args:
-        - GITHUB_TOKEN=${GITHUB_TOKEN}
     ports:
       - "8765:80"
     depends_on:
