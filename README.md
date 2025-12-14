@@ -29,7 +29,7 @@
 - **Asset Management** - Upload, crop, resize, and convert images with CHARX packaging
 - **Schema Validation** - JSON schema + semantic linting with format-specific normalization
 - **Theming** - Multiple color themes with custom background images and CSS
-- **Self-Hostable** - Docker Compose or standalone container
+- **Self-Hostable** - Docker Compose for easy deployment
 
 ### AI-Powered Features
 
@@ -127,10 +127,6 @@ To expose the API port directly (for debugging), uncomment the `ports` section i
 ```bash
 # Prerequisites: Node.js 20+, pnpm
 
-# Set up GitHub Packages authentication (required for @character-foundry packages)
-# Create a GitHub Personal Access Token with read:packages scope
-export GITHUB_TOKEN=your_token_here
-
 # Install dependencies
 pnpm install
 
@@ -140,8 +136,6 @@ pnpm run dev
 # API will run on http://localhost:3456
 # Web UI will run on http://localhost:5173
 ```
-
-**Note:** The project uses `@character-foundry/*` packages from GitHub Packages registry. The `.npmrc` file is configured to authenticate using the `GITHUB_TOKEN` environment variable.
 
 ## Deployment Modes
 
@@ -219,7 +213,7 @@ Character Architect is a monorepo with:
 /packages/plugins      # Plugin SDK (stub)
 ```
 
-**External Dependencies** (from `@character-foundry/*` on GitHub Packages):
+**External Dependencies** (from `@character-foundry/*` on npm):
 - `@character-foundry/schemas` - Shared TypeScript types + validation
 - `@character-foundry/core` - Core utilities (binary, base64, ZIP, data URLs)
 - `@character-foundry/png` - PNG tEXt/zTXt chunk reading/writing

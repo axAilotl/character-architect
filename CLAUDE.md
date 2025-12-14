@@ -21,8 +21,8 @@ pnpm run build:web        # Build web only
 pnpm run test:e2e         # Run Playwright tests
 pnpm run test:e2e:ui      # Playwright UI mode
 
-# Dependencies (requires GITHUB_TOKEN for @character-foundry packages)
-GITHUB_TOKEN=<token> pnpm install
+# Dependencies
+pnpm install
 ```
 
 ## Project Structure
@@ -32,12 +32,11 @@ GITHUB_TOKEN=<token> pnpm install
 /apps/web              # React frontend (Vite + TypeScript + Tailwind)
 /packages/defaults     # Shared templates, snippets, presets
 /packages/plugins      # Plugin SDK (stub)
-/packages/utils        # Card-architect specific utilities
 ```
 
 ## Key External Dependencies
 
-From `@character-foundry/*` (GitHub Packages):
+From `@character-foundry/*` (npm):
 - `core` - Binary utilities, base64, ZIP, data URLs
 - `schemas` - TypeScript types, CCv2/CCv3 schemas
 - `loader` - Universal card loader with format auto-detection
