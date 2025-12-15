@@ -36,7 +36,7 @@ declare module 'fastify' {
 export async function build(opts: FastifyServerOptions = {}) {
   const fastify = Fastify({
     ...opts,
-    bodyLimit: 50 * 1024 * 1024, // 50MB for base64 PNG uploads
+    bodyLimit: 500 * 1024 * 1024, // 500MB for large Voxta packages
   });
 
   // Initialize database

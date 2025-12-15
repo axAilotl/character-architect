@@ -46,10 +46,10 @@ export const config = {
     zipSecurity: {
       // How to handle unsafe paths in ZIP files: 'skip' (ignore), 'warn' (log), 'reject' (throw)
       unsafePathHandling: (process.env.ZIP_UNSAFE_PATH_HANDLING || 'warn') as 'skip' | 'warn' | 'reject',
-      // Maximum uncompressed archive size in bytes (default 50MB, prevents ZIP bombs)
-      maxUncompressedSize: parseInt(process.env.ZIP_MAX_UNCOMPRESSED_SIZE_MB || '50', 10) * 1024 * 1024,
-      // Maximum individual file size in bytes (default 25MB)
-      maxFileSize: parseInt(process.env.ZIP_MAX_FILE_SIZE_MB || '25', 10) * 1024 * 1024,
+      // Maximum uncompressed archive size in bytes (default 500MB for large Voxta packages)
+      maxUncompressedSize: parseInt(process.env.ZIP_MAX_UNCOMPRESSED_SIZE_MB || '500', 10) * 1024 * 1024,
+      // Maximum individual file size in bytes (default 50MB per CHARX spec)
+      maxFileSize: parseInt(process.env.ZIP_MAX_FILE_SIZE_MB || '50', 10) * 1024 * 1024,
       // Maximum number of files in archive (default 1000)
       maxFiles: parseInt(process.env.ZIP_MAX_FILES || '1000', 10),
     },

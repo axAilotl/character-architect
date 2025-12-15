@@ -16,10 +16,7 @@ services:
       - HOST=0.0.0.0
       - DATABASE_PATH=/app/data/cards.db
       - STORAGE_PATH=/app/storage
-      - MAX_CARD_SIZE_MB=5
-      - MAX_PNG_SIZE_MB=4
-      - WARN_PNG_SIZE_MB=2
-      - WARN_CARD_SIZE_MB=2
+      # Size limits use generous defaults from config.ts (300MB card/png, 500MB uncompressed ZIP)
       # Trust nginx proxy for rate limiting (1 hop)
       - TRUST_PROXY=1
     restart: unless-stopped

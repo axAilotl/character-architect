@@ -353,11 +353,11 @@ HOST=0.0.0.0
 DATABASE_PATH=./data/cards.db
 STORAGE_PATH=./storage
 
-# Size limits
-MAX_CARD_SIZE_MB=5
-MAX_PNG_SIZE_MB=4
-WARN_PNG_SIZE_MB=2
-WARN_CARD_SIZE_MB=2
+# Size limits (generous defaults for large Voxta packages)
+# MAX_CARD_SIZE_MB=300
+# MAX_PNG_SIZE_MB=300
+# ZIP_MAX_UNCOMPRESSED_SIZE_MB=500
+# ZIP_MAX_FILE_SIZE_MB=50
 ```
 
 ## API Reference
