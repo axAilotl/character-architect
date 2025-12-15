@@ -45,15 +45,17 @@ import {
   validatePNGSize as validatePNGSizeBuffer,
 } from '@character-foundry/png';
 
-// Core utilities (ZIP, MIME, Security)
+// Core utilities (MIME types)
+import { getMimeTypeFromExt } from '@character-foundry/core';
+
+// Core ZIP utilities (separate export path)
 import {
   isZipBuffer as isZipBufferUtil,
   findZipStart as findZipStartUtil,
-  getMimeTypeFromExt,
   preflightZipSizes,
   isPathSafe,
   type ZipSizeLimits,
-} from '@character-foundry/core';
+} from '@character-foundry/core/zip';
 
 import { config } from '../config.js';
 
