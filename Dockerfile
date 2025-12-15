@@ -38,11 +38,6 @@ RUN pnpm run build:web
 # Stage 3: Production API
 FROM base AS api
 
-# Create non-root user for running the app
-# Using UID 1000 as it's the most common user ID on Linux hosts
-RUN groupadd --gid 1000 appuser && \
-    useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home appuser
-
 # Copy workspace config and node_modules from builder (includes compiled native modules)
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml* ./
 COPY --from=builder /app/.npmrc ./
@@ -60,8 +55,9 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 
 # Create data and storage directories with correct ownership
+# Use node user (UID 1000) which exists in node:20-slim base image
 RUN mkdir -p /app/data /app/storage && \
-    chown -R appuser:appuser /app/data /app/storage
+    chown -R node:node /app/data /app/storage
 
 ENV NODE_ENV=production
 ENV PORT=3456
@@ -71,8 +67,8 @@ ENV STORAGE_PATH=/app/storage
 
 EXPOSE 3456
 
-# Switch to non-root user
-USER appuser
+# Switch to non-root user (node user has UID 1000, matching most host users)
+USER node
 
 WORKDIR /app/apps/api
 CMD ["node", "dist/index.js"]
