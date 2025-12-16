@@ -86,6 +86,10 @@ inspect-*.ts
 *.voxpkg
 *.charx
 db_dump.json
+
+# But allow test fixtures
+!test-fixtures/**/*.voxpkg
+!test-fixtures/**/*.charx
 profile_raw.txt
 apps/api/debug-*.ts
 

@@ -1,0 +1,80 @@
+{
+  "spec": "chara_card_v2",
+  "spec_version": "2.0",
+  "data": {
+    "name": "Synthetic V2 Character",
+    "description": "A synthetic test character.",
+    "personality": "Friendly and helpful.",
+    "scenario": "A test scenario.",
+    "first_mes": "Hello! I am a synthetic test character.",
+    "mes_example": "<START>\n{{user}}: Hi\n{{char}}: Hello!",
+    "creator": "Synthetic Generator",
+    "creator_notes": "This is a synthetic fixture for testing purposes.",
+    "tags": [
+      "synthetic",
+      "test",
+      "v2"
+    ],
+    "character_version": "1.0.0",
+    "system_prompt": "",
+    "post_history_instructions": "",
+    "alternate_greetings": [
+      "Alternate greeting 1",
+      "Alternate greeting 2"
+    ],
+    "character_book": {
+      "name": "Test Lorebook",
+      "entries": [
+        {
+          "keys": [
+            "key1"
+          ],
+          "content": "Lorebook entry 1 content.",
+          "enabled": true,
+          "insertion_order": 0,
+          "case_sensitive": false,
+          "priority": 10,
+          "id": 0,
+          "comment": "Entry 1",
+          "selective": false,
+          "secondary_keys": [],
+          "constant": false,
+          "position": "before_char"
+        },
+        {
+          "keys": [
+            "key2"
+          ],
+          "content": "Lorebook entry 2 content.",
+          "enabled": true,
+          "insertion_order": 1,
+          "case_sensitive": false,
+          "priority": 10,
+          "id": 1,
+          "comment": "Entry 2",
+          "selective": false,
+          "secondary_keys": [],
+          "constant": false,
+          "position": "before_char"
+        },
+        {
+          "keys": [
+            "key3"
+          ],
+          "content": "Lorebook entry 3 content.",
+          "enabled": true,
+          "insertion_order": 2,
+          "case_sensitive": false,
+          "priority": 10,
+          "id": 2,
+          "comment": "Entry 3",
+          "selective": false,
+          "secondary_keys": [],
+          "constant": false,
+          "position": "before_char"
+        }
+      ]
+    },
+    "extensions": {}
+  }
+}

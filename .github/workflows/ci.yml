@@ -46,9 +46,13 @@ jobs:
 
       - name: Run API tests
         run: pnpm --filter @card-architect/api run test
+        env:
+          CF_FIXTURES_DIR: ./test-fixtures
 
       - name: Run Web tests
         run: pnpm --filter @card-architect/web run test
+        env:
+          CF_FIXTURES_DIR: ./test-fixtures
 
   docker-build:
     runs-on: ubuntu-latest
