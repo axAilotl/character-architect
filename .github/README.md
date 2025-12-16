@@ -44,7 +44,7 @@ After pushing the `dev` branch, configure branch protection in GitHub:
 
 Add the following secrets in **Repository → Settings → Secrets and variables → Actions**:
 
-### Required
+### Required for CI
 
 - **`FOUNDRY_PAT`**
   - Description: GitHub Personal Access Token for @character-foundry packages
@@ -55,6 +55,18 @@ Add the following secrets in **Repository → Settings → Secrets and variables
     - Generate token
     - Copy token value
     - Add to repository secrets
+
+### Required for Cloudflare Pages Deployment
+
+- **`CLOUDFLARE_API_TOKEN`**
+  - Description: API token for Cloudflare Pages deployments
+  - Create at: https://dash.cloudflare.com/profile/api-tokens
+  - Template: "Edit Cloudflare Workers"
+  - Or custom with permissions: Account > Cloudflare Pages > Edit
+
+- **`CLOUDFLARE_ACCOUNT_ID`**
+  - Description: Your Cloudflare account ID
+  - Find at: https://dash.cloudflare.com/ (right sidebar)
 
 ## Deployment
 

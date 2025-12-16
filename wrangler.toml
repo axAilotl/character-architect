@@ -1,0 +1,22 @@
+# Cloudflare Pages Configuration for Character Architect
+# This file is used by wrangler CLI but Pages auto-deployment uses GitHub Actions
+
+name = "character-architect"
+compatibility_date = "2024-01-01"
+
+# Pages projects are managed via Cloudflare Dashboard or API
+# This file documents the expected configuration
+
+[env.production]
+name = "character-architect"
+# Branch: main
+# URL: https://ca.axailotl.ai
+# Build command: pnpm run build:web
+# Build output: apps/web/dist
+
+[env.dev]
+name = "character-architect-dev"
+# Branch: dev
+# URL: https://dev.ca.axailotl.ai (or auto-generated)
+# Build command: pnpm run build:web
+# Build output: apps/web/dist
