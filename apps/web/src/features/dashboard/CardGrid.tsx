@@ -3,7 +3,7 @@ import { useCardStore, extractCardData } from '../../store/card-store';
 import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
-import { importCardClientSide, importCardFromURLClientSide, importVoxtaPackageClientSide } from '../../lib/client-import';
+import { importCardClientSide, importVoxtaPackageClientSide } from '../../lib/client-import';
 import { exportCard as exportCardClientSide } from '../../lib/client-export';
 import type { Card, CollectionData } from '../../lib/types';
 import type { CCv3Data } from '../../lib/types';
@@ -43,11 +43,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [cachedImages, setCachedImages] = useState<Map<string, string>>(new Map());
   const [sortBy, setSortBy] = useState<SortOption>('edited');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
-  const [showImportMenu, setShowImportMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [cardsPerPage, setCardsPerPage] = useState(20);
-  const { importCard, importCardFromURL, createNewCard, createNewLorebook } = useCardStore();
+  const { importCard, createNewCard, createNewLorebook } = useCardStore();
 
   // Federation sync states (only for full mode)
   const { syncStates, initialize: initFederation, initialized: federationInitialized, pollPlatformSyncState, settings: federationSettings } = useFederationStore();
@@ -290,7 +289,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setShowImportMenu(false);
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -519,40 +517,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
       console.error('Failed to import cards:', error);
       alert('Failed to import cards. Check console for details.');
       e.target.value = '';
-    }
-  };
-
-  const handleImportURL = async () => {
-    setShowImportMenu(false);
-
-    const config = getDeploymentConfig();
-    const url = prompt('Enter the URL to the character card (PNG, JSON, or CHARX file):');
-    if (!url || !url.trim()) return;
-
-    try {
-      if (config.mode === 'light' || config.mode === 'static') {
-        // Client-side mode: fetch and import directly in browser
-        const result = await importCardFromURLClientSide(url.trim());
-        await localDB.saveCard(result.card);
-        if (result.fullImageDataUrl) {
-          await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
-        }
-        if (result.thumbnailDataUrl) {
-          await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
-        }
-        await loadCards();
-        onCardClick(result.card.meta.id);
-      } else {
-        // Server mode: use API
-        const id = await importCardFromURL(url.trim());
-        await loadCards();
-        if (id) {
-          onCardClick(id);
-        }
-      }
-    } catch (error) {
-      console.error('URL import failed:', error);
-      alert(`Import failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -878,47 +842,23 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             >
               ⚙️
             </button>
-            <div className="relative">
-              <button
-                onClick={() => setShowImportMenu(!showImportMenu)}
-                className="btn-secondary"
-              >
-                Import ▾
-              </button>
-              {showImportMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowImportMenu(false)}
-                  />
-                  <div className="absolute right-0 mt-1 bg-dark-surface border border-dark-border rounded shadow-lg z-50 min-w-[150px]">
-                                          <label
-                                          htmlFor="import-card-file"
-                                          className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-t cursor-pointer"
-                                          title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
-                                        >
-                                          From File                      <input
-                        id="import-card-file"
-                        name="import-card-file"
-                        type="file"
-                        accept=".json,.png,.charx,.voxpkg"
-                        multiple
-                        onChange={handleImportFile}
-                        className="hidden"
-                        title="Import JSON, PNG, CHARX, or VOXPKG files (select multiple)"
-                      />
-                    </label>
-                    <button
-                      onClick={handleImportURL}
-                      className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-b"
-                      title="Import from URL (direct link to PNG, JSON, or CHARX)"
-                    >
-                      From URL
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            <label
+              htmlFor="import-card-file"
+              className="btn-secondary inline-flex items-center cursor-pointer"
+              title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
+            >
+              Import
+              <input
+                id="import-card-file"
+                name="import-card-file"
+                type="file"
+                accept=".json,.png,.charx,.voxpkg"
+                multiple
+                onChange={handleImportFile}
+                className="hidden"
+                title="Import JSON, PNG, CHARX, or VOXPKG files (select multiple)"
+              />
+            </label>
             <button onClick={handleNewCard} className="btn-primary">
               New Card
             </button>
