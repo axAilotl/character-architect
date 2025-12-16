@@ -34,6 +34,7 @@
     "cf:deploy:dev": "wrangler pages deploy apps/web/dist --project-name=character-architect-dev"
   },
   "devDependencies": {
+    "wrangler": "^3.99.0",
     "@eslint/js": "^9.17.0",
     "@playwright/test": "^1.57.0",
     "@types/node": "^20.11.0",
