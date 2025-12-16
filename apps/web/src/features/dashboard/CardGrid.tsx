@@ -701,6 +701,79 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     setCurrentPage(1);
   }, [searchQuery, filterBy, cardsPerPage]);
 
+  // Drag and drop handlers
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // Handle multiple files
+    if (files.length > 1) {
+      await handleMultipleFileDrop(files);
+    } else {
+      // Single file
+      const file = files[0];
+      if (file.name.endsWith('.voxpkg')) {
+        await useCardStore.getState().importVoxtaPackage(file);
+      } else {
+        await importCard(file);
+      }
+      await loadCards();
+    }
+  };
+
+  const handleMultipleFileDrop = async (files: File[]) => {
+    const config = getDeploymentConfig();
+
+    if (config.mode === 'light' || config.mode === 'static') {
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const file of files) {
+        try {
+          if (file.name.endsWith('.voxpkg')) {
+            const storageAdapter = new ClientStorageAdapter(localDB);
+            const importService = new UnifiedImportService(storageAdapter);
+            const arrayBuffer = await file.arrayBuffer();
+            const buffer = new Uint8Array(arrayBuffer);
+            const cardIds = await importService.importFile(buffer, file.name);
+            successCount += cardIds.length;
+          } else {
+            const storageAdapter = new ClientStorageAdapter(localDB);
+            const importService = new UnifiedImportService(storageAdapter);
+            const arrayBuffer = await file.arrayBuffer();
+            const buffer = new Uint8Array(arrayBuffer);
+            await importService.importFile(buffer, file.name);
+            successCount++;
+          }
+        } catch (err) {
+          console.error(`Failed to import ${file.name}:`, err);
+          failCount++;
+        }
+      }
+
+      await loadCards();
+      alert(`Import complete: ${successCount} succeeded${failCount > 0 ? `, ${failCount} failed` : ''}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -710,7 +783,12 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-dark-bg">
+    <div
+      className={`h-full flex flex-col bg-dark-bg ${isDragging ? 'ring-4 ring-blue-500 ring-inset' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Header */}
       <div className="bg-dark-surface border-b border-dark-border">
         {/* Main Row */}
