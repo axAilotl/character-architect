@@ -17,7 +17,7 @@ export {
   stCharacterToCCv3,
   ccv3ToSTCharacter,
   createMockSTBridge,
-} from '@character-foundry/federation';
+} from '@character-foundry/character-foundry/federation';
 
 // Re-export types
 export type {
@@ -27,10 +27,10 @@ export type {
   FetchFn,
   SillyTavernBridge,
   STCharacter,
-} from '@character-foundry/federation';
+} from '@character-foundry/character-foundry/federation';
 
 // Import HttpPlatformAdapter for creating SillyTavern federation adapter
-import { HttpPlatformAdapter } from '@character-foundry/federation';
+import { HttpPlatformAdapter } from '@character-foundry/character-foundry/federation';
 
 /**
  * Create a SillyTavern adapter (via CForge federation plugin)

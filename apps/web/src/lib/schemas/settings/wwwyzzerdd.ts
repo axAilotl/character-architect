@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import type { UIHints } from '@character-foundry/app-framework';
+import type { UIHints } from '@character-foundry/character-foundry/app-framework';
 
 // Prompt set editor schema
 export const promptSetEditorSchema = z.object({

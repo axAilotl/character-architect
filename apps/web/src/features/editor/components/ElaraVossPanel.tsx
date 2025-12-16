@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCardStore, extractCardData } from '../../../store/card-store';
+import type { CardFields } from '../../../lib/card-type-guards';
 
 type Gender = 'male' | 'female' | 'femboy' | 'futa';
 
@@ -20,7 +21,7 @@ interface GeneratedName {
 }
 
 export function ElaraVossPanel() {
-  const { currentCard, updateCardData, createSnapshot } = useCardStore();
+  const { currentCard, updateCardFields, createSnapshot } = useCardStore();
 
   // Offending name inputs
   const [offendingFirst, setOffendingFirst] = useState('Elara');
@@ -121,12 +122,9 @@ export function ElaraVossPanel() {
       await createSnapshot(`Before ELARA VOSS replacement: ${offendingFirst} ${offendingLast} -> ${generatedName.firstName} ${generatedName.lastName}`);
 
       const cardData = extractCardData(currentCard);
-      const isV3 = currentCard.meta.spec === 'v3';
-      const v2Data = currentCard.data as any;
-      const isWrappedV2 = !isV3 && v2Data.spec === 'chara_card_v2' && 'data' in v2Data;
 
       // Fields to search and replace
-      const fieldsToReplace = [
+      const fieldsToReplace: (keyof CardFields)[] = [
         'name',
         'description',
         'personality',
@@ -139,11 +137,11 @@ export function ElaraVossPanel() {
       ];
 
       let replacementCount = 0;
-      const updatedData: any = { ...cardData };
+      const updatedData: Partial<CardFields> = {};
 
       // Replace in main fields
       for (const field of fieldsToReplace) {
-        const value = (cardData as any)[field];
+        const value = cardData[field as keyof typeof cardData];
         if (typeof value === 'string' && value) {
           const newValue = replaceInString(
             value,
@@ -153,7 +151,7 @@ export function ElaraVossPanel() {
             generatedName.lastName
           );
           if (newValue !== value) {
-            updatedData[field] = newValue;
+            (updatedData as Record<string, unknown>)[field] = newValue;
             replacementCount++;
           }
         }
@@ -177,7 +175,7 @@ export function ElaraVossPanel() {
 
       // Replace in lorebook entries
       if (cardData.character_book?.entries) {
-        const newEntries = cardData.character_book.entries.map((entry: any) => {
+        const newEntries = cardData.character_book.entries.map((entry) => {
           const newEntry = { ...entry };
           if (entry.content) {
             const newContent = replaceInString(
@@ -214,12 +212,8 @@ export function ElaraVossPanel() {
         };
       }
 
-      // Update card data
-      if (isV3 || isWrappedV2) {
-        updateCardData({ data: updatedData } as any);
-      } else {
-        updateCardData(updatedData);
-      }
+      // Update card data using type-safe helper
+      updateCardFields(updatedData);
 
       setReplaceResult(`Replacement complete! Modified ${replacementCount} field(s). Snapshot created.`);
     } catch (err) {

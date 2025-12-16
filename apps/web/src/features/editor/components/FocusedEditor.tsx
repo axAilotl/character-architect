@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCardStore, extractCardData } from '../../../store/card-store';
 import { useSettingsStore } from '../../../store/settings-store';
 import { normalizeSpec, type CCv2Data, type CCv3Data, type Template, type Snippet, type CCFieldName, type FocusField } from '../../../lib/types';
+import type { CardExtensions } from '../../../lib/extension-types';
+import { getVisualDescription, getDepthPrompt, updateVoxtaExtension, updateDepthPrompt } from '../../../lib/extension-types';
 import { MilkdownProvider } from '@milkdown/react';
 import { Crepe } from '@milkdown/crepe';
 import '@milkdown/crepe/theme/common/style.css';
@@ -222,15 +224,14 @@ function FocusedEditorInner() {
 
       // Handle appearance specially - stored in extensions.voxta.appearance or extensions.visual_description
       if (field === 'appearance') {
-        const extensions = (cardData as any).extensions || {};
-        if (extensions.voxta?.appearance) return extensions.voxta.appearance;
-        if (extensions.visual_description) return extensions.visual_description;
-        return '';
+        const extensions = (cardData.extensions || {}) as CardExtensions;
+        return getVisualDescription(extensions) || '';
       }
 
       // Handle character_note specially - stored in extensions.depth_prompt.prompt
       if (field === 'character_note') {
-        return (cardData as any).extensions?.depth_prompt?.prompt || '';
+        const extensions = (cardData.extensions || {}) as CardExtensions;
+        return getDepthPrompt(extensions)?.prompt || '';
       }
 
       const raw = (cardData as unknown as Record<string, unknown>)[field];
@@ -357,59 +358,26 @@ function FocusedEditorInner() {
       }
     } else if (selectedField === 'appearance') {
       // Handle appearance specially - stored in extensions.voxta.appearance or visual_description
-      const v2Data = currentCard.data as any;
-      const isWrappedV2 = !isV3 && v2Data?.spec === 'chara_card_v2' && 'data' in v2Data;
-
-      if (isV3 || isWrappedV2) {
-        const currentData = isV3 ? (currentCard.data as CCv3Data).data : v2Data.data;
-        const extensions = { ...(currentData.extensions || {}) };
-        // Use voxta extension if it exists, otherwise visual_description
-        if (extensions.voxta) {
-          extensions.voxta = { ...((extensions.voxta as any) || {}), appearance: value };
-        } else {
-          extensions.visual_description = value;
-        }
-        updateCardData({
-          data: {
-            ...currentData,
-            extensions,
-          },
-        } as any);
+      // Use the store's type-safe updateExtensions helper
+      const { updateExtensions } = useCardStore.getState();
+      const extensions = (cardData?.extensions || {}) as CardExtensions;
+      // Use voxta extension if it already exists, otherwise visual_description
+      if (extensions.voxta) {
+        updateExtensions(updateVoxtaExtension(extensions, { appearance: value }));
       } else {
-        const extensions = { ...(v2Data.extensions || {}) };
-        extensions.visual_description = value;
-        updateCardData({ extensions } as any);
+        updateExtensions({ visual_description: value });
       }
     } else if (selectedField === 'character_note') {
       // Handle character_note specially - stored in extensions.depth_prompt.prompt
-      const v2Data = currentCard.data as any;
-      const isWrappedV2 = !isV3 && v2Data?.spec === 'chara_card_v2' && 'data' in v2Data;
-
-      if (isV3 || isWrappedV2) {
-        const currentData = isV3 ? (currentCard.data as CCv3Data).data : v2Data.data;
-        const extensions = { ...(currentData.extensions || {}) };
-        extensions.depth_prompt = {
-          ...(extensions.depth_prompt || {}),
-          prompt: value,
-          depth: extensions.depth_prompt?.depth ?? 4,
-          role: 'system',
-        };
-        updateCardData({
-          data: {
-            ...currentData,
-            extensions,
-          },
-        } as any);
-      } else {
-        const extensions = { ...(v2Data.extensions || {}) };
-        extensions.depth_prompt = {
-          ...(extensions.depth_prompt || {}),
-          prompt: value,
-          depth: extensions.depth_prompt?.depth ?? 4,
-          role: 'system',
-        };
-        updateCardData({ extensions } as any);
-      }
+      // Use the store's type-safe updateExtensions helper
+      const { updateExtensions } = useCardStore.getState();
+      const extensions = (cardData?.extensions || {}) as CardExtensions;
+      const currentDepth = getDepthPrompt(extensions);
+      updateExtensions(updateDepthPrompt(extensions, {
+        prompt: value,
+        depth: currentDepth?.depth ?? 4,
+        role: 'system',
+      }));
     } else {
       if (isV3) {
         updateCardData({

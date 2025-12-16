@@ -130,9 +130,10 @@ function AvatarUpload({ cardId, isLightMode, cachedImageUrl, onImageUploaded }: 
     }
   };
 
+  // Use cachedImageUrl (which has timestamp after upload) or stable URL for caching
   const imageUrl = isLightMode
     ? cachedImageUrl || ''
-    : `/api/cards/${cardId}/image?t=${Date.now()}`;
+    : cachedImageUrl || `/api/cards/${cardId}/image`;
 
   return (
     <div className="input-group">

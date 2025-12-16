@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import type { UIHints } from '@character-foundry/app-framework';
+import type { UIHints } from '@character-foundry/character-foundry/app-framework';
 
 // Preset category enum
 export const presetCategorySchema = z.enum(['rewrite', 'format', 'generate', 'custom']);

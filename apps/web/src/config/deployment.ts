@@ -141,6 +141,30 @@ const STATIC_CONFIG: DeploymentConfig = {
 };
 
 /**
+ * Check if hostname is a private/LAN address (RFC1918 or localhost)
+ */
+function isPrivateNetwork(hostname: string): boolean {
+  // Localhost variants
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+  // .local mDNS domains
+  if (hostname.endsWith('.local') || hostname.includes('.local.')) return true;
+
+  // RFC1918 private IP ranges
+  const ipMatch = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (ipMatch) {
+    const [, a, b] = ipMatch.map(Number);
+    // 10.0.0.0/8
+    if (a === 10) return true;
+    // 172.16.0.0/12
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    // 192.168.0.0/16
+    if (a === 192 && b === 168) return true;
+  }
+
+  return false;
+}
+
+/**
  * Get deployment configuration based on environment
  */
 export function getDeploymentConfig(): DeploymentConfig {
@@ -152,12 +176,9 @@ export function getDeploymentConfig(): DeploymentConfig {
   if (explicitMode) {
     mode = explicitMode;
   } else {
-    // Auto-detect: check if we're on localhost (likely dev with server) or a static host
+    // Auto-detect: check if we're on localhost/LAN (likely dev with server) or a static host
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-    const isLocalDev = hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname.endsWith('.local') ||
-      hostname.includes('.local.');
+    const isLocalDev = isPrivateNetwork(hostname);
     mode = isLocalDev ? 'full' : 'light';
   }
 

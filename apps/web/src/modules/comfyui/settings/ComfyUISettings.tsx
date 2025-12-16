@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { AutoForm } from '@character-foundry/app-framework';
+import { AutoForm } from '@character-foundry/character-foundry/app-framework';
 import { useSettingsStore } from '../../../store/settings-store';
 import { COMFY_BRIDGE_EXTENSION_CODE } from '../../../lib/comfy-bridge-extension';
 import {

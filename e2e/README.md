@@ -1,364 +1,73 @@
-# Character Architect E2E Test Suite
+# Character Architect — E2E (Playwright)
 
-Comprehensive end-to-end tests for Character Architect using **real character card files** from various formats and sources.
+This repo’s E2E suite is fixture-driven and **compares real imports/exports to the shared golden fixture set**.
 
-## Test Files Overview
+## Test files
 
-### Real Card Tests (Using Actual Card Files)
+- `e2e/golden-fixtures.spec.ts` — Smoke: import → export (JSON/PNG/CHARX/Voxta) must preserve normalized card data.
+- `e2e/ui-elements.spec.ts` — Extended UI sweep (runs only in `CF_TEST_TIER=extended|large`).
+- `e2e/parity.spec.ts` — Extended deployment parity checks (runs only in `CF_TEST_TIER=extended|large`).
+- `e2e/cross-platform.spec.ts` — Optional deployed smoke (runs only when `PRODUCTION_URL` is set).
+- `e2e/debug-app-load.debug.ts` — Debug helper (not part of normal runs).
 
-1. **real-cards-import.spec.ts** - Import tests for all supported formats
-   - CCv2 format (ChubAI cards)
-   - RisuAI v3 PNG cards
-   - CharX format cards
-   - Voxta package files
-   - CharacterTavern format
-   - Wyvern format
-   - Import error handling
-   - Batch import tests
+## Shared golden fixtures
 
-2. **real-cards-export.spec.ts** - Export tests using real imported cards
-   - JSON export (CCv2/CCv3)
-   - PNG export with embedded data
-   - CharX export (ZIP with assets)
-   - Voxta export (full mode only)
-   - Export data integrity
-   - File naming validation
+E2E tests use the shared fixture repository (single source of truth):
 
-3. **real-cards-roundtrip.spec.ts** - Round-trip data integrity tests
-   - Same format round-trips (PNG→PNG, JSON→JSON, CharX→CharX)
-   - Cross-format round-trips (PNG→JSON→PNG, CharX→JSON→CharX)
-   - Multiple round-trip cycles
-   - Special character preservation
-   - Asset preservation
-   - Metadata preservation
+- `CF_FIXTURES_DIR` (required): path to the fixtures root (e.g. `/home/vega/ai/character-foundry/fixtures`)
+- Tiers:
+  - `CF_TEST_TIER=basic|extended|large` (default: `basic`)
+  - `CF_RUN_LARGE_TESTS=1` (equivalent to `CF_TEST_TIER=large`)
+  - `CF_ALLOW_MISSING_FIXTURES=1` (explicitly skip fixture-driven suites instead of failing)
 
-4. **cross-platform.spec.ts** - Local vs Production comparison
-   - Import parity across platforms
-   - Export parity across platforms
-   - Feature availability differences
-   - Data interchange between platforms
-   - UI consistency
-   - Performance comparison
-   - Error handling consistency
+## Running locally (hermetic)
 
-### Existing Tests
+Playwright starts two local targets by default:
+- Full mode dev server: `http://localhost:5173` (`npm run dev`)
+- Light mode preview: `http://localhost:4173` (`VITE_DEPLOYMENT_MODE=light ... preview`)
 
-- **card-export.spec.ts** - Original export tests with synthetic fixtures
-- **ui-elements.spec.ts** - UI element validation
-- **parity.spec.ts** - Feature parity between full and light modes
-
-## Test Data
-
-Tests use **real character card files** from `docs/internal/testing/` directory (gitignored, must be provided separately):
-
-```
-docs/internal/testing/
-├── chub/              # CCv2 cards from ChubAI
-├── risu_v3/           # RisuAI v3 PNG cards
-├── risu_charx/        # CharX format cards
-├── voxta/             # Voxta package files (.voxpkg)
-├── CharacterTavern/   # CharacterTavern format
-└── wyvern/            # Wyvern format cards
-```
-
-**Note:** Test card files are not included in the repo. Set `E2E_TESTING_DIR` to point to your test cards.
-
-## Running Tests
-
-### Run All Tests
 ```bash
+export CF_FIXTURES_DIR=/home/vega/ai/character-foundry/fixtures
 npm run test:e2e
 ```
 
-### Run Specific Test Suites
+Run only the fixture smoke suite:
+
 ```bash
-# Import tests
-npm run test:e2e:import
-
-# Export tests (real cards)
-npm run test:e2e:export-real
-
-# Round-trip tests
-npm run test:e2e:roundtrip
-
-# Cross-platform tests
-npm run test:e2e:cross-platform
-
-# All real card tests
-npm run test:e2e:real-cards
+export CF_FIXTURES_DIR=/home/vega/ai/character-foundry/fixtures
+npm run test:e2e:fixtures
 ```
 
-### Run with UI Mode (Interactive)
+Run extended suites:
+
 ```bash
-npm run test:e2e:ui
+export CF_FIXTURES_DIR=/home/vega/ai/character-foundry/fixtures
+export CF_TEST_TIER=extended
+npm run test:e2e
 ```
 
-### Run Against Specific Project
-```bash
-# Full mode only
-npx playwright test --project=full-mode
+## Running against a deployed UI
 
-# Light mode only
+Disable local web servers and point a project at a deployed URL:
+
+```bash
+export CF_FIXTURES_DIR=/home/vega/ai/character-foundry/fixtures
+export PW_SKIP_WEB_SERVER=1
+export LIGHT_MODE_URL=https://your-deployed-ui.example
 npx playwright test --project=light-mode
-
-# Both modes
-npx playwright test --project=full-mode --project=light-mode
 ```
 
-### View Test Report
-```bash
-npm run test:e2e:report
-```
-
-## Test Targets
-
-### Full Mode (Local Server)
-- URL: `http://localhost:5173`
-- Features: All features including Voxta export, server-side processing
-- Started automatically by Playwright config
-
-### Light Mode (Production Build)
-- URL: `http://localhost:4173`
-- Features: Client-side only (no Voxta export)
-- Started automatically by Playwright config
-
-### Production (Cloudflare)
-- URL: `https://ca.axailotl.ai`
-- Used in cross-platform tests
-- Not started automatically - must be accessible
-
-## Environment Variables
-
-Configure test targets via environment variables:
+## Optional: local vs production smoke
 
 ```bash
-# Full mode URL (default: http://localhost:5173)
-export FULL_MODE_URL=http://localhost:5173
-
-# Light mode URL (default: http://localhost:4173)
-export LIGHT_MODE_URL=http://localhost:4173
-
-# Production URL for cross-platform tests (no default - must be explicitly set)
+export CF_FIXTURES_DIR=/home/vega/ai/character-foundry/fixtures
 export PRODUCTION_URL=https://your-production-url.example
-
-# Path to test card files (default: docs/internal/testing/)
-export E2E_TESTING_DIR=/path/to/your/test-cards
+npm run test:e2e:cross-platform
 ```
 
-## Test Organization
+## Useful Playwright env vars
 
-### Import Tests Structure
-- **Format-specific test groups**: Each format (CCv2, CharX, Voxta, etc.) has its own `describe` block
-- **Data integrity checks**: Verify all card fields are correctly parsed
-- **Error handling**: Test invalid files and corrupted data
-- **Special cases**: Unicode characters, Korean filenames, large files
+- `PW_SKIP_WEB_SERVER=1` — don’t start local servers (for deployed/staging runs)
+- `PW_REUSE_SERVER=1` — reuse already-running local servers (not hermetic)
+- `PW_WORKERS=1` — set worker count (defaults to `1` for determinism)
 
-### Export Tests Structure
-- **Format validation**: Each export format validated against spec
-- **Data preservation**: Verify exported data matches imported data
-- **Cross-format consistency**: Same card exported to different formats should have matching data
-- **Mode-specific features**: Voxta export only tested in full mode
-
-### Round-Trip Tests Structure
-- **Same format**: Import → Export (same format) → Re-import
-- **Cross format**: Import → Export (different format) → Re-import
-- **Multiple cycles**: 3+ round trips to verify no data degradation
-- **Asset preservation**: Verify assets survive format conversions
-
-### Cross-Platform Tests Structure
-- **Parallel browser contexts**: Separate browsers for local and production
-- **Import parity**: Same card should import identically on both platforms
-- **Export parity**: Exports should be equivalent (accounting for mode differences)
-- **Feature detection**: Identify full-mode vs light-mode features
-- **Data interchange**: Export from one platform, import to another
-
-## Key Test Patterns
-
-### 1. Import a Card
-```typescript
-const importButton = page.locator('button:has-text("Import")');
-await importButton.click();
-await page.waitForTimeout(300);
-
-const fileInput = page.locator('input[type="file"]').first();
-await fileInput.setInputFiles(cardFilePath);
-
-await page.waitForURL(/\/cards\//, { timeout: 15000 });
-await waitForAppLoad(page);
-```
-
-### 2. Export a Card
-```typescript
-const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
-
-const exportButton = page.locator('button:has-text("Export")');
-await exportButton.click();
-
-const formatButton = page.locator('button:has-text("JSON")');
-await formatButton.click();
-
-const download = await downloadPromise;
-const downloadPath = await download.path();
-```
-
-### 3. Verify Card Data
-```typescript
-const nameInput = page.getByRole('textbox').first();
-await expect(nameInput).toHaveValue(/ExpectedName/i, { timeout: 5000 });
-
-const textareas = page.locator('textarea');
-const description = await textareas.nth(0).inputValue();
-```
-
-### 4. Validate Exported Files
-```typescript
-// JSON validation
-const jsonData = JSON.parse(fs.readFileSync(exportPath, 'utf-8'));
-const validation = validateJsonCard(jsonData);
-expect(validation.valid).toBe(true);
-
-// PNG validation
-const pngValidation = await validatePngCard(exportPath);
-expect(pngValidation.valid).toBe(true);
-
-// CharX validation
-const charxValidation = await validateCharxFile(exportPath);
-expect(charxValidation.valid).toBe(true);
-```
-
-## Test Coverage
-
-### Supported Formats
-- ✅ CCv2 JSON
-- ✅ CCv2 PNG (embedded)
-- ✅ CCv3 JSON (via existing fixtures)
-- ✅ RisuAI v3 PNG
-- ✅ CharX (ZIP archive)
-- ✅ Voxta packages (.voxpkg)
-- ✅ CharacterTavern PNG
-- ✅ Wyvern PNG
-
-### Test Scenarios
-- ✅ Import all formats
-- ✅ Export to JSON, PNG, CharX
-- ✅ Export to Voxta (full mode only)
-- ✅ Round-trip same format
-- ✅ Round-trip cross format
-- ✅ Multiple round-trip cycles
-- ✅ Special characters (Unicode, Korean)
-- ✅ Large files with assets
-- ✅ Invalid file handling
-- ✅ Corrupted file handling
-- ✅ Cross-platform data interchange
-- ✅ Feature parity detection
-
-## Known Limitations
-
-### Light Mode (Production)
-- ❌ No Voxta export (server-side only)
-- ❌ No CharX optimization API (may be slower)
-- ✅ All other features work identically
-
-### Cross-Platform Tests
-- Requires production site to be accessible
-- Network latency may affect performance tests
-- Some tests create temporary files in `/tmp`
-
-## Debugging Tests
-
-### Run Single Test
-```bash
-npx playwright test -g "should import CCv2 PNG card"
-```
-
-### Run with Debug UI
-```bash
-npx playwright test --debug
-```
-
-### Run with Headed Browser
-```bash
-npx playwright test --headed
-```
-
-### Run with Trace
-```bash
-npx playwright test --trace on
-```
-
-### Inspect Trace
-```bash
-npx playwright show-trace trace.zip
-```
-
-## Test Maintenance
-
-### Adding New Format Support
-1. Add test card files to `docs/internal/testing/[format-name]/`
-2. Add import tests to `real-cards-import.spec.ts`
-3. Add export tests to `real-cards-export.spec.ts`
-4. Add round-trip tests to `real-cards-roundtrip.spec.ts`
-5. Update this README
-
-### Updating Test Cards
-- Keep original filenames for traceability
-- Document source (e.g., ChubAI, RisuAI, etc.)
-- Include variety: simple cards, complex cards, special characters
-- Test cards should be small (< 5MB) for fast tests
-
-### Test Helper Functions
-Located in `/e2e/utils/test-helpers.ts`:
-- `importCardFile()` - Import a card
-- `waitForAppLoad()` - Wait for app to load
-- `validateJsonCard()` - Validate JSON structure
-- `validatePngCard()` - Validate PNG and embedded data
-- `validateCharxFile()` - Validate CharX ZIP structure
-
-## CI/CD Integration
-
-Tests are configured to run in CI with:
-- 2 retries on failure
-- Single worker (sequential execution)
-- HTML, JSON, and list reporters
-- Screenshots on failure
-- Video on first retry
-- Trace on first retry
-
-## Troubleshooting
-
-### Tests Timeout
-- Increase timeout in test or config
-- Check if server is starting properly
-- Verify network connectivity for cross-platform tests
-
-### Import Fails
-- Verify test card file exists
-- Check file format is supported
-- Look for console errors in trace
-
-### Export Fails
-- Ensure card is fully loaded before export
-- Check if format is available in current mode
-- Verify download directory is writable
-
-### Cross-Platform Tests Fail
-- Verify production URL is accessible
-- Check for CORS issues
-- Ensure both platforms use same version
-
-## Contributing
-
-When adding tests:
-1. Use real card files from `docs/internal/testing/` directory (or `E2E_TESTING_DIR`)
-2. Follow existing test patterns
-3. Add descriptive test names
-4. Include error handling tests
-5. Update this README
-6. Verify tests pass in both full and light modes
-
-## Resources
-
-- [Playwright Documentation](https://playwright.dev/)
-- [Character Architect Documentation](../README.md)
-- [Character Card Specs](https://github.com/malfoyslastname/character-card-spec-v2)
-- [CharX Format Spec](https://github.com/SillyTavern/SillyTavern-CharX-Spec)

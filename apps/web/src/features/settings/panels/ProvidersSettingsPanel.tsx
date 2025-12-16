@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { AutoForm } from '@character-foundry/app-framework';
+import { AutoForm } from '@character-foundry/character-foundry/app-framework';
 import { useLLMStore } from '../../../store/llm-store';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import {

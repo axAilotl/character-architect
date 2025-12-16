@@ -4,7 +4,7 @@
  * Toggle switch with configurable colors for different states.
  */
 
-import type { FieldWidgetProps } from '@character-foundry/app-framework';
+import type { FieldWidgetProps } from '@character-foundry/character-foundry/app-framework';
 
 interface ColoredToggleHint {
   color?: 'blue' | 'red' | 'green' | 'purple' | 'orange';

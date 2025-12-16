@@ -9,6 +9,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
+import { getFixtureTiersToRun } from '../testkit/tier';
 import {
   waitForAppLoad,
   navigateToEditor,
@@ -19,8 +20,12 @@ import {
 
 // Track console errors across tests
 let consoleErrors: string[] = [];
+const tiers = getFixtureTiersToRun();
+const runExtended = tiers.includes('extended') || tiers.includes('large');
 
 test.describe('UI Element Tests', () => {
+  test.skip(!runExtended, 'Set CF_TEST_TIER=extended (or CF_RUN_LARGE_TESTS=1) to run UI element sweeps.');
+
   test.beforeEach(async ({ page }) => {
     consoleErrors = [];
 

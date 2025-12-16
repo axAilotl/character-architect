@@ -21,7 +21,7 @@ export type {
   FederationEventType,
   FederationEvent,
   FederationEventListener,
-} from '@character-foundry/federation';
+} from '@character-foundry/character-foundry/federation';
 
 // Re-export adapter types
 export type {
@@ -31,7 +31,7 @@ export type {
   FetchFn,
   SillyTavernBridge,
   STCharacter,
-} from '@character-foundry/federation';
+} from '@character-foundry/character-foundry/federation';
 
 /**
  * Platform configuration stored in settings
@@ -56,4 +56,4 @@ export interface FederationSettings {
 }
 
 // Import PlatformId for the type above
-import type { PlatformId } from '@character-foundry/federation';
+import type { PlatformId } from '@character-foundry/character-foundry/federation';

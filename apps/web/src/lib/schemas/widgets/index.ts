@@ -4,7 +4,7 @@
  * Registers custom widgets with the app-framework widget registry.
  */
 
-import { widgetRegistry, type WidgetComponent } from '@character-foundry/app-framework';
+import { widgetRegistry, type WidgetComponent } from '@character-foundry/character-foundry/app-framework';
 import { ThemeSelector } from './ThemeSelector';
 import { ColoredToggle } from './ColoredToggle';
 import { BackgroundUpload } from './BackgroundUpload';

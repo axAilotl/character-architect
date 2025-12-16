@@ -8,4 +8,4 @@
 export {
   SyncEngine,
   type SyncEngineOptions,
-} from '@character-foundry/federation';
+} from '@character-foundry/character-foundry/federation';

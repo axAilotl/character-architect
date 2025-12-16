@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { AutoForm } from '@character-foundry/app-framework';
+import { AutoForm } from '@character-foundry/character-foundry/app-framework';
 import { api } from '../../../lib/api';
 import { getDeploymentConfig } from '../../../config/deployment';
 import {

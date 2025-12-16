@@ -1,17 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useCardStore } from './store/card-store';
-import { CardEditor } from './features/editor/CardEditor';
-import { CardGrid } from './features/dashboard/CardGrid';
 import { Header } from './components/shared/Header';
 import { ThemeProvider } from './components/shared/ThemeProvider';
 import { ErrorBoundary, PageErrorBoundary } from './components/ui/ErrorBoundary';
 import { localDB } from './lib/db';
 import { processPendingWebImport } from './lib/web-import-handler';
 
+// Lazy-load heavy components for better initial load time
+const CardEditor = lazy(() => import('./features/editor/CardEditor').then(m => ({ default: m.CardEditor })));
+const CardGrid = lazy(() => import('./features/dashboard/CardGrid').then(m => ({ default: m.CardGrid })));
+
+// Loading spinner for lazy components
+function RouteLoader() {
+  return (
+    <div className="h-full flex items-center justify-center text-dark-muted">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+        <p>Loading...</p>
+      </div>
+    </div>
+  );
+}
+
 function GridRoute() {
   const navigate = useNavigate();
-  return <CardGrid onCardClick={(id) => navigate(`/cards/${id}`)} />;
+  return (
+    <Suspense fallback={<RouteLoader />}>
+      <CardGrid onCardClick={(id) => navigate(`/cards/${id}`)} />
+    </Suspense>
+  );
 }
 
 function ImportPendingRoute() {
@@ -120,7 +138,9 @@ function EditorRoute() {
     <div className="h-full flex flex-col">
       <Header onBack={() => navigate('/')} />
       <div className="flex-1 overflow-hidden editor-content-area">
-        <CardEditor />
+        <Suspense fallback={<RouteLoader />}>
+          <CardEditor />
+        </Suspense>
       </div>
     </div>
   );

@@ -11,7 +11,7 @@
  */
 
 import type { Card } from './types';
-import { embedIntoPNG as createCardPNG } from '@character-foundry/png';
+import { embedIntoPNG as createCardPNG } from '@character-foundry/character-foundry/png';
 
 export interface SillyTavernSettings {
   enabled: boolean;

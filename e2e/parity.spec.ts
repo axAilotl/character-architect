@@ -14,6 +14,7 @@
  */
 
 import { test, expect, Page, Browser, chromium } from '@playwright/test';
+import { getFixtureTiersToRun } from '../testkit/tier';
 import {
   waitForAppLoad,
   navigateToEditor,
@@ -25,6 +26,8 @@ import {
 // URLs for different deployment modes
 const FULL_MODE_URL = process.env.FULL_MODE_URL || 'http://localhost:5173';
 const LIGHT_MODE_URL = process.env.LIGHT_MODE_URL || 'http://localhost:4173';
+const tiers = getFixtureTiersToRun();
+const runExtended = tiers.includes('extended') || tiers.includes('large');
 
 // Features that should be present in all modes
 const UNIVERSAL_FEATURES = [
@@ -78,6 +81,8 @@ const PERSISTED_SETTINGS = [
 ];
 
 test.describe('Deployment Mode Parity Tests', () => {
+  test.skip(!runExtended, 'Set CF_TEST_TIER=extended (or CF_RUN_LARGE_TESTS=1) to run deployment parity checks.');
+
   let browser: Browser;
   let fullModePage: Page;
   let lightModePage: Page;

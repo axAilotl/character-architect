@@ -9,14 +9,16 @@ import {
   addEntry as lorebookAddEntry,
   updateEntry as lorebookUpdateEntry,
   removeEntry as lorebookRemoveEntry,
-} from '@character-foundry/lorebook';
+} from '@character-foundry/character-foundry/lorebook';
+import type { CharacterBook } from '@character-foundry/character-foundry/schemas';
+import { getLorebookEntryExtensions } from '../../../lib/extension-types';
 import type {
   Card,
   CCv3LorebookEntry,
 } from '../../../lib/types';
 
 export function LorebookEditor() {
-  const { currentCard, updateCardData } = useCardStore();
+  const { currentCard, updateCardFields } = useCardStore();
   const [selectedEntryIndex, setSelectedEntryIndex] = useState<number | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [availableLorebooks, setAvailableLorebooks] = useState<Card[]>([]);
@@ -29,8 +31,6 @@ export function LorebookEditor() {
 
   if (!currentCard) return null;
 
-  // Lorebook cards use V3 structure internally
-  const isV3 = currentCard.meta.spec === 'v3' || currentCard.meta.spec === 'lorebook';
   const cardData = extractCardData(currentCard);
 
   // Get lorebook based on card version
@@ -38,23 +38,9 @@ export function LorebookEditor() {
   const entries = lorebook?.entries || [];
   const hasLorebook = Boolean(lorebook);
 
-  // Helper to update card data - handles wrapped V2 automatically
-  const updateLorebookData = (updates: any) => {
-    const v2Data = currentCard.data as any;
-    const isWrappedV2 = !isV3 && v2Data.spec === 'chara_card_v2' && 'data' in v2Data;
-
-    if (isV3 || isWrappedV2) {
-      // Wrapped cards - update nested data object
-      updateCardData({
-        data: {
-          ...cardData,
-          ...updates,
-        },
-      } as any);
-    } else {
-      // Unwrapped legacy V2
-      updateCardData(updates);
-    }
+  // Helper to update lorebook - uses type-safe updateCardFields
+  const updateLorebookData = (updates: { character_book: Partial<CharacterBook> }) => {
+    updateCardFields(updates as { character_book: CharacterBook });
   };
 
   const handleInitializeLorebook = () => {
@@ -232,6 +218,7 @@ export function LorebookEditor() {
   };
 
   const selectedEntry = selectedEntryIndex !== null ? entries[selectedEntryIndex] : null;
+  const entryExt = getLorebookEntryExtensions(selectedEntry?.extensions);
 
   return (
     <div className="flex flex-col h-full overflow-auto p-6">
@@ -526,7 +513,7 @@ export function LorebookEditor() {
                       <label className="label">Weight / Group Weight</label>
                       <input
                         type="number"
-                        value={(selectedEntry.extensions as any)?.weight ?? 10}
+                        value={entryExt.weight ?? 10}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, {
                             extensions: {
@@ -543,7 +530,7 @@ export function LorebookEditor() {
                       <label className="label">Display Index</label>
                       <input
                         type="number"
-                        value={(selectedEntry.extensions as any)?.displayIndex ?? selectedEntryIndex + 1}
+                        value={entryExt.displayIndex ?? selectedEntryIndex + 1}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, {
                             extensions: {
@@ -578,7 +565,7 @@ export function LorebookEditor() {
                     <label className="label">Character Filter</label>
                     <input
                       type="text"
-                      value={(selectedEntry.extensions as any)?.characterFilter || ''}
+                      value={entryExt.characterFilter || ''}
                       onChange={(e) =>
                         handleUpdateEntry(selectedEntryIndex, {
                           extensions: {
@@ -644,7 +631,7 @@ export function LorebookEditor() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={(selectedEntry.extensions as any)?.useProbability ?? true}
+                        checked={entryExt.useProbability ?? true}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, {
                             extensions: {
@@ -661,7 +648,7 @@ export function LorebookEditor() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={(selectedEntry.extensions as any)?.excludeRecursion ?? true}
+                        checked={entryExt.excludeRecursion ?? true}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, {
                             extensions: {
@@ -678,7 +665,7 @@ export function LorebookEditor() {
                     <label className="flex items-center gap-2 cursor-pointer col-span-2">
                       <input
                         type="checkbox"
-                        checked={(selectedEntry.extensions as any)?.addMemo ?? true}
+                        checked={entryExt.addMemo ?? true}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, {
                             extensions: {

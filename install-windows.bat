@@ -189,9 +189,12 @@ echo [INFO] Building shared packages first...
 call npm run build:packages
 
 if %errorlevel% neq 0 (
-    echo [ERROR] Failed to build packages. Trying individual builds...
-    cd packages\defaults && call npm run build && cd ..\..
-    cd packages\plugins && call npm run build && cd ..\..
+    echo [ERROR] Failed to build packages. Please check the error messages above.
+    echo [INFO] Common issues:
+    echo        - Missing dependencies: run 'npm install' again
+    echo        - TypeScript errors: check for syntax errors in package source
+    pause
+    exit /b 1
 )
 
 echo [INFO] Building applications...

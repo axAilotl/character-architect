@@ -7,6 +7,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// LAN development: add hosts via VITE_ALLOWED_HOSTS env var (comma-separated)
+const extraHosts = process.env.VITE_ALLOWED_HOSTS?.split(',').map(h => h.trim()).filter(Boolean) || [];
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -157,7 +160,8 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['purrsephone.local.vega.nyc', 'card-architect.local.vega.nyc'],
+    // Allow LAN access: add your hosts via VITE_ALLOWED_HOSTS=host1,host2
+    allowedHosts: ['purrsephone.local.vega.nyc', 'card-architect.local.vega.nyc', ...extraHosts],
     proxy: {
       '/api': {
         target: 'http://localhost:3456',

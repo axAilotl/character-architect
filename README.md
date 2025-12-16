@@ -114,12 +114,19 @@ git clone https://github.com/axAilotl/card-architect.git
 cd card-architect
 
 # Start with Docker Compose
-docker-compose up -d
+docker compose up -d
 
 # Access the application at http://localhost:8765
 ```
 
-The API runs internally within Docker and is only accessible via the nginx proxy.
+**Docker Architecture:**
+- Uses **pnpm** with workspace monorepo structure
+- Multi-stage build: builder stage compiles packages + apps, runtime stages copy built artifacts
+- **nginx** serves the web app and proxies `/api`, `/storage`, `/user` to the internal API container
+- API container runs as non-root `node` user (UID 1000) for security
+- Default binding: `127.0.0.1:8765` (localhost only). For LAN access, change to `0.0.0.0:8765:80` in docker-compose.yml
+- Persistent volumes: `./data` (SQLite database) and `./storage` (card assets)
+
 To expose the API port directly (for debugging), uncomment the `ports` section in `docker-compose.yml`.
 
 ### Local Development
@@ -213,16 +220,15 @@ Character Architect is a monorepo with:
 /packages/plugins      # Plugin SDK (stub)
 ```
 
-**External Dependencies** (from `@character-foundry/*` on npm):
-- `@character-foundry/schemas` - Shared TypeScript types + validation
-- `@character-foundry/core` - Core utilities (binary, base64, ZIP, data URLs)
-- `@character-foundry/png` - PNG tEXt/zTXt chunk reading/writing
-- `@character-foundry/charx` - CHARX format reader/writer/validator
-- `@character-foundry/voxta` - Voxta .voxpkg format handling
-- `@character-foundry/lorebook` - Lorebook parsing/serialization (SillyTavern, Agnai, RisuAI, Wyvern)
-- `@character-foundry/tokenizers` - Token counting
-- `@character-foundry/loader` - Universal card loader with format auto-detection
-- `@character-foundry/federation` - Federation protocol
+**External Dependencies:**
+- `@character-foundry/character-foundry` - Bundled package with subpath imports:
+  - `/schemas`, `/loader`, `/png`, `/charx`, `/voxta`, `/lorebook`, `/tokenizers`
+  - `/app-framework`, `/federation`, `/normalizer`, `/core`
+  - Includes all format handlers, token counting, and UI components
+- `@character-foundry/image-utils` - SSRF protection and image URL extraction (local file: reference)
+- `fflate` - Fast compression (ZIP/GZIP)
+- `zod` - Runtime schema validation
+- `gpt-tokenizer` - Token counting for LLMs
 
 ### Tech Stack
 
@@ -247,10 +253,12 @@ Optional features are loaded as modules with auto-discovery using Vite's `import
 ```
 /apps/web/src/modules/
 ├── block-editor/     # Visual block-based card builder
-├── wwwyzzerdd/       # AI character wizard
+├── charx-optimizer/  # CHARX image optimization
 ├── comfyui/          # Image generation with ComfyUI
+├── federation/       # Platform sync (SillyTavern, Archive, CardsHub)
 ├── sillytavern/      # SillyTavern push integration
-└── webimport/        # Browser userscript integration
+├── webimport/        # Browser userscript integration
+└── wwwyzzerdd/       # AI character wizard
 ```
 
 **Adding a new module:**

@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import type { UIHints, FieldWidgetProps } from '@character-foundry/app-framework';
+import type { UIHints, FieldWidgetProps } from '@character-foundry/character-foundry/app-framework';
 import { ThemeSelector } from '../widgets/ThemeSelector';
 import { BackgroundUpload } from '../widgets/BackgroundUpload';
 import type { ComponentType } from 'react';

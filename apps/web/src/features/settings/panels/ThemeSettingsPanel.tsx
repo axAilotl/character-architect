@@ -1,4 +1,4 @@
-import { AutoForm } from '@character-foundry/app-framework';
+import { AutoForm } from '@character-foundry/character-foundry/app-framework';
 import { useSettingsStore } from '../../../store/settings-store';
 import {
   themeSettingsSchema,

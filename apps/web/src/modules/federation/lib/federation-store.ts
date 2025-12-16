@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import { enableFederation, isFederationEnabled } from '@character-foundry/character-foundry/federation';
 import type {
   PlatformId,
   CardSyncState,
@@ -138,6 +139,12 @@ export const useFederationStore = create<FederationStore>((set, get) => ({
     if (get().initialized) return;
 
     try {
+      // Required by @character-foundry/character-foundry/federation for browser/Workers environments.
+      // Without this, SyncEngine construction throws and causes noisy console errors (and broken federation UI).
+      if (!isFederationEnabled()) {
+        enableFederation({ skipEnvCheck: true });
+      }
+
       // Load saved settings
       get().loadSettings();
 

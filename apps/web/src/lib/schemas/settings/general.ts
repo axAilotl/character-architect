@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import type { UIHints, FieldWidgetProps } from '@character-foundry/app-framework';
+import type { UIHints, FieldWidgetProps } from '@character-foundry/character-foundry/app-framework';
 import { ColoredToggle } from '../widgets/ColoredToggle';
 import type { ComponentType } from 'react';
 

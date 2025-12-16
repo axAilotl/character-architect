@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import type { UIHints } from '@character-foundry/app-framework';
+import type { UIHints } from '@character-foundry/character-foundry/app-framework';
 
 export const comfyUISettingsSchema = z.object({
   serverUrl: z.string().default('').describe('ComfyUI server URL'),

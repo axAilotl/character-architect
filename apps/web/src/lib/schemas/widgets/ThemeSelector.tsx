@@ -4,7 +4,7 @@
  * Custom widget for selecting a theme from a grid of theme cards.
  */
 
-import type { FieldWidgetProps } from '@character-foundry/app-framework';
+import type { FieldWidgetProps } from '@character-foundry/character-foundry/app-framework';
 import { THEMES } from '../../../store/settings-store';
 
 export function ThemeSelector({

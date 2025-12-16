@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Card, CCv2Data, CCv3Data, CardMeta } from '../lib/types';
+import type { CharacterBook, CCv2Wrapped } from '@character-foundry/character-foundry/schemas';
 import { api } from '../lib/api';
 import { localDB } from '../lib/db';
 import { extractCardData } from '../lib/card-utils';
@@ -7,6 +8,8 @@ import { useTokenStore } from './token-store';
 import { getDeploymentConfig } from '../config/deployment';
 import { importCardClientSide, importVoxtaPackageClientSide, importCardFromURLClientSide } from '../lib/client-import';
 import { exportCard as exportCardClientSide } from '../lib/client-export';
+import { isV3Card, isV2Card, isWrappedV2, getInnerData, type CardFields } from '../lib/card-type-guards';
+import type { CardExtensions } from '../lib/extension-types';
 
 export { extractCardData };
 
@@ -31,9 +34,15 @@ interface CardStore {
   importVoxtaPackage: (file: File) => Promise<string | null>;
   importCardFromURL: (url: string) => Promise<string | null>;
   exportCard: (format: 'json' | 'png' | 'charx' | 'voxta') => Promise<void>;
-  
+
   // Data mutations
   convertSpec: (mode: 'v2' | 'v3') => void;
+
+  // Type-safe update helpers (use these instead of updateCardData with 'as any')
+  updateCardFields: (fields: Partial<CardFields>) => void;
+  updateExtensions: (extensions: Partial<CardExtensions>) => void;
+  updateCharacterBook: (book: Partial<CharacterBook>) => void;
+  setExtension: <K extends keyof CardExtensions>(key: K, value: CardExtensions[K]) => void;
 }
 
 export const useCardStore = create<CardStore>((set, get) => ({
@@ -648,6 +657,99 @@ export const useCardStore = create<CardStore>((set, get) => ({
       a.click();
       URL.revokeObjectURL(url);
     }
+  },
+
+  // Type-safe update for normalized card fields
+  // Handles v2/v3 wrapping automatically
+  updateCardFields: (fields) => {
+    const { currentCard } = get();
+    if (!currentCard) return;
+
+    let newData: CCv2Data | CCv3Data;
+
+    if (isV3Card(currentCard)) {
+      // V3: Always wrapped, update data.data
+      const v3Data = currentCard.data;
+      newData = {
+        ...v3Data,
+        data: {
+          ...v3Data.data,
+          ...fields,
+        },
+      };
+    } else if (isV2Card(currentCard)) {
+      if (isWrappedV2(currentCard.data)) {
+        // Wrapped V2: update data.data
+        const wrapped = currentCard.data as CCv2Wrapped;
+        newData = {
+          spec: 'chara_card_v2',
+          spec_version: '2.0',
+          data: {
+            ...wrapped.data,
+            ...fields,
+          },
+        } as unknown as CCv2Data;
+      } else {
+        // Unwrapped V2: update directly
+        newData = {
+          ...currentCard.data,
+          ...fields,
+        } as CCv2Data;
+      }
+    } else {
+      // Unknown format, try direct update
+      newData = { ...currentCard.data, ...fields } as CCv2Data;
+    }
+
+    const newCard = { ...currentCard, data: newData };
+    set({ currentCard: newCard, isDirty: true });
+
+    // Autosave and token update
+    if (currentCard.meta.id) {
+      localDB.saveDraft(currentCard.meta.id, newCard).catch(console.error);
+      get().debouncedAutoSave();
+    }
+    useTokenStore.getState().updateTokenCounts(newCard);
+  },
+
+  // Type-safe update for extensions only
+  updateExtensions: (extensions) => {
+    const { currentCard } = get();
+    if (!currentCard) return;
+
+    const inner = getInnerData(currentCard);
+    const currentExtensions = (inner.extensions || {}) as CardExtensions;
+    const mergedExtensions = { ...currentExtensions, ...extensions };
+
+    get().updateCardFields({ extensions: mergedExtensions });
+  },
+
+  // Type-safe update for character book
+  updateCharacterBook: (book) => {
+    const { currentCard } = get();
+    if (!currentCard) return;
+
+    const inner = getInnerData(currentCard);
+    const currentBook = inner.character_book || { entries: [] };
+    const mergedBook = { ...currentBook, ...book } as CharacterBook;
+
+    get().updateCardFields({ character_book: mergedBook });
+  },
+
+  // Set a specific extension namespace
+  setExtension: (key, value) => {
+    const { currentCard } = get();
+    if (!currentCard) return;
+
+    const inner = getInnerData(currentCard);
+    const currentExtensions = (inner.extensions || {}) as CardExtensions;
+
+    get().updateCardFields({
+      extensions: {
+        ...currentExtensions,
+        [key]: value,
+      },
+    });
   },
 
   convertSpec: (mode) => {

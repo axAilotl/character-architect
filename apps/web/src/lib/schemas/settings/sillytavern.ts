@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import type { UIHints } from '@character-foundry/app-framework';
+import type { UIHints } from '@character-foundry/character-foundry/app-framework';
 
 export const sillyTavernSettingsSchema = z.object({
   enabled: z.boolean().default(false).describe('Enable SillyTavern push integration'),

@@ -18,8 +18,10 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useBlockEditorStore } from '../store';
 import { BlockComponent } from './BlockComponent';
 import { useCardStore } from '../../../store/card-store';
-import type { CCv3Data } from '../../../lib/types';
 import { V2_FIELDS, type TargetField } from '../types';
+import { getCardFields, getInnerData } from '../../../lib/card-type-guards';
+import type { CardExtensions } from '../../../lib/extension-types';
+import { getVisualDescription, getDepthPrompt, updateVoxtaExtension, updateDepthPrompt } from '../../../lib/extension-types';
 
 export function BlockEditorPanel() {
   const store = useBlockEditorStore();
@@ -27,7 +29,6 @@ export function BlockEditorPanel() {
   const templates = store.templates;
 
   const currentCard = useCardStore((s) => s.currentCard);
-  const updateCardData = useCardStore((s) => s.updateCardData);
 
   const [showTemplates, setShowTemplates] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -76,40 +77,29 @@ export function BlockEditorPanel() {
   const cardFieldContent = useMemo(() => {
     if (!currentCard) return {};
 
-    const isV3 = currentCard.meta.spec === 'v3';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const v2Data = currentCard.data as any;
-    const isWrappedV2 = !isV3 && v2Data?.spec === 'chara_card_v2' && 'data' in v2Data;
-
-    const data = isV3
-      ? (currentCard.data as CCv3Data).data
-      : isWrappedV2
-        ? v2Data.data
-        : v2Data;
-
+    // Use type-safe accessor to get normalized card fields
+    const fields = getCardFields(currentCard);
     const content: Record<string, string> = {};
 
     // Standard fields
     for (const field of V2_FIELDS) {
-      const value = data[field.value];
+      const value = fields[field.value as keyof typeof fields];
       if (value && typeof value === 'string' && value.trim()) {
         content[field.value] = value;
       }
     }
 
-    // Special fields from extensions
-    const extensions = data.extensions || {};
+    // Special fields from extensions using typed accessors
+    const extensions = (fields.extensions || {}) as CardExtensions;
 
     // Appearance from voxta or visual_description
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const appearance = (extensions as any).voxta?.appearance || (extensions as any).visual_description;
+    const appearance = getVisualDescription(extensions);
     if (appearance && typeof appearance === 'string') {
       content.appearance = appearance;
     }
 
     // Character note from depth_prompt
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const charNote = (extensions as any).depth_prompt?.prompt;
+    const charNote = getDepthPrompt(extensions)?.prompt;
     if (charNote && typeof charNote === 'string') {
       content.character_note = charNote;
     }
@@ -211,71 +201,39 @@ export function BlockEditorPanel() {
     }
 
     if (Object.keys(fieldUpdates).length > 0) {
-      const isV3 = currentCard.meta.spec === 'v3';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const v2Data = currentCard.data as any;
-      const isWrappedV2 = !isV3 && v2Data?.spec === 'chara_card_v2' && 'data' in v2Data;
-
       // Separate special fields from regular fields
       const { appearance, character_note, ...regularFields } = fieldUpdates;
 
-      // Handle regular fields
+      // Get type-safe update functions from store
+      const { updateCardFields, updateExtensions } = useCardStore.getState();
+
+      // Handle regular fields using type-safe helper
       if (Object.keys(regularFields).length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        updateCardData({ data: regularFields } as any);
+        updateCardFields(regularFields);
       }
 
       // Handle appearance specially - stored in extensions
       if (appearance !== undefined) {
-        if (isV3 || isWrappedV2) {
-          const currentData = isV3 ? (currentCard.data as CCv3Data).data : v2Data.data;
-          const extensions = { ...(currentData.extensions || {}) };
-          // Use voxta extension if it exists, otherwise visual_description
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if ((extensions as any).voxta) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (extensions as any).voxta = { ...((extensions as any).voxta || {}), appearance };
-          } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (extensions as any).visual_description = appearance;
-          }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          updateCardData({ data: { ...currentData, extensions } } as any);
+        const innerData = getInnerData(currentCard);
+        const extensions = (innerData.extensions || {}) as CardExtensions;
+        // Use voxta extension if it exists, otherwise visual_description
+        if (extensions.voxta) {
+          updateExtensions(updateVoxtaExtension(extensions, { appearance }));
         } else {
-          const extensions = { ...(v2Data.extensions || {}) };
-          extensions.visual_description = appearance;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          updateCardData({ extensions } as any);
+          updateExtensions({ visual_description: appearance });
         }
       }
 
       // Handle character_note specially - stored in extensions.depth_prompt.prompt
       if (character_note !== undefined) {
-        if (isV3 || isWrappedV2) {
-          const currentData = isV3 ? (currentCard.data as CCv3Data).data : v2Data.data;
-          const extensions = { ...(currentData.extensions || {}) };
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (extensions as any).depth_prompt = {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ...((extensions as any).depth_prompt || {}),
-            prompt: character_note,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            depth: (extensions as any).depth_prompt?.depth ?? 4,
-            role: 'system',
-          };
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          updateCardData({ data: { ...currentData, extensions } } as any);
-        } else {
-          const extensions = { ...(v2Data.extensions || {}) };
-          extensions.depth_prompt = {
-            ...(extensions.depth_prompt || {}),
-            prompt: character_note,
-            depth: extensions.depth_prompt?.depth ?? 4,
-            role: 'system',
-          };
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          updateCardData({ extensions } as any);
-        }
+        const innerData = getInnerData(currentCard);
+        const extensions = (innerData.extensions || {}) as CardExtensions;
+        const currentDepth = getDepthPrompt(extensions);
+        updateExtensions(updateDepthPrompt(extensions, {
+          prompt: character_note,
+          depth: currentDepth?.depth ?? 4,
+          role: 'system',
+        }));
       }
     }
   };

@@ -143,7 +143,7 @@ export function PreviewPanel() {
               <div className="w-64 bg-dark-bg border border-dark-border rounded-lg overflow-hidden shadow-lg">
                 {(isLightMode ? cachedImageUrl : true) ? (
                   <img
-                    src={isLightMode ? (cachedImageUrl || '') : `/api/cards/${cardId}/image?t=${Date.now()}`}
+                    src={isLightMode ? (cachedImageUrl || '') : `/api/cards/${cardId}/image?v=${currentCard.meta.updatedAt}`}
                     alt="Character Avatar"
                     className="w-full h-auto object-contain"
                     style={{ minHeight: '256px', maxHeight: '384px', display: (isLightMode && !cachedImageUrl) ? 'none' : 'block' }}
@@ -192,7 +192,7 @@ export function PreviewPanel() {
                 <h2 className="text-xl font-semibold mb-2">Personality</h2>
                 <div
                   className="prose prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(cardData.personality) }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(cardData.personality || '') }}
                 />
               </section>
 

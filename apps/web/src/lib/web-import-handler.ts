@@ -6,7 +6,7 @@
  * picks it up and creates the card in IndexedDB.
  */
 
-import { extractFromPNG, isPNG } from '@character-foundry/png';
+import { extractFromPNG, isPNG } from '@character-foundry/character-foundry/png';
 import type { Card, CCv2Data, CCv3Data } from './types';
 import { localDB } from './db';
 

@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import type { FieldWidgetProps } from '@character-foundry/app-framework';
+import type { FieldWidgetProps } from '@character-foundry/character-foundry/app-framework';
 import { getDeploymentConfig } from '../../../config/deployment';
 
 export function BackgroundUpload({

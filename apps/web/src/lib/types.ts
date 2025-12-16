@@ -6,10 +6,10 @@
  * managing cards, assets, LLM providers, templates, etc.
  */
 
-import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 
 // Re-export schemas types that we use
-export type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+export type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 
 // ============================================================================
 // SPEC TYPES

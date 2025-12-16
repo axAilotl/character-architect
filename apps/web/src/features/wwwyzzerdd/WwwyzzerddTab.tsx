@@ -14,6 +14,8 @@ import {
   defaultWwwyzzerddPrompts,
   initializeWwwyzzerddPrompts,
 } from '../../lib/default-wwwyzzerdd';
+import { getExtensions, type CardFields } from '../../lib/card-type-guards';
+import { getVisualDescription, updateVoxtaExtension, type CardExtensions } from '../../lib/extension-types';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -72,7 +74,7 @@ function tryParseCharacterJson(content: string): Partial<CharacterFields> | null
 }
 
 export function WwwyzzerddTab() {
-  const { currentCard, updateCardData } = useCardStore();
+  const { currentCard, updateCardFields, updateExtensions } = useCardStore();
   const llmSettings = useLLMStore((state) => state.settings);
   const loadSettings = useLLMStore((state) => state.loadSettings);
   const activePromptSetId = useSettingsStore((state) => state.wwwyzzerdd?.activePromptSetId);
@@ -97,24 +99,12 @@ export function WwwyzzerddTab() {
 
   // Get card data
   const cardData = currentCard ? extractCardData(currentCard) : null;
-  const isV3 = currentCard?.meta.spec === 'v3';
-  const v2Data = currentCard?.data as any;
-  const isWrappedV2 = !isV3 && v2Data?.spec === 'chara_card_v2' && 'data' in v2Data;
+  const extensions = currentCard ? getExtensions(currentCard) : {};
 
-  // Helper to update card fields
-  const handleFieldChange = (field: string, value: string | string[]) => {
+  // Helper to update card fields - uses type-safe updateCardFields
+  const handleFieldChange = (field: keyof CardFields, value: string | string[]) => {
     if (!currentCard || !cardData) return;
-
-    if (isV3 || isWrappedV2) {
-      updateCardData({
-        data: {
-          ...cardData,
-          [field]: value,
-        },
-      } as any);
-    } else {
-      updateCardData({ [field]: value });
-    }
+    updateCardFields({ [field]: value } as Partial<CardFields>);
   };
 
   // Load LLM settings on mount
@@ -272,7 +262,7 @@ Only include fields you want to update. The user can then apply these to the cha
         const clientProvider: ClientLLMProvider = {
           id: activeProvider.id,
           name: activeProvider.label || activeProvider.name,
-          kind: (activeProvider as any).clientKind || (activeProvider.kind === 'anthropic' ? 'anthropic' : 'openai-compatible'),
+          kind: ((activeProvider as typeof activeProvider & { clientKind?: string }).clientKind || (activeProvider.kind === 'anthropic' ? 'anthropic' : 'openai-compatible')) as 'anthropic' | 'openai-compatible' | 'openrouter',
           baseURL: activeProvider.baseURL || '',
           apiKey: activeProvider.apiKey || '',
           defaultModel: activeProvider.defaultModel || '',
@@ -407,37 +397,32 @@ Tell me your preferences and describe the character you'd like to create!`;
     if (!currentCard || !cardData) return;
 
     // Build the complete update object with all fields at once
-    const fieldsToUpdate: Record<string, any> = {};
+    const fieldsToUpdate: Partial<CardFields> = {};
+    let extensionsUpdate: CardExtensions | undefined;
+
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         // Handle appearance specially - it goes into extensions
-        if (key === 'appearance') {
-          const existingExtensions = (cardData as any)?.extensions || {};
-          const extensions = { ...existingExtensions };
+        if (key === 'appearance' && typeof value === 'string') {
           if (extensions.voxta) {
-            extensions.voxta = { ...extensions.voxta, appearance: value };
+            extensionsUpdate = updateVoxtaExtension(extensions, { appearance: value });
           } else {
-            extensions.visual_description = value;
+            extensionsUpdate = { ...extensions, visual_description: value };
           }
-          fieldsToUpdate.extensions = extensions;
         } else {
-          fieldsToUpdate[key] = value;
+          (fieldsToUpdate as Record<string, unknown>)[key] = value;
         }
       }
     });
 
-    if (Object.keys(fieldsToUpdate).length === 0) return;
+    // Apply field updates
+    if (Object.keys(fieldsToUpdate).length > 0) {
+      updateCardFields(fieldsToUpdate);
+    }
 
-    // Apply all fields in a single update
-    if (isV3 || isWrappedV2) {
-      updateCardData({
-        data: {
-          ...cardData,
-          ...fieldsToUpdate,
-        },
-      } as any);
-    } else {
-      updateCardData(fieldsToUpdate);
+    // Apply extension updates separately
+    if (extensionsUpdate) {
+      updateExtensions(extensionsUpdate);
     }
   };
 
@@ -473,8 +458,8 @@ Tell me your preferences and describe the character you'd like to create!`;
               <label className="block text-sm font-medium mb-1">Nickname</label>
               <input
                 type="text"
-                value={(cardData as any)?.nickname || ''}
-                onChange={(e) => handleFieldChange('nickname', e.target.value)}
+                value={(cardData as Record<string, unknown>)?.nickname as string || ''}
+                onChange={(e) => handleFieldChange('nickname' as keyof CardFields, e.target.value)}
                 className="w-full bg-dark-surface border border-dark-border rounded px-3 py-2"
               />
             </div>
@@ -520,19 +505,13 @@ Tell me your preferences and describe the character you'd like to create!`;
               <span className="text-xs px-1.5 py-0.5 rounded bg-orange-600 text-white">Image Gen</span>
             </div>
             <textarea
-              value={(() => {
-                const ext = (cardData as any)?.extensions || {};
-                return ext.voxta?.appearance || ext.visual_description || '';
-              })()}
+              value={getVisualDescription(extensions) || ''}
               onChange={(e) => {
-                const existingExtensions = (cardData as any)?.extensions || {};
-                const extensions = { ...existingExtensions };
                 if (extensions.voxta) {
-                  extensions.voxta = { ...extensions.voxta, appearance: e.target.value };
+                  updateExtensions(updateVoxtaExtension(extensions, { appearance: e.target.value }));
                 } else {
-                  extensions.visual_description = e.target.value;
+                  updateExtensions({ ...extensions, visual_description: e.target.value });
                 }
-                handleFieldChange('extensions', extensions);
               }}
               rows={4}
               placeholder="Booru tags or natural language for image generation..."
