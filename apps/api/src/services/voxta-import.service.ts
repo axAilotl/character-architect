@@ -6,12 +6,12 @@ import {
 import {
   extractVoxtaPackage,
   getMimeTypeFromExt,
+  voxtaToCCv3,
   type ExtractedVoxtaCharacter,
   type ExtractedVoxtaAsset,
   type VoxtaData,
 } from '../utils/file-handlers.js';
-import type { CCv3Data } from '@character-foundry/schemas';
-import type { VoxtaExtensionData, VoxtaCharacter, VoxtaScenario } from '@character-foundry/voxta';
+import type { VoxtaScenario } from '@character-foundry/character-foundry/voxta';
 import type { AssetTag, AssetType } from '../types/index.js';
 import { detectAnimatedAsset } from '../utils/asset-utils.js';
 import { nanoid } from 'nanoid';
@@ -331,8 +331,8 @@ export class VoxtaImportService {
     char: ExtractedVoxtaCharacter,
     fullPackage: VoxtaData
   ): Promise<string> {
-    // Map Voxta -> CCv3
-    const ccv3Data = this.mapToCCv3(char.data, fullPackage);
+    // Map Voxta -> CCv3 using the shared mapper (keeps parity with loader.parseCard)
+    const ccv3Data = voxtaToCCv3(char.data as any, fullPackage.books.map((b) => b.data));
 
     // Add 'voxta' tag
     const tags = new Set(ccv3Data.data.tags || []);
@@ -341,7 +341,7 @@ export class VoxtaImportService {
     // Create Card in DB
     const card = this.cardRepo.create({
       meta: {
-        name: ccv3Data.data.name || char.data.Name || 'Untitled Voxta Import',
+        name: ccv3Data.data.name,
         spec: 'v3',
         tags: Array.from(tags),
         creator: ccv3Data.data.creator,
@@ -366,92 +366,6 @@ export class VoxtaImportService {
     }
 
     return card.meta.id;
-  }
-
-  /**
-   * Map Voxta JSON to CCv3 Data Structure
-   */
-  private mapToCCv3(voxtaChar: VoxtaCharacter, fullPackage: VoxtaData): CCv3Data {
-    // 1. Construct Extension Data
-    const extensionData: VoxtaExtensionData = {
-      id: voxtaChar.Id,
-      version: voxtaChar.Version,
-      packageId: voxtaChar.PackageId,
-      textToSpeech: voxtaChar.TextToSpeech,
-      appearance: voxtaChar.Description,
-      chatSettings: {
-        chatStyle: voxtaChar.ChatStyle,
-        enableThinkingSpeech: voxtaChar.EnableThinkingSpeech,
-        notifyUserAwayReturn: voxtaChar.NotifyUserAwayReturn,
-        timeAware: voxtaChar.TimeAware,
-        useMemory: voxtaChar.UseMemory,
-        maxTokens: voxtaChar.MaxTokens,
-        maxSentences: voxtaChar.MaxSentences,
-      },
-      scripts: voxtaChar.Scripts,
-      original: {
-        Creator: voxtaChar.Creator,
-        CreatorNotes: voxtaChar.CreatorNotes,
-        DateCreated: voxtaChar.DateCreated,
-        DateModified: voxtaChar.DateModified
-      }
-    };
-
-    // 2. Embed Lorebooks
-    // CCv3 uses `data.character_book`. We need to find referenced books and embed them.
-    let characterBook: any = undefined;
-    if (voxtaChar.MemoryBooks && voxtaChar.MemoryBooks.length > 0) {
-      const entries: any[] = [];
-      for (const bookId of voxtaChar.MemoryBooks) {
-        const book = fullPackage.books.find(b => b.id === bookId);
-        if (book && book.data.Items) {
-          // Convert Voxta Items -> V3 Entries
-          const bookEntries = book.data.Items.map((item: any) => ({
-            keys: item.Keywords,
-            content: item.Text,
-            enabled: !item.Deleted,
-            insertion_order: item.Weight || 100,
-            name: item.Id, // Use ID as name for reference
-            priority: 10, // Default
-          }));
-          entries.push(...bookEntries);
-        }
-      }
-      
-      if (entries.length > 0) {
-        characterBook = {
-          name: "Voxta Memory",
-          entries: entries
-        };
-      }
-    }
-
-    // 3. Construct CCv3
-    return {
-      spec: 'chara_card_v3',
-      spec_version: '3.0',
-      data: {
-        name: voxtaChar.Name,
-        description: voxtaChar.Profile || '', // Profile -> Description
-        personality: voxtaChar.Personality || '',
-        scenario: voxtaChar.Scenario || '',
-        first_mes: voxtaChar.FirstMessage || '',
-        mes_example: voxtaChar.MessageExamples || '',
-        creator: voxtaChar.Creator || '',
-        creator_notes: voxtaChar.CreatorNotes || '',
-        tags: voxtaChar.Tags || [],
-        character_version: voxtaChar.Version || '1.0.0',
-        system_prompt: voxtaChar.SystemPrompt || '',
-        post_history_instructions: voxtaChar.PostHistoryInstructions || '',
-        alternate_greetings: voxtaChar.AlternativeFirstMessages || [],
-        group_only_greetings: [],
-        character_book: characterBook,
-        extensions: {
-          voxta: extensionData,
-          // Preserve other extensions if needed
-        }
-      }
-    };
   }
 
   /**
