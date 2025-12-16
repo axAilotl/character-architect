@@ -80,26 +80,54 @@ export async function processAsset(asset: ParsedAsset): Promise<ParsedAsset> {
 }
 
 /**
- * Detect if an image is animated
+ * Detect if an image is animated (browser-safe)
  */
 async function detectAnimated(buffer: Buffer | Uint8Array, mimetype: string): Promise<boolean> {
   try {
-    const buf = buffer instanceof Buffer ? buffer : Buffer.from(buffer);
+    // Convert to Uint8Array for browser compatibility
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
 
     if (mimetype === 'image/webp') {
-      // WebP: Check for ANIM chunk
-      const str = buf.toString('binary');
-      return str.includes('ANIM');
+      // WebP: Check for ANIM chunk - search for 'ANIM' bytes
+      const animBytes = [0x41, 0x4E, 0x49, 0x4D]; // 'ANIM'
+      return findSequence(bytes, animBytes);
     }
 
     if (mimetype === 'image/gif') {
-      // GIF: Check for NETSCAPE2.0 extension (looping) or multiple frames
-      const str = buf.toString('binary');
-      return str.includes('NETSCAPE2.0') || (str.match(/\x21\xF9\x04/g) || []).length > 1;
+      // GIF: Check for NETSCAPE2.0 extension or multiple graphics control extensions
+      const netscapeBytes = [0x4E, 0x45, 0x54, 0x53, 0x43, 0x41, 0x50, 0x45, 0x32, 0x2E, 0x30]; // 'NETSCAPE2.0'
+      if (findSequence(bytes, netscapeBytes)) return true;
+
+      // Count graphics control extension markers (0x21 0xF9 0x04)
+      const gceBytes = [0x21, 0xF9, 0x04];
+      let count = 0;
+      for (let i = 0; i < bytes.length - 2; i++) {
+        if (bytes[i] === gceBytes[0] && bytes[i + 1] === gceBytes[1] && bytes[i + 2] === gceBytes[2]) {
+          count++;
+          if (count > 1) return true;
+        }
+      }
     }
   } catch (err) {
     console.warn('[Asset Processor] Animation detection failed:', err);
   }
 
+  return false;
+}
+
+/**
+ * Find byte sequence in buffer
+ */
+function findSequence(buffer: Uint8Array, sequence: number[]): boolean {
+  for (let i = 0; i <= buffer.length - sequence.length; i++) {
+    let found = true;
+    for (let j = 0; j < sequence.length; j++) {
+      if (buffer[i + j] !== sequence[j]) {
+        found = false;
+        break;
+      }
+    }
+    if (found) return true;
+  }
   return false;
 }
