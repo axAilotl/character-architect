@@ -30,8 +30,8 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist",
-    "cf:deploy": "wrangler pages deploy apps/web/dist --project-name=character-architect",
-    "cf:deploy:dev": "wrangler pages deploy apps/web/dist --project-name=character-architect-dev"
+    "cf:deploy": "wrangler deploy",
+    "cf:deploy:dev": "wrangler deploy --env dev"
   },
   "devDependencies": {
     "wrangler": "^3.99.0",
