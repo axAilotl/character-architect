@@ -29,7 +29,9 @@
     "test:e2e:report": "playwright show-report",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist"
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist",
+    "cf:deploy": "wrangler pages deploy apps/web/dist --project-name=character-architect",
+    "cf:deploy:dev": "wrangler pages deploy apps/web/dist --project-name=character-architect-dev"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
