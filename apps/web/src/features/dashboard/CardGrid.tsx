@@ -3,7 +3,8 @@ import { useCardStore, extractCardData } from '../../store/card-store';
 import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
-import { importCardClientSide, importCardFromURLClientSide, importVoxtaPackageClientSide } from '../../lib/client-import';
+import { UnifiedImportService } from '@card-architect/import-core';
+import { ClientStorageAdapter } from '../../adapters/client-storage.adapter';
 import { exportCard as exportCardClientSide } from '../../lib/client-export';
 import type { Card, CollectionData } from '../../lib/types';
 import type { CCv3Data } from '../../lib/types';
@@ -11,20 +12,6 @@ import { SettingsModal } from '../../components/shared/SettingsModal';
 import { useFederationStore } from '../../modules/federation/lib/federation-store';
 import type { CardSyncState } from '../../modules/federation/lib/types';
 import { getExtensions, isCollectionData } from '../../lib/card-type-guards';
-
-/**
- * Generate a UUID that works in non-secure contexts (HTTP)
- */
-function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
 
 interface CardGridProps {
   onCardClick: (cardId: string) => void;
@@ -47,7 +34,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [cardsPerPage, setCardsPerPage] = useState(20);
-  const { importCard, importCardFromURL, createNewCard, createNewLorebook } = useCardStore();
+  const { importCard, createNewCard, createNewLorebook } = useCardStore();
 
   // Federation sync states (only for full mode)
   const { syncStates, initialize: initFederation, initialized: federationInitialized, pollPlatformSyncState, settings: federationSettings } = useFederationStore();
@@ -304,55 +291,26 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
         if (file.name.endsWith('.voxpkg')) {
           if (config.mode === 'light' || config.mode === 'static') {
-            // Client-side Voxta import
-            const buffer = await file.arrayBuffer();
-            const results = await importVoxtaPackageClientSide(new Uint8Array(buffer));
+            // Use unified import service
+            const storageAdapter = new ClientStorageAdapter(localDB);
+            const importService = new UnifiedImportService(storageAdapter);
 
-            if (results.length === 0) {
+            const arrayBuffer = await file.arrayBuffer();
+            const buffer = new Uint8Array(arrayBuffer);
+
+            const cardIds = await importService.importFile(buffer, file.name);
+
+            if (cardIds.length === 0) {
               alert('Voxta package contains no characters');
               e.target.value = '';
               return;
             }
 
-            // Import all characters from the package (includes collection card if multi-character)
-            for (const result of results) {
-              await localDB.saveCard(result.card);
-              if (result.fullImageDataUrl) {
-                await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
-              }
-              if (result.thumbnailDataUrl) {
-                await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
-              }
-              // Save assets (including original-package for collections)
-              console.log(`[CardGrid] Card ${result.card.meta.name} has ${result.assets?.length || 0} assets to save`);
-              if (result.assets && result.assets.length > 0) {
-                for (const asset of result.assets) {
-                  console.log(`[CardGrid] Saving asset: ${asset.name}.${asset.ext} (${asset.type}) for card ${result.card.meta.id}`);
-                  await localDB.saveAsset({
-                    id: generateUUID(),
-                    cardId: result.card.meta.id,
-                    name: asset.name,
-                    type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
-                    ext: asset.ext,
-                    mimetype: asset.mimetype,
-                    size: asset.size,
-                    width: asset.width,
-                    height: asset.height,
-                    data: asset.data,
-                    isMain: asset.isMain ?? false,
-                    tags: [],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  });
-                }
-              }
+            if (cardIds.length > 1) {
+              alert(`Imported ${cardIds.length} characters from Voxta package`);
             }
 
-            if (results.length > 1) {
-              alert(`Imported ${results.length} characters from Voxta package`);
-            }
-
-            id = results[0].card.meta.id;
+            id = cardIds[0];
           } else {
             id = await useCardStore.getState().importVoxtaPackage(file);
           }
@@ -379,73 +337,26 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           const file = files[i];
           try {
             if (file.name.endsWith('.voxpkg')) {
-              // Client-side Voxta import for bulk
-              const buffer = await file.arrayBuffer();
-              const results = await importVoxtaPackageClientSide(new Uint8Array(buffer));
+              // Use unified import service for Voxta
+              const storageAdapter = new ClientStorageAdapter(localDB);
+              const importService = new UnifiedImportService(storageAdapter);
 
-              for (const result of results) {
-                await localDB.saveCard(result.card);
-                if (result.fullImageDataUrl) {
-                  await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
-                }
-                if (result.thumbnailDataUrl) {
-                  await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
-                }
-                // Save assets (including original-package for collections)
-                if (result.assets && result.assets.length > 0) {
-                  for (const asset of result.assets) {
-                    await localDB.saveAsset({
-                      id: generateUUID(),
-                      cardId: result.card.meta.id,
-                      name: asset.name,
-                      type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
-                      ext: asset.ext,
-                      mimetype: asset.mimetype,
-                      size: asset.size,
-                      width: asset.width,
-                      height: asset.height,
-                      data: asset.data,
-                      isMain: asset.isMain ?? false,
-                      tags: [],
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    });
-                  }
-                }
-                successCount++;
-              }
+              const arrayBuffer = await file.arrayBuffer();
+              const buffer = new Uint8Array(arrayBuffer);
+
+              const cardIds = await importService.importFile(buffer, file.name);
+              successCount += cardIds.length;
               continue;
             }
 
-            const result = await importCardClientSide(file);
-            await localDB.saveCard(result.card);
-            if (result.fullImageDataUrl) {
-              await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
-            }
-            if (result.thumbnailDataUrl) {
-              await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
-            }
-            // Save assets for regular imports too
-            if (result.assets && result.assets.length > 0) {
-              for (const asset of result.assets) {
-                await localDB.saveAsset({
-                  id: generateUUID(),
-                  cardId: result.card.meta.id,
-                  name: asset.name,
-                  type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
-                  ext: asset.ext,
-                  mimetype: asset.mimetype,
-                  size: asset.size,
-                  width: asset.width,
-                  height: asset.height,
-                  data: asset.data,
-                  isMain: asset.isMain ?? false,
-                  tags: [],
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                });
-              }
-            }
+            // Use unified import service
+            const storageAdapter = new ClientStorageAdapter(localDB);
+            const importService = new UnifiedImportService(storageAdapter);
+
+            const arrayBuffer = await file.arrayBuffer();
+            const buffer = new Uint8Array(arrayBuffer);
+
+            await importService.importFile(buffer, file.name);
             successCount++;
           } catch (err) {
             failures.push({
@@ -519,40 +430,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
       console.error('Failed to import cards:', error);
       alert('Failed to import cards. Check console for details.');
       e.target.value = '';
-    }
-  };
-
-  const handleImportURL = async () => {
-    setShowImportMenu(false);
-
-    const config = getDeploymentConfig();
-    const url = prompt('Enter the URL to the character card (PNG, JSON, or CHARX file):');
-    if (!url || !url.trim()) return;
-
-    try {
-      if (config.mode === 'light' || config.mode === 'static') {
-        // Client-side mode: fetch and import directly in browser
-        const result = await importCardFromURLClientSide(url.trim());
-        await localDB.saveCard(result.card);
-        if (result.fullImageDataUrl) {
-          await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
-        }
-        if (result.thumbnailDataUrl) {
-          await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
-        }
-        await loadCards();
-        onCardClick(result.card.meta.id);
-      } else {
-        // Server mode: use API
-        const id = await importCardFromURL(url.trim());
-        await loadCards();
-        if (id) {
-          onCardClick(id);
-        }
-      }
-    } catch (error) {
-      console.error('URL import failed:', error);
-      alert(`Import failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -908,13 +785,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                         title="Import JSON, PNG, CHARX, or VOXPKG files (select multiple)"
                       />
                     </label>
-                    <button
-                      onClick={handleImportURL}
-                      className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-b"
-                      title="Import from URL (direct link to PNG, JSON, or CHARX)"
-                    >
-                      From URL
-                    </button>
                   </div>
                 </>
               )}

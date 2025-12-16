@@ -100,7 +100,6 @@ export class ClientStorageAdapter implements StorageAdapter {
 
   async createAsset(assetData: AssetData): Promise<{ assetId: string; url: string }> {
     const assetId = nanoid();
-    const now = new Date().toISOString();
 
     // Convert buffer to data URL
     const dataUrl = bufferToDataURL(assetData.buffer, assetData.mimetype);
@@ -112,7 +111,7 @@ export class ClientStorageAdapter implements StorageAdapter {
     return { assetId, url: dataUrl };
   }
 
-  async linkAssetToCard(cardId: string, assetId: string, link: AssetLink): Promise<void> {
+  async linkAssetToCard(_cardId: string, _assetId: string, _link: AssetLink): Promise<void> {
     // For client-side storage, we need to store the asset with the link metadata
     // The assetId was generated in createAsset, but the actual data URL was returned
     // We need to retrieve the data URL and create the StoredAsset record

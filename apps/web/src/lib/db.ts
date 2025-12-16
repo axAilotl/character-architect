@@ -51,7 +51,7 @@ export interface StoredAsset {
   updatedAt: string;
 }
 
-class LocalDB {
+export class LocalDB {
   private db: IDBPDatabase | null = null;
 
   async init() {
