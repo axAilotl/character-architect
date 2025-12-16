@@ -77,7 +77,7 @@ import {
   saveAssetToStorage,
   normalizeCardData,
 } from './utils.js';
-import { detectSpec, type CCv2Data, type CCv3Data } from '@character-foundry/schemas';
+import { detectSpec, type CCv2Data, type CCv3Data } from '@character-foundry/character-foundry/schemas';
 import { CardImportService } from '../card-import.service.js';
 import { findZipStart } from '../../utils/file-handlers.js';
 import { getSettings, saveSettings } from '../../utils/settings.js';

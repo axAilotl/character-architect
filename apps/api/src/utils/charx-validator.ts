@@ -3,7 +3,7 @@
  * Ensures CharX exports are deterministic and valid
  */
 
-import type { CCv3Data } from '@character-foundry/schemas';
+import type { CCv3Data } from '@character-foundry/character-foundry/schemas';
 import type { CardAssetWithDetails, AssetValidationError } from '../types/index.js';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';

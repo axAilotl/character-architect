@@ -7,7 +7,7 @@
 
 import { CardRepository, CardAssetRepository } from '../db/repository.js';
 import type { Card, CardVersion, CardAssetWithDetails } from '../types/index.js';
-import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 import { validateV2, validateV3 } from '../utils/validation.js';
 import { normalizeLorebookEntries } from '../handlers/index.js';
 import type { CardMeta } from '../types/index.js';

@@ -9,7 +9,8 @@ const __dirname = dirname(__filename);
 
 export const config = {
   port: parseInt(process.env.PORT || '3456', 10),
-  host: process.env.HOST || '0.0.0.0',
+  // Default to loopback for safety; set HOST=0.0.0.0 explicitly for LAN access
+  host: process.env.HOST || '127.0.0.1',
   webPort: parseInt(process.env.WEB_PORT || '5173', 10),
   databasePath: process.env.DATABASE_PATH || join(__dirname, '../data/cards.db'),
   storagePath: process.env.STORAGE_PATH || join(__dirname, '../storage'),

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { PromptSimulator, type PromptProfile, type TokenBudgetConfig } from '../services/prompt-simulator.js';
-import { registry } from '@character-foundry/tokenizers';
-import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+import { registry } from '@character-foundry/character-foundry/tokenizers';
+import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 
 /**
  * Prompt Simulator Routes

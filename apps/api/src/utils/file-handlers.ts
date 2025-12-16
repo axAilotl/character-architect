@@ -18,7 +18,7 @@ import {
   type CharxWriteOptions as CharxPackageBuildOptions,
   type CharxWriteAsset,
   type AssetFetcher,
-} from '@character-foundry/charx';
+} from '@character-foundry/character-foundry/charx';
 
 // Voxta package
 import {
@@ -36,17 +36,17 @@ import {
   type ExtractedVoxtaBook,
   type ExtractedVoxtaScenario as PackageVoxtaScenario,
   type VoxtaWriteAsset,
-} from '@character-foundry/voxta';
+} from '@character-foundry/character-foundry/voxta';
 
 // PNG package
 import {
   extractFromPNG as extractFromPNGBuffer,
   embedIntoPNG as embedIntoPNGBuffer,
   validatePNGSize as validatePNGSizeBuffer,
-} from '@character-foundry/png';
+} from '@character-foundry/character-foundry/png';
 
 // Core utilities (MIME types)
-import { getMimeTypeFromExt } from '@character-foundry/core';
+import { getMimeTypeFromExt } from '@character-foundry/character-foundry/core';
 
 // Core ZIP utilities (separate export path)
 import {
@@ -59,8 +59,8 @@ import {
 
 import { config } from '../config.js';
 
-import type { CharxData } from '@character-foundry/charx';
-import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+import type { CharxData } from '@character-foundry/character-foundry/charx';
+import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 import type { Card } from '../types/index.js';
 
 // Re-export types for consumers (with Buffer-based types where needed)

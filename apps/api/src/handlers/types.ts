@@ -4,7 +4,7 @@
  * Common types for format handlers (PNG, CHARX, Voxta, JSON)
  */
 
-import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 import type { FastifyBaseLogger } from 'fastify';
 import type { CardAssetWithDetails } from '../types/index.js';
 

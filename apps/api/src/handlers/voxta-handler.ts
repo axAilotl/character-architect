@@ -25,7 +25,7 @@ import {
   convertCardMacros,
   standardToVoxta,
 } from '../utils/file-handlers.js';
-import type { CCv3Data } from '@character-foundry/schemas';
+import type { CCv3Data } from '@character-foundry/character-foundry/schemas';
 import { convertToEmbeddedUrls } from '../routes/image-archival.js';
 import { VoxtaImportService } from '../services/voxta-import.service.js';
 import { CardRepository, AssetRepository, CardAssetRepository } from '../db/repository.js';

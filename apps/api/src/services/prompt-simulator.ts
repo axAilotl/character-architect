@@ -1,4 +1,4 @@
-import type { CCv2Data, CCv3Data, CharacterBook } from '@character-foundry/schemas';
+import type { CCv2Data, CCv3Data, CharacterBook } from '@character-foundry/character-foundry/schemas';
 
 /**
  * Prompt composition profiles representing different frontend implementations

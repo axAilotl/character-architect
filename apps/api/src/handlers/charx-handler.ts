@@ -27,7 +27,7 @@ import {
   convertCardMacros,
   voxtaToStandard,
 } from '../utils/file-handlers.js';
-import { detectSpec, type CCv2Data, type CCv3Data } from '@character-foundry/schemas';
+import { detectSpec, type CCv2Data, type CCv3Data } from '@character-foundry/character-foundry/schemas';
 import { validateCharxExport, applyExportFixes } from '../utils/charx-validator.js';
 import { convertToEmbeddedUrls } from '../routes/image-archival.js';
 import { CardImportService } from '../services/card-import.service.js';

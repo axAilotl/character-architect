@@ -4,10 +4,10 @@
 
 import { z } from 'zod';
 
-// Pagination
+// Pagination with sane defaults
 export const paginationSchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().positive().max(100).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
 // Card spec

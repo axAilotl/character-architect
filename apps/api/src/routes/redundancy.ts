@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { RedundancyKiller, type ConsolidationSuggestion } from '../services/redundancy-killer.js';
-import { registry } from '@character-foundry/tokenizers';
-import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+import { registry } from '@character-foundry/character-foundry/tokenizers';
+import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 
 /**
  * Redundancy Detection Routes

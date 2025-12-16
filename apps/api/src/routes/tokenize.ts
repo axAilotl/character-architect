@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { registry } from '@character-foundry/tokenizers';
+import { registry } from '@character-foundry/character-foundry/tokenizers';
 import type { TokenizeRequest, TokenizeResponse } from '../types/index.js';
 
 export async function tokenizeRoutes(fastify: FastifyInstance) {

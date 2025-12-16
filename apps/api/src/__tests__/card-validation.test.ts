@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectSpec, type CCv2Data, type CCv3Data } from '@character-foundry/schemas';
+import { detectSpec, type CCv2Data, type CCv3Data } from '@character-foundry/character-foundry/schemas';
 import { validateV2, validateV3 } from '../utils/validation.js';
 
 describe('Card Validation', () => {

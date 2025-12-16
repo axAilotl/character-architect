@@ -1,4 +1,4 @@
-import type { CharacterBook, LorebookEntry } from '@character-foundry/schemas';
+import type { CharacterBook, LorebookEntry } from '@character-foundry/character-foundry/schemas';
 
 /**
  * Test result for a specific input phrase

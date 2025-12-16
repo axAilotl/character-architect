@@ -14,8 +14,8 @@ import type {
   ExportResult,
   ExportOptions,
 } from './types.js';
-import { detectSpec } from '@character-foundry/schemas';
-import { detectLorebookFormat, parseLorebook } from '@character-foundry/lorebook';
+import { detectSpec } from '@character-foundry/character-foundry/schemas';
+import { detectLorebookFormat, parseLorebook } from '@character-foundry/character-foundry/lorebook';
 import { validateV2, validateV3 } from '../utils/validation.js';
 import {
   isVoxtaCard,

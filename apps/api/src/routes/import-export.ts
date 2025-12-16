@@ -16,8 +16,8 @@ import {
   findZipStart,
 } from '../utils/file-handlers.js';
 import { validateCharxExport, applyExportFixes } from '../utils/charx-validator.js';
-import { detectSpec, type CCv2Data, type CCv3Data } from '@character-foundry/schemas';
-import { detectLorebookFormat, parseLorebook } from '@character-foundry/lorebook';
+import { detectSpec, type CCv2Data, type CCv3Data } from '@character-foundry/character-foundry/schemas';
+import { detectLorebookFormat, parseLorebook } from '@character-foundry/character-foundry/lorebook';
 import { validateV2, validateV3 } from '../utils/validation.js';
 import type { CharxExportSettings } from '../types/index.js';
 import { config } from '../config.js';
@@ -32,6 +32,34 @@ import { VoxtaImportService } from '../services/voxta-import.service.js';
 import { normalizeCardData, normalizeLorebookEntries } from '../handlers/index.js';
 import { isURLSafeForFetch } from '../utils/ssrf-protection.js';
 import { sanitizeFilename } from '../utils/path-security.js';
+
+function contentDispositionAttachment(filenameBase: string, extension: string): string {
+  const base = filenameBase || 'download';
+
+  // `filename=` must be ASCII only (Node throws ERR_INVALID_CHAR otherwise).
+  const asciiBase = sanitizeFilename(base).replace(/[^\x20-\x7E]/g, '_') || 'download';
+  const asciiFilename = `${asciiBase}${extension}`;
+
+  // `filename*=` supports UTF-8 via RFC 5987 and preserves the real name for capable clients.
+  const utf8Filename = `${base}${extension}`;
+  const encoded = encodeURIComponent(utf8Filename);
+
+  return `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encoded}`;
+}
+
+/**
+ * RisuAI/Realm "v1" wrapper: the actual character card lives under `definition`.
+ * We keep this here (instead of in the shared loader) because the API accepts raw uploads/URLs.
+ */
+function unwrapV1DefinitionCard(data: unknown): unknown | null {
+  if (!data || typeof data !== 'object') return null;
+  const obj = data as Record<string, unknown>;
+  const def = obj.definition;
+  if (!def || typeof def !== 'object') return null;
+  const spec = (def as Record<string, unknown>).spec;
+  if (spec !== 'chara_card_v3' && spec !== 'chara_card_v2') return null;
+  return def;
+}
 
 /**
  * Download a file from a URL and determine its type
@@ -276,6 +304,12 @@ export async function importExportRoutes(fastify: FastifyInstance) {
     if (mimetype === 'application/json' || mimetype === 'text/json') {
       try {
         cardData = JSON.parse(buffer.toString('utf-8'));
+
+        // RisuAI/Realm v1 wrapper: the actual character card lives under `definition`.
+        const unwrapped = unwrapV1DefinitionCard(cardData);
+        if (unwrapped && detectSpec(unwrapped)) {
+          cardData = unwrapped;
+        }
 
         // Check for standalone lorebook first
         const lorebookFormat = detectLorebookFormat(cardData as Record<string, unknown>);
@@ -710,14 +744,20 @@ export async function importExportRoutes(fastify: FastifyInstance) {
              reply.code(400);
              return { error: `Unsupported file type. Could not find valid card data (JSON/PNG/CHARX/VOXTA). (Header: ${headerHex})` };
         }
-      }
+	      }
 
-      // If we reached here, cardData is set.
-      // Check for standalone lorebook first
-      const lorebookFormat = detectLorebookFormat(cardData as Record<string, unknown>);
-      if (lorebookFormat !== 'unknown') {
-        fastify.log.info({ format: lorebookFormat, filename: data.filename }, 'Detected standalone lorebook');
-        const parsed = parseLorebook(buffer);
+	      // If we reached here, cardData is set.
+	      // RisuAI/Realm v1 wrapper: the actual character card lives under `definition`.
+	      const unwrapped = unwrapV1DefinitionCard(cardData);
+	      if (unwrapped && detectSpec(unwrapped)) {
+	        cardData = unwrapped;
+	      }
+
+	      // Check for standalone lorebook first
+	      const lorebookFormat = detectLorebookFormat(cardData as Record<string, unknown>);
+	      if (lorebookFormat !== 'unknown') {
+	        fastify.log.info({ format: lorebookFormat, filename: data.filename }, 'Detected standalone lorebook');
+	        const parsed = parseLorebook(buffer);
         const lorebookName = parsed.book?.name || data.filename?.replace(/\.[^/.]+$/, '') || 'Imported Lorebook';
 
         cardData = {
@@ -790,16 +830,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         const wrappedData = cardData.data as CCv2Data;
         name = wrappedData.name || 'Untitled';
 
-        // Debug: Check if lorebook is present
-        const hasLorebook = wrappedData.character_book &&
-          Array.isArray(wrappedData.character_book.entries) &&
-          wrappedData.character_book.entries.length > 0;
-
         fastify.log.info({
           name,
           spec,
-          hasLorebook,
-          lorebookEntries: hasLorebook ? wrappedData.character_book!.entries.length : 0,
           dataKeys: Object.keys(wrappedData).slice(0, 20),
         }, 'Importing wrapped v2 card');
 
@@ -812,17 +845,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         name = cardData.name;
         const v2Data = cardData as CCv2Data;
 
-        // Debug: Check if lorebook is present
-        const hasLorebook = v2Data.character_book &&
-          Array.isArray(v2Data.character_book.entries) &&
-          v2Data.character_book.entries.length > 0;
-
-        fastify.log.info({
-          name,
-          spec,
-          hasLorebook,
-          lorebookEntries: hasLorebook ? v2Data.character_book!.entries.length : 0,
-        }, 'Importing legacy v2 card');
+        fastify.log.info({ name, spec }, 'Importing legacy v2 card');
 
         // Legacy v2 (no wrapper) - wrap it for consistency
         storageData = {
@@ -836,17 +859,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         const v3Data = cardData as CCv3Data;
         name = v3Data.data.name || 'Untitled';
 
-        // Debug: Check if lorebook is present
-        const hasLorebook = v3Data.data.character_book &&
-          Array.isArray(v3Data.data.character_book.entries) &&
-          v3Data.data.character_book.entries.length > 0;
-
-        fastify.log.info({
-          name,
-          spec,
-          hasLorebook,
-          lorebookEntries: hasLorebook ? v3Data.data.character_book!.entries.length : 0,
-        }, 'Importing v3 card');
+        fastify.log.info({ name, spec }, 'Importing v3 card');
 
         // Store wrapped v3 data (CCv3Data type includes wrapper)
         storageData = v3Data;
@@ -1009,11 +1022,24 @@ export async function importExportRoutes(fastify: FastifyInstance) {
                archiveSuccess = true;
             }
           } catch (err) {
-             // Fall through
+             // Log the actual error instead of silently falling through
+             fastify.log.error({
+               error: err,
+               filename,
+               mimetype: file.mimetype
+             }, 'CharX/Voxta import failed');
+
+             // Report the actual error to user
+             results.push({
+               filename,
+               success: false,
+               error: `Failed to import ${isVoxPkg ? 'Voxta package' : 'CharX file'}: ${err instanceof Error ? err.message : String(err)}`,
+             });
+             archiveSuccess = true; // Mark as handled so we don't fall through to "unsupported type"
           } finally {
             await fs.unlink(tempPath).catch(() => {});
           }
-          
+
           if (archiveSuccess) {
             continue;
           }
@@ -1062,15 +1088,21 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           if (extracted.extraChunks) {
               (request as any).extraChunks = extracted.extraChunks;
           }
-        } else {
-          // Try JSON
-          try {
-            cardData = JSON.parse(buffer.toString('utf-8'));
+	        } else {
+	          // Try JSON
+	          try {
+	            cardData = JSON.parse(buffer.toString('utf-8'));
 
-            // Check for standalone lorebook first
-            const lorebookFormat = detectLorebookFormat(cardData as Record<string, unknown>);
-            if (lorebookFormat !== 'unknown') {
-              const parsed = parseLorebook(buffer);
+	            // RisuAI/Realm v1 wrapper: the actual character card lives under `definition`.
+	            const unwrapped = unwrapV1DefinitionCard(cardData);
+	            if (unwrapped && detectSpec(unwrapped)) {
+	              cardData = unwrapped;
+	            }
+
+	            // Check for standalone lorebook first
+	            const lorebookFormat = detectLorebookFormat(cardData as Record<string, unknown>);
+	            if (lorebookFormat !== 'unknown') {
+	              const parsed = parseLorebook(buffer);
               const lorebookName = parsed.book?.name || filename?.replace(/\.[^/.]+$/, '') || 'Imported Lorebook';
 
               cardData = {
@@ -1302,7 +1334,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         }, 'Exporting card as JSON');
 
         reply.header('Content-Type', 'application/json; charset=utf-8');
-        reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.json"`);
+        reply.header('Content-Disposition', contentDispositionAttachment(card.meta.name, '.json'));
 
         // Convert Voxta macros to standard format if this is a Voxta card
         let exportData = card.data as unknown as Record<string, unknown>;
@@ -1559,7 +1591,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
           // Return the CHARX file
           reply.header('Content-Type', 'application/zip');
-          reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.charx"`);
+          reply.header('Content-Disposition', contentDispositionAttachment(card.meta.name, '.charx'));
           return result.buffer;
         } catch (err) {
           fastify.log.error({ error: err }, 'Failed to create CHARX export');
@@ -1580,7 +1612,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
                 const originalBuffer = await fs.readFile(originalPath);
 
                 reply.header('Content-Type', 'application/octet-stream');
-                reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.voxpkg"`);
+                reply.header('Content-Disposition', contentDispositionAttachment(card.meta.name, '.voxpkg'));
 
                 fastify.log.info({
                   cardId: request.params.id,
@@ -1753,7 +1785,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           }, 'Voxta export successful');
 
           reply.header('Content-Type', 'application/zip');
-          reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.voxpkg"`);
+          reply.header('Content-Disposition', contentDispositionAttachment(card.meta.name, '.voxpkg'));
           return result.buffer;
         } catch (err) {
           fastify.log.error({ error: err }, 'Failed to create Voxta export');
@@ -1813,7 +1845,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
           // Return the PNG with appropriate headers
           reply.header('Content-Type', 'image/png');
-          reply.header('Content-Disposition', `attachment; filename="${card.meta.name}.png"`);
+          reply.header('Content-Disposition', contentDispositionAttachment(card.meta.name, '.png'));
           return pngBuffer;
         } catch (err) {
           fastify.log.error({ error: err }, 'Failed to create PNG export');
@@ -1909,15 +1941,23 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
   // Convert between v2 and v3
   fastify.post('/convert', async (request, reply) => {
-    const body = request.body as { from: string; to: string; card: unknown };
+    const body = request.body as { from?: string; to?: string; card?: unknown };
 
     if (!body.from || !body.to || !body.card) {
       reply.code(400);
       return { error: 'Missing required fields' };
     }
 
+    // Normalize a copy for lenient validation/conversion (nulls, missing required fields, etc).
+    const cardCopy = JSON.parse(JSON.stringify(body.card)) as unknown;
+    if (body.from === 'v3') {
+      normalizeCardData(cardCopy, 'v3');
+    } else if (body.from === 'v2') {
+      normalizeCardData(cardCopy, 'v2');
+    }
+
     // Validate input
-    const validation = body.from === 'v3' ? validateV3(body.card) : validateV2(body.card);
+    const validation = body.from === 'v3' ? validateV3(cardCopy) : validateV2(cardCopy);
     if (!validation.valid) {
       reply.code(400);
       return { error: 'Invalid input card', errors: validation.errors };
@@ -1926,49 +1966,53 @@ export async function importExportRoutes(fastify: FastifyInstance) {
     // Convert
     if (body.from === 'v2' && body.to === 'v3') {
       // v2 to v3 conversion
-      const v2 = body.card as import('@character-foundry/schemas').CCv2Data;
-      const v3: import('@character-foundry/schemas').CCv3Data = {
+      const input = cardCopy as any;
+      const v2 = (input && typeof input === 'object' && 'data' in input && typeof input.data === 'object' && input.data)
+        ? (input.data as Record<string, unknown>)
+        : input;
+
+      const v3: CCv3Data = {
         spec: 'chara_card_v3',
         spec_version: '3.0',
         data: {
-          name: v2.name,
-          description: v2.description,
-          personality: v2.personality,
-          scenario: v2.scenario,
-          first_mes: v2.first_mes,
-          mes_example: v2.mes_example,
-          creator: v2.creator || '',
-          character_version: v2.character_version || '1.0',
-          tags: v2.tags || [],
+          name: (v2.name as string) || '',
+          description: (v2.description as string) || '',
+          personality: (v2.personality as string) || '',
+          scenario: (v2.scenario as string) || '',
+          first_mes: (v2.first_mes as string) || '',
+          mes_example: (v2.mes_example as string) || '',
+          creator: (v2.creator as string) || '',
+          character_version: (v2.character_version as string) || '',
+          tags: Array.isArray(v2.tags) ? (v2.tags as string[]) : [],
           group_only_greetings: [],
-          creator_notes: v2.creator_notes,
-          system_prompt: v2.system_prompt,
-          post_history_instructions: v2.post_history_instructions,
-          alternate_greetings: v2.alternate_greetings,
-          character_book: v2.character_book,
-          extensions: v2.extensions,
+          creator_notes: (v2.creator_notes as string) || '',
+          system_prompt: (v2.system_prompt as string) || '',
+          post_history_instructions: (v2.post_history_instructions as string) || '',
+          alternate_greetings: Array.isArray(v2.alternate_greetings) ? (v2.alternate_greetings as string[]) : [],
+          character_book: (v2.character_book as any) || undefined,
+          extensions: (v2.extensions as any) || {},
         },
       };
       return v3;
     } else if (body.from === 'v3' && body.to === 'v2') {
       // v3 to v2 conversion
-      const v3 = body.card as import('@character-foundry/schemas').CCv3Data;
-      const v2: import('@character-foundry/schemas').CCv2Data = {
-        name: v3.data.name,
-        description: v3.data.description,
-        personality: v3.data.personality,
-        scenario: v3.data.scenario,
-        first_mes: v3.data.first_mes,
-        mes_example: v3.data.mes_example,
-        creator: v3.data.creator,
-        character_version: v3.data.character_version,
-        tags: v3.data.tags,
-        creator_notes: v3.data.creator_notes,
-        system_prompt: v3.data.system_prompt,
-        post_history_instructions: v3.data.post_history_instructions,
-        alternate_greetings: v3.data.alternate_greetings,
-        character_book: v3.data.character_book as import('@character-foundry/schemas').CCv2CharacterBook,
-        extensions: v3.data.extensions,
+      const v3 = cardCopy as CCv3Data;
+      const v2: CCv2Data = {
+        name: v3.data.name || '',
+        description: v3.data.description || '',
+        personality: v3.data.personality || '',
+        scenario: v3.data.scenario || '',
+        first_mes: v3.data.first_mes || '',
+        mes_example: v3.data.mes_example || '',
+        creator: v3.data.creator || '',
+        character_version: v3.data.character_version || '',
+        tags: v3.data.tags || [],
+        creator_notes: v3.data.creator_notes || '',
+        system_prompt: v3.data.system_prompt || '',
+        post_history_instructions: v3.data.post_history_instructions || '',
+        alternate_greetings: v3.data.alternate_greetings || [],
+        character_book: (v3.data.character_book as any) || undefined,
+        extensions: v3.data.extensions || {},
       };
       return v2;
     } else {

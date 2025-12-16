@@ -1,9 +1,71 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { build } from '../app.js';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import FormData from 'form-data';
 import sharp from 'sharp';
+import { unzipSync } from 'fflate';
+import { build } from '../app.js';
 
-describe('CHARX Asset Integrity & Default Icon', () => {
+async function createSolidPng(
+  color: { r: number; g: number; b: number; alpha?: number },
+  size = 64
+): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: color.r, g: color.g, b: color.b, alpha: color.alpha ?? 1 },
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
+async function getAverageRgb(imageBytes: Uint8Array): Promise<{ r: number; g: number; b: number }> {
+  const { data, info } = await sharp(imageBytes)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const channels = info.channels;
+  const pixels = info.width * info.height;
+  let rSum = 0;
+  let gSum = 0;
+  let bSum = 0;
+
+  for (let i = 0; i < data.length; i += channels) {
+    rSum += data[i]!;
+    gSum += data[i + 1]!;
+    bSum += data[i + 2]!;
+  }
+
+  return { r: rSum / pixels, g: gSum / pixels, b: bSum / pixels };
+}
+
+function expectMostlyBlue(rgb: { r: number; g: number; b: number }) {
+  expect(rgb.b).toBeGreaterThan(200);
+  expect(rgb.r).toBeLessThan(80);
+  expect(rgb.g).toBeLessThan(80);
+}
+
+function expectMostlyRed(rgb: { r: number; g: number; b: number }) {
+  expect(rgb.r).toBeGreaterThan(200);
+  expect(rgb.g).toBeLessThan(80);
+  expect(rgb.b).toBeLessThan(80);
+}
+
+function extractMainIconFromCharx(zipBytes: Uint8Array): Uint8Array {
+  const unzipped = unzipSync(zipBytes);
+  const iconPath = Object.keys(unzipped).find((p) => {
+    const lower = p.toLowerCase();
+    if (!lower.startsWith('assets/') && !lower.startsWith('icon/')) return false;
+    return /\/main\.(png|webp|jpe?g)$/.test(lower);
+  });
+  expect(iconPath).toBeDefined();
+  return unzipped[iconPath!]!;
+}
+
+describe('CHARX icon selection', () => {
   let app: FastifyInstance;
   const createdCardIds: string[] = [];
 
@@ -14,256 +76,101 @@ describe('CHARX Asset Integrity & Default Icon', () => {
 
   afterAll(async () => {
     for (const id of createdCardIds) {
-      await app.inject({
-        method: 'DELETE',
-        url: `/api/cards/${id}`,
-      });
+      await app.inject({ method: 'DELETE', url: `/api/cards/${id}` }).catch(() => {});
     }
     await app.close();
   });
 
-  // Helper to create a test image
-  async function createTestImage(color: string, width = 100, height = 100): Promise<Buffer> {
-    return sharp({
-      create: {
-        width,
-        height,
-        channels: 4,
-        background: color,
+  async function createV3Card(name: string): Promise<string> {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/cards',
+      payload: {
+        data: {
+          spec: 'chara_card_v3',
+          spec_version: '3.0',
+          data: {
+            name,
+            description: 'Test card for CHARX icon selection',
+            personality: '',
+            scenario: '',
+            first_mes: 'Hello',
+            mes_example: '',
+            creator: 'Test',
+            character_version: '1.0',
+            tags: [],
+            alternate_greetings: [],
+            group_only_greetings: [],
+          },
+        },
+        meta: { name, spec: 'v3', tags: [] },
       },
-    })
-      .png()
-      .toBuffer();
+    });
+
+    expect(response.statusCode).toBe(201);
+    const body = JSON.parse(response.body);
+    const id = body.meta.id as string;
+    createdCardIds.push(id);
+    return id;
   }
 
-  it('should use the card PNG as the main icon if no explicit icon asset exists', async () => {
-    // 1. Create a card WITHOUT assets
-    const cardData = {
-      data: {
-        spec: 'chara_card_v3',
-        spec_version: '3.0',
-        data: {
-          name: 'Default Icon Test',
-          description: 'Testing default icon behavior',
-          personality: '',
-          scenario: '',
-          first_mes: 'Hello',
-          mes_example: '',
-          creator: 'Tester',
-          character_version: '1.0',
-          tags: [],
-          alternate_greetings: [],
-          group_only_greetings: [],
-        },
-      },
-      meta: {
-        name: 'Default Icon Test',
-        spec: 'v3',
-        tags: [],
-      },
-    };
-
-    const createResponse = await app.inject({
+  async function uploadCardImage(cardId: string, image: Buffer, filename: string) {
+    const form = new FormData();
+    form.append('file', image, { filename, contentType: 'image/png' });
+    const response = await app.inject({
       method: 'POST',
-      url: '/api/cards',
-      payload: cardData,
+      url: `/api/cards/${cardId}/image`,
+      payload: form,
+      headers: form.getHeaders(),
     });
+    expect([200, 201]).toContain(response.statusCode);
+  }
 
-    if (createResponse.statusCode !== 201) {
-      console.error('Card creation failed:', createResponse.body);
-    }
-    expect(createResponse.statusCode).toBe(201);
-    const card = JSON.parse(createResponse.body);
-    createdCardIds.push(card.meta.id);
-
-    // 2. Upload a specific "Card Image" (Blue)
-    // This simulates the PNG the card is embedded in
-    const blueImage = await createTestImage('#0000FF');
-    const FormData = (await import('form-data')).default;
-    const imageForm = new FormData();
-    imageForm.append('file', blueImage, { filename: 'card.png', contentType: 'image/png' });
-
-    await app.inject({
+  async function uploadMainIconAsset(cardId: string, image: Buffer, filename: string) {
+    const form = new FormData();
+    form.append('file', image, { filename, contentType: 'image/png' });
+    const response = await app.inject({
       method: 'POST',
-      url: `/api/cards/${card.meta.id}/image`,
-      payload: imageForm,
-      headers: imageForm.getHeaders(),
+      url: `/api/cards/${cardId}/assets/upload?type=icon&isMain=true&name=main`,
+      payload: form,
+      headers: form.getHeaders(),
     });
+    expect([200, 201]).toContain(response.statusCode);
+  }
 
-    // 3. Export to CHARX
-    const exportResponse = await app.inject({
+  async function exportCharx(cardId: string): Promise<Uint8Array> {
+    const response = await app.inject({
       method: 'GET',
-      url: `/api/cards/${card.meta.id}/export?format=charx`,
+      url: `/api/cards/${cardId}/export?format=charx`,
     });
+    expect(response.statusCode).toBe(200);
+    return new Uint8Array(response.rawPayload);
+  }
 
-    if (exportResponse.statusCode !== 200) {
-      console.error('Export failed:', exportResponse.body);
-    }
-    expect(exportResponse.statusCode).toBe(200);
-    expect(exportResponse.headers['content-type']).toBe('application/zip');
+  it('uses card image as main icon when no explicit icon asset exists', async () => {
+    const cardId = await createV3Card('Default Icon Test');
 
-    // 4. Verify CHARX content
-    // We need to unzip and check if 'main.png' (or similar) exists in the assets
-    // and if it matches our blue image.
-    
-    // Since we can't easily unzip in memory without libraries, we'll re-import it
-    // and check if it created an asset.
-    
-    const reImportForm = new FormData();
-    reImportForm.append('file', exportResponse.rawPayload, {
-      filename: 'default_icon.charx',
-      contentType: 'application/zip',
-    });
+    const blue = await createSolidPng({ r: 0, g: 0, b: 255 });
+    await uploadCardImage(cardId, blue, 'card.png');
 
-    const reImportResponse = await app.inject({
-      method: 'POST',
-      url: '/api/import',
-      payload: reImportForm,
-      headers: reImportForm.getHeaders(),
-    });
-
-        if (reImportResponse.statusCode !== 200) {
-          console.error('Re-import failed:', reImportResponse.body);
-        }
-        expect(reImportResponse.statusCode).toBe(200);    const importedCard = JSON.parse(reImportResponse.body).card;
-    createdCardIds.push(importedCard.meta.id);
-
-    // Verify that an asset was created
-    const assetsResponse = await app.inject({
-      method: 'GET',
-      url: `/api/cards/${importedCard.meta.id}/assets`,
-    });
-    
-    expect(assetsResponse.statusCode).toBe(200);
-    const assets = JSON.parse(assetsResponse.body);
-    
-    // Should have 1 asset: the main icon
-    expect(assets.length).toBeGreaterThanOrEqual(1);
-    
-    const mainIcon = assets.find((a: any) => a.type === 'icon' && a.isMain);
-    expect(mainIcon).toBeDefined();
-    expect(mainIcon.name).toBe('main');
-    
-    // Verify it's the blue image (by checking size/attributes if possible, or just existence)
-    // The re-import logic extracts the 'icon/main.png' from the CHARX.
-    // If the default export logic worked, the CHARX contained the blue image as 'icon/main.png'.
+    const charx = await exportCharx(cardId);
+    const iconBytes = extractMainIconFromCharx(charx);
+    const avg = await getAverageRgb(iconBytes);
+    expectMostlyBlue(avg);
   });
 
-  it('should prefer an explicit main icon asset over the card PNG', async () => {
-    // 1. Create card
-    const cardData = {
-      data: {
-        spec: 'chara_card_v3',
-        spec_version: '3.0',
-        data: {
-          name: 'Explicit Icon Test',
-          description: 'Testing explicit icon preference',
-          personality: '',
-          scenario: '',
-          first_mes: 'Hello',
-          mes_example: '',
-          creator: 'Tester',
-          character_version: '1.0',
-          tags: [],
-          alternate_greetings: [],
-          group_only_greetings: [],
-        },
-      },
-      meta: { name: 'Explicit Icon Test', spec: 'v3', tags: [] },
-    };
+  it('prefers an explicit main icon asset over the card image', async () => {
+    const cardId = await createV3Card('Explicit Icon Test');
 
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/api/cards',
-      payload: cardData,
-    });
-    
-    if (createResponse.statusCode !== 201) {
-      console.error('Card creation failed:', createResponse.body);
-    }
-    const card = JSON.parse(createResponse.body);
-    createdCardIds.push(card.meta.id);
+    const blue = await createSolidPng({ r: 0, g: 0, b: 255 });
+    await uploadCardImage(cardId, blue, 'card.png');
 
-    // 2. Upload Card Image (Blue) - Should be IGNORED for icon
-    const blueImage = await createTestImage('#0000FF');
-    const FormData = (await import('form-data')).default;
-    const imageForm = new FormData();
-    imageForm.append('file', blueImage, { filename: 'card.png', contentType: 'image/png' });
-    await app.inject({
-      method: 'POST',
-      url: `/api/cards/${card.meta.id}/image`,
-      payload: imageForm,
-      headers: imageForm.getHeaders(),
-    });
+    const red = await createSolidPng({ r: 255, g: 0, b: 0 });
+    await uploadMainIconAsset(cardId, red, 'main.png');
 
-    // 3. Upload Explicit Asset (Red) - Should be USED as icon
-    const redImage = await createTestImage('#FF0000');
-    const assetForm = new FormData();
-    assetForm.append('file', redImage, { filename: 'red_icon.png', contentType: 'image/png' });
-    
-    // Use the card-specific upload endpoint to create AND link the asset in one step
-    const uploadResponse = await app.inject({
-      method: 'POST',
-      url: `/api/cards/${card.meta.id}/assets/upload?type=icon&isMain=true&name=red_icon`,
-      payload: assetForm,
-      headers: assetForm.getHeaders(),
-    });
-    
-    if (uploadResponse.statusCode !== 201) {
-        console.error('Asset upload failed:', uploadResponse.body);
-    }
-    expect(uploadResponse.statusCode).toBe(201);
-
-    // 4. Export to CHARX
-    const exportResponse = await app.inject({
-        method: 'GET',
-        url: `/api/cards/${card.meta.id}/export?format=charx`,
-    });
-    expect(exportResponse.statusCode).toBe(200);
-
-    // 5. Re-import and verify
-    const reImportForm = new FormData();
-    reImportForm.append('file', exportResponse.rawPayload, {
-        filename: 'explicit_icon.charx',
-        contentType: 'application/zip',
-    });
-
-    const reImportResponse = await app.inject({
-        method: 'POST',
-        url: '/api/import',
-        payload: reImportForm,
-        headers: reImportForm.getHeaders(),
-    });
-    
-        if (reImportResponse.statusCode !== 200) {
-          console.error('Re-import failed:', reImportResponse.body);
-        }
-        expect(reImportResponse.statusCode).toBe(200);    const importedCard = JSON.parse(reImportResponse.body).card;
-    createdCardIds.push(importedCard.meta.id);
-
-    // Verify assets
-    const assetsResponse = await app.inject({
-        method: 'GET',
-        url: `/api/cards/${importedCard.meta.id}/assets`,
-    });
-    const assets = JSON.parse(assetsResponse.body);
-    
-    // The main icon should be RED (different size or checksum than blue)
-    const mainIcon = assets.find((a: any) => a.type === 'icon' && a.isMain);
-    expect(mainIcon).toBeDefined();
-    
-    // We can verify it's the red one by checking the file size or dimensions if they differed,
-    // or simply by the fact that we uploaded it as 'red_icon'. 
-    // However, CHARX import standardizes names to 'icon/main'. 
-    // But the file CONTENT should be red.
-    
-    // For this test, we rely on the fact that we added an asset. 
-    // If logic works, that asset was used. If not, the default (blue) might have been used?
-    // Actually, if the explicit one exists, the code says: `if (!hasMainIcon) { use originalImage }`.
-    // So if we successfully added an asset with isMain=true, the fallback code is SKIPPED.
-    // The test confirms that we *have* a main icon in the exported CHARX.
-    // To be absolutely sure it's the red one, we'd need to inspect the image content (pixels), 
-    // but that's hard in this integration test.
-    // We can assume if the `assets.some(isMain)` check works, the fallback is skipped.
+    const charx = await exportCharx(cardId);
+    const iconBytes = extractMainIconFromCharx(charx);
+    const avg = await getAverageRgb(iconBytes);
+    expectMostlyRed(avg);
   });
 });

@@ -8,6 +8,7 @@ import { initDatabase, createTables } from './db/schema.js';
 import { cardRoutes } from './routes/cards.js';
 import { tokenizeRoutes } from './routes/tokenize.js';
 import { importExportRoutes } from './routes/import-export.js';
+import unifiedImportRoutes from './routes/unified-import.js';
 import { assetRoutes } from './routes/assets.js';
 import { promptSimulatorRoutes } from './routes/prompt-simulator.js';
 import { redundancyRoutes } from './routes/redundancy.js';
@@ -100,6 +101,7 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(cardRoutes, apiPrefix);
   await fastify.register(tokenizeRoutes, apiPrefix);
   await fastify.register(importExportRoutes, apiPrefix);
+  await fastify.register(unifiedImportRoutes, apiPrefix); // NEW: Unified import service
   await fastify.register(assetRoutes, apiPrefix);
   await fastify.register(llmRoutes, apiPrefix);
   await fastify.register(ragRoutes, apiPrefix);

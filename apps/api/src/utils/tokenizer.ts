@@ -2,7 +2,7 @@
  * Tokenizer utility for token counting
  */
 
-import { registry, type TokenizerAdapter } from '@character-foundry/tokenizers';
+import { registry, type TokenizerAdapter } from '@character-foundry/character-foundry/tokenizers';
 
 /**
  * Get tokenizer (defaults to GPT-4)

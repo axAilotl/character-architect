@@ -59,17 +59,21 @@ export function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
   }
 
   // Fix wrapped v2 cards with non-standard spec values
-  if (spec === 'v2' && 'spec' in obj && obj.spec !== 'chara_card_v2') {
-    obj.spec = 'chara_card_v2';
-    if (!obj.spec_version) {
+  if (spec === 'v2' && 'spec' in obj) {
+    if (obj.spec !== 'chara_card_v2') {
+      obj.spec = 'chara_card_v2';
+    }
+    if (!obj.spec_version || typeof obj.spec_version !== 'string' || !obj.spec_version.startsWith('2')) {
       obj.spec_version = '2.0';
     }
   }
 
   // Fix wrapped v3 cards with non-standard spec values
-  if (spec === 'v3' && 'spec' in obj && obj.spec !== 'chara_card_v3') {
-    obj.spec = 'chara_card_v3';
-    if (!obj.spec_version || !String(obj.spec_version).startsWith('3')) {
+  if (spec === 'v3' && 'spec' in obj) {
+    if (obj.spec !== 'chara_card_v3') {
+      obj.spec = 'chara_card_v3';
+    }
+    if (!obj.spec_version || typeof obj.spec_version !== 'string' || !obj.spec_version.startsWith('3')) {
       obj.spec_version = '3.0';
     }
   }
@@ -85,17 +89,45 @@ export function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
 
     // Add missing required V3 fields with defaults
     if (spec === 'v3') {
-      if (!('group_only_greetings' in dataObj)) {
+      const nullableOptionalFields = [
+        'assets',
+        'creator_notes_multilingual',
+        'source',
+        'creation_date',
+        'modification_date',
+      ];
+
+      for (const field of nullableOptionalFields) {
+        if (dataObj[field] === null) {
+          delete dataObj[field];
+        }
+      }
+
+      const requiredStrings = [
+        'name',
+        'description',
+        'personality',
+        'scenario',
+        'first_mes',
+        'mes_example',
+        'creator',
+        'character_version',
+      ];
+
+      for (const field of requiredStrings) {
+        if (!(field in dataObj) || dataObj[field] === null || dataObj[field] === undefined) {
+          dataObj[field] = '';
+        }
+      }
+
+      if (!Array.isArray(dataObj.tags)) {
+        dataObj.tags = [];
+      }
+      if (!Array.isArray(dataObj.group_only_greetings)) {
         dataObj.group_only_greetings = [];
       }
-      if (!('creator' in dataObj) || !dataObj.creator) {
-        dataObj.creator = '';
-      }
-      if (!('character_version' in dataObj) || !dataObj.character_version) {
-        dataObj.character_version = '1.0';
-      }
-      if (!('tags' in dataObj) || !Array.isArray(dataObj.tags)) {
-        dataObj.tags = [];
+      if (!('alternate_greetings' in dataObj) || !Array.isArray(dataObj.alternate_greetings)) {
+        dataObj.alternate_greetings = [];
       }
 
       // Fix CharacterTavern timestamp format (milliseconds -> seconds)
@@ -118,6 +150,24 @@ export function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
     delete obj.character_book;
   } else if ('character_book' in obj) {
     normalizeLorebookEntries(obj);
+  }
+
+  // Add missing required V2 fields (both wrapped/unwrapped) with defaults
+  if (spec === 'v2') {
+    const target = ('data' in obj && obj.data && typeof obj.data === 'object')
+      ? (obj.data as Record<string, unknown>)
+      : obj;
+
+    const requiredStrings = ['name', 'description', 'personality', 'scenario', 'first_mes', 'mes_example'];
+    for (const field of requiredStrings) {
+      if (!(field in target) || target[field] === null || target[field] === undefined) {
+        target[field] = '';
+      }
+    }
+
+    if ('alternate_greetings' in target && target.alternate_greetings !== undefined && !Array.isArray(target.alternate_greetings)) {
+      target.alternate_greetings = [];
+    }
   }
 }
 

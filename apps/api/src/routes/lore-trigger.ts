@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { LoreTriggerTester } from '../services/lore-trigger-tester.js';
-import { registry } from '@character-foundry/tokenizers';
-import type { CCv2Data, CCv3Data, CharacterBook } from '@character-foundry/schemas';
+import { registry } from '@character-foundry/character-foundry/tokenizers';
+import type { CCv2Data, CCv3Data, CharacterBook } from '@character-foundry/character-foundry/schemas';
 
 /**
  * Lore Trigger Testing Routes
@@ -33,9 +33,9 @@ export async function loreTriggerRoutes(fastify: FastifyInstance) {
     let characterBook: CharacterBook | undefined;
 
     if ('character_book' in card) {
-      characterBook = card.character_book;
+      characterBook = card.character_book ?? undefined;
     } else if ('data' in card && card.data && 'character_book' in card.data) {
-      characterBook = (card.data as any).character_book;
+      characterBook = (card.data as any).character_book ?? undefined;
     }
 
     // Create tester
@@ -78,9 +78,9 @@ export async function loreTriggerRoutes(fastify: FastifyInstance) {
     let characterBook: CharacterBook | undefined;
 
     if ('character_book' in card) {
-      characterBook = card.character_book;
+      characterBook = card.character_book ?? undefined;
     } else if ('data' in card && card.data && 'character_book' in card.data) {
-      characterBook = (card.data as any).character_book;
+      characterBook = (card.data as any).character_book ?? undefined;
     }
 
     // Create tester

@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository, CardAssetRepository } from '../db/repository.js';
 import { CardService } from '../services/card.service.js';
-import { validateBody } from '../middleware/validate.js';
+import { validateBody, validateQuery } from '../middleware/validate.js';
 import {
   createCardSchema,
   updateCardSchema,
   createVersionSchema,
+  listCardsQuerySchema,
 } from '../schemas/index.js';
 
 export async function cardRoutes(fastify: FastifyInstance) {
@@ -13,14 +14,13 @@ export async function cardRoutes(fastify: FastifyInstance) {
   const cardAssetRepo = new CardAssetRepository(fastify.db);
   const cardService = new CardService(cardRepo, cardAssetRepo);
 
-  // List cards
-  fastify.get('/cards', async (request) => {
-    const { query, page, limit } = request.query as { query?: string; page?: string; limit?: string };
-    const result = cardService.list(
-      query,
-      page ? parseInt(page, 10) : undefined,
-      limit ? parseInt(limit, 10) : undefined
-    );
+  // List cards with validated query params
+  fastify.get('/cards', async (request, reply) => {
+    const validation = validateQuery(listCardsQuerySchema, request.query, reply);
+    if (!validation.success) return;
+
+    const { query, page, limit } = validation.data;
+    const result = cardService.list(query, page, limit);
     return result;
   });
 

@@ -1,4 +1,4 @@
-import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 
 /**
  * Redundancy detection result

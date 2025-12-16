@@ -24,7 +24,7 @@ import {
   convertCardMacros,
   voxtaToStandard,
 } from '../utils/file-handlers.js';
-import type { CCv2Data, CCv3Data } from '@character-foundry/schemas';
+import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 import { validateV2, validateV3 } from '../utils/validation.js';
 import { restoreOriginalUrls } from '../routes/image-archival.js';
 import { normalizeCardData } from './utils/normalization.js';
