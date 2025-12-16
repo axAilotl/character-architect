@@ -6,8 +6,7 @@ import { localDB } from '../lib/db';
 import { extractCardData } from '../lib/card-utils';
 import { useTokenStore } from './token-store';
 import { getDeploymentConfig } from '../config/deployment';
-import { UnifiedImportService } from '@card-architect/import-core';
-import { ClientStorageAdapter } from '../adapters/client-storage.adapter';
+import { importCardClientSide, importVoxtaPackageClientSide, importCardFromURLClientSide } from '../lib/client-import';
 import { exportCard as exportCardClientSide } from '../lib/client-export';
 import { isV3Card, isV2Card, isWrappedV2, getInnerData, type CardFields } from '../lib/card-type-guards';
 import type { CardExtensions } from '../lib/extension-types';
@@ -33,6 +32,7 @@ interface CardStore {
   createNewLorebook: () => Promise<void>;
   importCard: (file: File) => Promise<string | null>;
   importVoxtaPackage: (file: File) => Promise<string | null>;
+  importCardFromURL: (url: string) => Promise<string | null>;
   exportCard: (format: 'json' | 'png' | 'charx' | 'voxta') => Promise<void>;
 
   // Data mutations
@@ -376,32 +376,53 @@ export const useCardStore = create<CardStore>((set, get) => ({
     // Use client-side import for light/static modes
     if (config.mode === 'light' || config.mode === 'static') {
       try {
-        console.log('[importCard] Using unified import service');
+        console.log('[importCard] Using client-side import');
+        const result = await importCardClientSide(file);
+        const card = result.card;
+        console.log('[importCard] Parsed card:', card.meta.name);
 
-        // Create storage adapter and service
-        const storageAdapter = new ClientStorageAdapter(localDB);
-        const importService = new UnifiedImportService(storageAdapter);
+        // Save to IndexedDB for persistence
+        await localDB.saveCard(card);
 
-        // Convert File to Buffer
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = new Uint8Array(arrayBuffer);
-
-        // Import via unified service
-        const cardIds = await importService.importFile(buffer, file.name);
-
-        if (cardIds.length === 0) {
-          throw new Error('No cards imported');
+        // Save full image for export (icon) and thumbnail for display
+        if (result.fullImageDataUrl) {
+          await localDB.saveImage(card.meta.id, 'icon', result.fullImageDataUrl);
+          console.log('[importCard] Saved full image (icon), size:', result.fullImageDataUrl.length);
+        }
+        if (result.thumbnailDataUrl) {
+          await localDB.saveImage(card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+          console.log('[importCard] Saved thumbnail, size:', result.thumbnailDataUrl.length);
         }
 
-        // Load the imported card
-        const cardId = cardIds[0];
-        const card = await localDB.getCard(cardId);
+        // Save extracted assets (from CHARX/Voxta) to IndexedDB
+        if (result.assets && result.assets.length > 0) {
+          console.log(`[importCard] Saving ${result.assets.length} extracted assets`);
+          for (const asset of result.assets) {
+            const assetId = crypto.randomUUID();
+            // Map string type to valid StoredAsset type
+            const validTypes = ['icon', 'background', 'emotion', 'sound', 'workflow', 'lorebook', 'custom'] as const;
+            const assetType = validTypes.includes(asset.type as any) ? asset.type as typeof validTypes[number] : 'custom';
 
-        if (!card) {
-          throw new Error('Failed to retrieve imported card');
+            await localDB.saveAsset({
+              id: assetId,
+              cardId: card.meta.id,
+              name: asset.name,
+              type: assetType,
+              ext: asset.ext,
+              mimetype: asset.mimetype,
+              data: asset.data,
+              size: asset.size,
+              width: asset.width,
+              height: asset.height,
+              isMain: asset.isMain ?? false,
+              actorIndex: asset.actorIndex,
+              tags: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          console.log('[importCard] All assets saved to IndexedDB');
         }
-
-        console.log('[importCard] Imported card:', card.meta.name);
 
         set({ currentCard: card, isDirty: false });
         useTokenStore.getState().updateTokenCounts(card);
@@ -430,36 +451,63 @@ export const useCardStore = create<CardStore>((set, get) => ({
   importVoxtaPackage: async (file) => {
     const config = getDeploymentConfig();
 
-    // Client-side mode: use unified import service
+    // Client-side mode: use browser-based Voxta parsing
     if (config.mode === 'light' || config.mode === 'static') {
       try {
-        const storageAdapter = new ClientStorageAdapter(localDB);
-        const importService = new UnifiedImportService(storageAdapter);
+        const buffer = await file.arrayBuffer();
+        const results = await importVoxtaPackageClientSide(new Uint8Array(buffer));
 
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = new Uint8Array(arrayBuffer);
-
-        const cardIds = await importService.importFile(buffer, file.name);
-
-        if (cardIds.length === 0) {
+        if (results.length === 0) {
           alert('Voxta package contains no characters.');
           return null;
         }
 
-        // Load the first character (or collection card)
-        const firstCard = await localDB.getCard(cardIds[0]);
-        if (!firstCard) {
-          throw new Error('Failed to retrieve imported card');
+        // Save all characters to IndexedDB
+        for (const result of results) {
+          await localDB.saveCard(result.card);
+          if (result.fullImageDataUrl) {
+            await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+          }
+          if (result.thumbnailDataUrl) {
+            await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+          }
+          // Save extracted assets
+          if (result.assets && result.assets.length > 0) {
+            console.log(`[importVoxtaPackage] Saving ${result.assets.length} assets for ${result.card.meta.name}`);
+            for (const asset of result.assets) {
+              const assetId = crypto.randomUUID();
+              const validTypes = ['icon', 'background', 'emotion', 'sound', 'workflow', 'lorebook', 'custom'] as const;
+              const assetType = validTypes.includes(asset.type as any) ? asset.type as typeof validTypes[number] : 'custom';
+              await localDB.saveAsset({
+                id: assetId,
+                cardId: result.card.meta.id,
+                name: asset.name,
+                type: assetType,
+                ext: asset.ext,
+                mimetype: asset.mimetype,
+                data: asset.data,
+                size: asset.size,
+                width: asset.width,
+                height: asset.height,
+                isMain: asset.isMain ?? false,
+                actorIndex: asset.actorIndex,
+                tags: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          }
         }
 
         // Set the first card as active
-        set({ currentCard: firstCard, isDirty: false });
-        useTokenStore.getState().updateTokenCounts(firstCard);
+        const firstResult = results[0];
+        set({ currentCard: firstResult.card, isDirty: false });
+        useTokenStore.getState().updateTokenCounts(firstResult.card);
 
-        if (cardIds.length > 1) {
-          alert(`Imported ${cardIds.length} characters from Voxta package. "${firstCard.meta.name}" is now active.`);
+        if (results.length > 1) {
+          alert(`Imported ${results.length} characters from Voxta package. "${firstResult.card.meta.name}" is now active.`);
         }
-        return firstCard.meta.id;
+        return firstResult.card.meta.id;
       } catch (err) {
         alert(`Failed to import Voxta package: ${err instanceof Error ? err.message : String(err)}`);
         return null;
@@ -486,6 +534,70 @@ export const useCardStore = create<CardStore>((set, get) => ({
       return firstCard.meta.id;
     } else {
       alert('Voxta package imported but no characters were found.');
+      return null;
+    }
+  },
+
+  importCardFromURL: async (url) => {
+    const config = getDeploymentConfig();
+
+    try {
+      if (config.mode === 'light' || config.mode === 'static') {
+        // Client-side URL import
+        const result = await importCardFromURLClientSide(url);
+        await localDB.saveCard(result.card);
+        if (result.fullImageDataUrl) {
+          await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+        }
+        if (result.thumbnailDataUrl) {
+          await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+        }
+        // Save extracted assets
+        if (result.assets && result.assets.length > 0) {
+          console.log(`[importCardFromURL] Saving ${result.assets.length} assets`);
+          for (const asset of result.assets) {
+            const assetId = crypto.randomUUID();
+            const validTypes = ['icon', 'background', 'emotion', 'sound', 'workflow', 'lorebook', 'custom'] as const;
+            const assetType = validTypes.includes(asset.type as any) ? asset.type as typeof validTypes[number] : 'custom';
+            await localDB.saveAsset({
+              id: assetId,
+              cardId: result.card.meta.id,
+              name: asset.name,
+              type: assetType,
+              ext: asset.ext,
+              mimetype: asset.mimetype,
+              data: asset.data,
+              size: asset.size,
+              width: asset.width,
+              height: asset.height,
+              isMain: asset.isMain ?? false,
+              actorIndex: asset.actorIndex,
+              tags: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+        set({ currentCard: result.card, isDirty: false });
+        useTokenStore.getState().updateTokenCounts(result.card);
+        return result.card.meta.id;
+      }
+
+      // Server mode
+      const { data, error } = await api.importCardFromURL(url);
+      if (error) {
+        alert(`Failed to import card: ${error}`);
+        return null;
+      }
+
+      if (data && data.card) {
+        set({ currentCard: data.card, isDirty: false });
+        useTokenStore.getState().updateTokenCounts(data.card);
+        return data.card.meta.id;
+      }
+      return null;
+    } catch (err) {
+      alert(`Failed to import card: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   },
