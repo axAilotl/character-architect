@@ -199,18 +199,15 @@ function createCard(
   const now = new Date().toISOString();
 
   // Extract name from data
+  // Note: loader may normalize V2→V3 internally, so try V3 structure first
   let name = 'Unknown Character';
-  if (spec === 'v3') {
-    const v3Data = data as CCv3Data;
-    name = v3Data.data?.name || 'Unknown Character';
-  } else {
-    const v2Data = data as CCv2Data;
-    // V2 can be wrapped or unwrapped
-    if ('data' in v2Data && v2Data.data) {
-      name = (v2Data.data as any).name || 'Unknown Character';
-    } else {
-      name = (v2Data as any).name || 'Unknown Character';
-    }
+  const anyData = data as any;
+  if (anyData?.data?.name) {
+    // V3 wrapped structure (or loader-normalized V2)
+    name = anyData.data.name;
+  } else if (anyData?.name) {
+    // Legacy unwrapped V2
+    name = anyData.name;
   }
 
   return {
@@ -730,10 +727,9 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
         assetCount: result.assets?.length,
       });
 
-      // Determine actual spec from card data structure (loader may normalize V2→V3)
-      // Check the actual card.spec field, not result.spec (which indicates source format)
-      const actualSpec = (result.card as any).spec;
-      const spec = actualSpec === 'chara_card_v3' ? 'v3' : 'v2';
+      // Preserve source format (result.spec) - don't use normalized card.spec
+      // The loader may normalize V2→V3 internally, but we want to preserve original format
+      const spec = result.spec === 'v3' ? 'v3' : 'v2';
       const card = createCard(result.card, spec);
       console.log(`[client-import] Created card: ${card.meta.name}, meta.spec: ${card.meta.spec}, source: ${result.sourceFormat}`);
 
