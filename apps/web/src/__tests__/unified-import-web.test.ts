@@ -15,11 +15,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UnifiedImportService } from '@card-architect/import-core';
 import { ClientStorageAdapter } from '../adapters/client-storage.adapter';
 import type { LocalDB } from '../lib/db';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
-// Get fixtures path from environment
-const FIXTURES_DIR = process.env.CF_FIXTURES_DIR || '/home/vega/ai/character-foundry/fixtures';
+// Get fixtures path from environment - skip tests if not available
+const FIXTURES_DIR = process.env.CF_FIXTURES_DIR || null;
+const fixturesAvailable = FIXTURES_DIR && existsSync(FIXTURES_DIR);
+const describeWithFixtures = fixturesAvailable ? describe : describe.skip;
 
 // ============================================================================
 // MOCK SETUP
@@ -71,7 +73,7 @@ function createMockLocalDB() {
 // TESTS
 // ============================================================================
 
-describe('UnifiedImportService + ClientStorageAdapter', () => {
+describeWithFixtures('UnifiedImportService + ClientStorageAdapter', () => {
   let service: UnifiedImportService;
   let adapter: ClientStorageAdapter;
   let mockDB: LocalDB;

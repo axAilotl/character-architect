@@ -11,18 +11,23 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { parseVoxta } from '../parsers/voxta.parser.js';
 
-// Fixture paths
-const FIXTURES_DIR = '/home/vega/ai/character-foundry/fixtures/extended/voxta';
+// Fixture paths - use env var or skip tests
+const FIXTURES_DIR = process.env.CF_FIXTURES_DIR
+  ? `${process.env.CF_FIXTURES_DIR}/extended/voxta`
+  : null;
+
+// Skip all tests if fixtures not available
+const describeWithFixtures = FIXTURES_DIR && existsSync(FIXTURES_DIR) ? describe : describe.skip;
 const MINIMAL_CHAR = `${FIXTURES_DIR}/minimal_character.voxpkg`;
 const CHAR_WITH_AVATARS = `${FIXTURES_DIR}/character_with_avatars.voxpkg`;
 const MULTI_CHAR_PACKAGE = `${FIXTURES_DIR}/multi_char_package.voxpkg`;
 const MULTI_CHAR_SCENARIO = `${FIXTURES_DIR}/multi_char_scenario.voxpkg`;
 const SCENARIO_WITH_CHAR = `${FIXTURES_DIR}/scenario_with_char.voxpkg`;
 
-describe('Voxta Parser - Single Character', () => {
+describeWithFixtures('Voxta Parser - Single Character', () => {
   it('parses minimal single character package', () => {
     const buffer = readFileSync(MINIMAL_CHAR);
     const result = parseVoxta(buffer);
@@ -119,7 +124,7 @@ describe('Voxta Parser - Single Character', () => {
   });
 });
 
-describe('Voxta Parser - Multi-Character Collections', () => {
+describeWithFixtures('Voxta Parser - Multi-Character Collections', () => {
   it('detects multi-character package as collection', () => {
     const buffer = readFileSync(MULTI_CHAR_PACKAGE);
     const result = parseVoxta(buffer);
@@ -195,7 +200,7 @@ describe('Voxta Parser - Multi-Character Collections', () => {
   });
 });
 
-describe('Voxta Parser - Scenarios', () => {
+describeWithFixtures('Voxta Parser - Scenarios', () => {
   it('parses package with scenarios', () => {
     const buffer = readFileSync(MULTI_CHAR_SCENARIO);
     const result = parseVoxta(buffer);
@@ -291,7 +296,7 @@ describe('Voxta Parser - Scenarios', () => {
   });
 });
 
-describe('Voxta Parser - Asset Handling', () => {
+describeWithFixtures('Voxta Parser - Asset Handling', () => {
   it('assigns correct MIME types to assets', () => {
     const buffer = readFileSync(CHAR_WITH_AVATARS);
     const result = parseVoxta(buffer);
@@ -358,7 +363,7 @@ describe('Voxta Parser - Asset Handling', () => {
   });
 });
 
-describe('Voxta Parser - Edge Cases', () => {
+describeWithFixtures('Voxta Parser - Edge Cases', () => {
   it('handles empty or minimal assets gracefully', () => {
     const buffer = readFileSync(MINIMAL_CHAR);
     const result = parseVoxta(buffer);
@@ -416,7 +421,7 @@ describe('Voxta Parser - Edge Cases', () => {
   });
 });
 
-describe('Voxta Parser - voxtaToCCv3 Conversion', () => {
+describeWithFixtures('Voxta Parser - voxtaToCCv3 Conversion', () => {
   it('converts Voxta character to valid CCv3 structure', () => {
     const buffer = readFileSync(MINIMAL_CHAR);
     const result = parseVoxta(buffer);

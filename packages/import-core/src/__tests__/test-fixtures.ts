@@ -4,28 +4,89 @@
  * Helper functions to create test data for different formats
  */
 
-import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 import { embedIntoPNG } from '@character-foundry/character-foundry/png';
 
 /**
- * Create a minimal V2 card
+ * Wrapped V2 card format (spec at top level)
  */
-export function createV2Card(name: string = 'Test Character'): CCv2Data {
+export interface WrappedV2Card {
+  spec: 'chara_card_v2';
+  spec_version: string;
+  data: {
+    name: string;
+    description: string;
+    personality: string;
+    scenario: string;
+    first_mes: string;
+    mes_example: string;
+    creator: string;
+    character_version: string;
+    tags: string[];
+    creator_notes: string;
+    system_prompt: string;
+    post_history_instructions: string;
+    alternate_greetings: string[];
+    group_only_greetings: string[];
+    extensions: Record<string, unknown>;
+  };
+}
+
+/**
+ * Wrapped V3 card format
+ */
+export interface WrappedV3Card {
+  spec: 'chara_card_v3';
+  spec_version: string;
+  data: {
+    name: string;
+    description: string;
+    personality: string;
+    scenario: string;
+    first_mes: string;
+    mes_example: string;
+    creator: string;
+    character_version: string;
+    tags: string[];
+    creator_notes: string;
+    system_prompt: string;
+    post_history_instructions: string;
+    alternate_greetings: string[];
+    group_only_greetings: string[];
+    extensions: Record<string, unknown>;
+  };
+}
+
+/**
+ * Create a minimal V2 card (wrapped format)
+ */
+export function createV2Card(name: string = 'Test Character'): WrappedV2Card {
   return {
     spec: 'chara_card_v2',
-    name,
-    description: 'A test character',
-    personality: 'Friendly and helpful',
-    scenario: 'Testing scenario',
-    first_mes: 'Hello! I am a test character.',
-    mes_example: '<START>\n{{user}}: Hi\n{{char}}: Hello!',
+    spec_version: '2.0',
+    data: {
+      name,
+      description: 'A test character',
+      personality: 'Friendly and helpful',
+      scenario: 'Testing scenario',
+      first_mes: 'Hello! I am a test character.',
+      mes_example: '<START>\n{{user}}: Hi\n{{char}}: Hello!',
+      creator: '',
+      character_version: '1.0',
+      tags: [],
+      creator_notes: '',
+      system_prompt: '',
+      post_history_instructions: '',
+      alternate_greetings: [],
+      group_only_greetings: [],
+      extensions: {},
+    },
   };
 }
 
 /**
  * Create a minimal V3 card
  */
-export function createV3Card(name: string = 'Test Character V3'): CCv3Data {
+export function createV3Card(name: string = 'Test Character V3'): WrappedV3Card {
   return {
     spec: 'chara_card_v3',
     spec_version: '3.0',
@@ -39,6 +100,11 @@ export function createV3Card(name: string = 'Test Character V3'): CCv3Data {
       creator: 'Test Creator',
       character_version: '1.0.0',
       tags: ['test'],
+      creator_notes: '',
+      system_prompt: '',
+      post_history_instructions: '',
+      alternate_greetings: [],
+      group_only_greetings: [],
       extensions: {},
     },
   };
@@ -66,9 +132,9 @@ export function createLorebook(name: string = 'Test Lorebook'): any {
 /**
  * Create a minimal PNG file with embedded card data
  */
-export async function createPNGWithCard(card: CCv2Data | CCv3Data): Promise<Buffer> {
+export async function createPNGWithCard(card: WrappedV2Card | WrappedV3Card): Promise<Uint8Array> {
   // Create a minimal 1x1 PNG
-  const minimalPNG = Buffer.from([
+  const minimalPNG = new Uint8Array([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
     0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
     0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1 dimensions
@@ -81,7 +147,8 @@ export async function createPNGWithCard(card: CCv2Data | CCv3Data): Promise<Buff
   ]);
 
   // Add character card data using embedIntoPNG
-  return embedIntoPNG(minimalPNG, card);
+  // Cast to any since embedIntoPNG expects the schema types
+  return embedIntoPNG(minimalPNG, card as any);
 }
 
 /**
