@@ -73,8 +73,9 @@ export class VoxtaImportService {
     const data = await extractVoxtaPackage(filePath);
     const createdCardIds: string[] = [];
 
-    // Determine if this should be a collection (multi-character, has package metadata, or has scenarios)
-    const isCollection = data.characters.length > 1 || data.package !== undefined || data.scenarios.length > 0;
+    // Determine if this should be a collection (multi-character or has package metadata)
+    // Match client-side logic exactly
+    const isCollection = data.characters.length > 1 || data.package !== undefined;
 
     const now = new Date().toISOString();
     const members: CollectionMember[] = [];
