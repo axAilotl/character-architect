@@ -123,7 +123,7 @@ export interface ParsedAsset {
 export interface ParsedCollection {
   card: CardData;
   thumbnail?: Buffer | Uint8Array;
-  members: ParsedCollectionMember[];
+  members: ParsedCollectionMember[]; // Fixed from memberRefs
   scenarios?: ParsedScenario[];
   originalPackage?: Buffer | Uint8Array;
 }
@@ -181,7 +181,7 @@ export interface ProcessedCharacter {
 export interface ProcessedCollection {
   card: CardData;
   thumbnail?: Buffer | Uint8Array;
-  memberRefs: ParsedCollectionMember[];
+  members: ParsedCollectionMember[]; // Aligned with ParsedCollection
   scenarios?: ParsedScenario[];
   originalPackage?: Buffer | Uint8Array;
 }
