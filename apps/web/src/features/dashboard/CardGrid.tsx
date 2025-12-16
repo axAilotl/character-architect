@@ -833,7 +833,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             </button>
             <label
               htmlFor="import-card-file"
-              className="btn-secondary cursor-pointer"
+              className="btn-secondary inline-flex items-center cursor-pointer"
               title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
             >
               Import
