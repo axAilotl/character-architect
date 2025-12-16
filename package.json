@@ -14,7 +14,7 @@
     "dev:api": "npm run dev --workspace=@card-architect/api",
     "dev:web": "npm run dev --workspace=@card-architect/web",
     "build": "npm run build:packages && npm run build:apps",
-    "build:packages": "npm run build --workspace=@card-architect/defaults && npm run build --workspace=@card-architect/plugins --if-present",
+    "build:packages": "npm run build --workspace=@card-architect/defaults && npm run build --workspace=@card-architect/import-core && npm run build --workspace=@card-architect/plugins --if-present",
     "build:apps": "npm run build --workspace=@card-architect/api && npm run build --workspace=@card-architect/web",
     "build:api": "npm run build --workspace=@card-architect/api",
     "build:web": "npm run build --workspace=@card-architect/web",

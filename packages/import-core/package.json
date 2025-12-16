@@ -1,0 +1,26 @@
+{
+  "name": "@card-architect/import-core",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@character-foundry/character-foundry": "^0.1.7",
+    "nanoid": "^5.0.4",
+    "sharp": "^0.33.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.6"
+  }
+}
