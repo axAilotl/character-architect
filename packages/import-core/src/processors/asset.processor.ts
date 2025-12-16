@@ -24,9 +24,9 @@ async function getSharp() {
  * Get image dimensions (browser-safe)
  */
 async function getImageDimensions(buffer: Buffer | Uint8Array, mimetype: string): Promise<{ width?: number; height?: number }> {
-  // Try sharp first (Node.js)
+  // Try sharp first (Node.js only)
   const sharp = await getSharp();
-  if (sharp) {
+  if (sharp && typeof Buffer !== 'undefined') {
     try {
       const buf = buffer instanceof Buffer ? buffer : Buffer.from(buffer);
       const metadata = await sharp(buf).metadata();
