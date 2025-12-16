@@ -1,12 +1,11 @@
-name: Deploy to Cloudflare Pages
+name: Deploy to Dev
 
 on:
   push:
-    branches: [main, dev]
+    branches: [dev]
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.github/*.md'
   workflow_dispatch:
 
 jobs:
@@ -41,21 +40,11 @@ jobs:
         env:
           VITE_DEPLOYMENT_MODE: static
 
-      - name: Determine project name
-        id: project
-        run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "name=character-architect" >> $GITHUB_OUTPUT
-          else
-            echo "name=character-architect-dev" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publish to Cloudflare Pages
+      - name: Deploy to Cloudflare Pages (Dev)
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: ${{ steps.project.outputs.name }}
+          projectName: character-architect-dev
           directory: apps/web/dist
-          gitBranch: ${{ github.ref_name }}
           wranglerVersion: '3'
