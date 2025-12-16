@@ -184,7 +184,7 @@ export function PreviewPanel() {
                 <h2 className="text-xl font-semibold mb-2">Description</h2>
                 <div
                   className="prose prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(cardData.description) }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(cardData.description || '') }}
                 />
               </section>
 
@@ -200,7 +200,7 @@ export function PreviewPanel() {
                 <h2 className="text-xl font-semibold mb-2">Scenario</h2>
                 <div
                   className="prose prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(cardData.scenario) }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(cardData.scenario || '') }}
                 />
               </section>
 
@@ -208,7 +208,7 @@ export function PreviewPanel() {
                 <h2 className="text-xl font-semibold mb-2">First Message</h2>
                 <div
                   className="prose prose-invert max-w-none bg-dark-surface p-4 rounded"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(cardData.first_mes) }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(cardData.first_mes || '') }}
                 />
               </section>
 
