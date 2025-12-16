@@ -11,16 +11,27 @@ import { isV3Card as isV3CardData, isWrappedV2 as isWrappedV2Data } from '@chara
 export function extractCardData(card: Card): CCv2Data | CCv3DataInner {
   const data = card.data;
 
+  console.log('[extractCardData] Input card:', {
+    metaName: card.meta?.name,
+    metaSpec: card.meta?.spec,
+    dataSpec: (data as any)?.spec,
+    hasDataData: !!(data as any)?.data,
+    dataDataName: (data as any)?.data?.name,
+  });
+
   // Check if data has V3 wrapper structure (spec: 'chara_card_v3' with nested data)
   if (isV3CardData(data)) {
+    console.log('[extractCardData] Detected V3, returning data.data');
     return data.data;
   }
 
   // Check if data has V2 wrapper structure
   if (isWrappedV2Data(data)) {
+    console.log('[extractCardData] Detected wrapped V2, returning data.data');
     return (data as CCv2Wrapped).data;
   }
 
   // Unwrapped/legacy format - return as-is with fallback
+  console.log('[extractCardData] Returning raw/legacy data');
   return (data as CCv2Data) || ({ name: 'Unknown' } as CCv2Data);
 }
