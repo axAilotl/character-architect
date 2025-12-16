@@ -21,14 +21,11 @@
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:export": "playwright test card-export.spec.ts",
+    "test:e2e:fixtures": "playwright test golden-fixtures.spec.ts",
+    "test:e2e:export": "playwright test golden-fixtures.spec.ts",
     "test:e2e:ui-elements": "playwright test ui-elements.spec.ts",
     "test:e2e:parity": "playwright test parity.spec.ts",
-    "test:e2e:import": "playwright test real-cards-import.spec.ts",
-    "test:e2e:export-real": "playwright test real-cards-export.spec.ts",
-    "test:e2e:roundtrip": "playwright test real-cards-roundtrip.spec.ts",
     "test:e2e:cross-platform": "playwright test cross-platform.spec.ts",
-    "test:e2e:real-cards": "playwright test real-cards-*.spec.ts",
     "test:e2e:report": "playwright show-report",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
@@ -49,22 +46,8 @@
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
   },
-  "pnpm": {
-    "overrides": {
-      "@character-foundry/core": "0.1.2",
-      "@character-foundry/loader": "0.1.9",
-      "@character-foundry/voxta": "0.1.11"
-    }
-  },
   "dependencies": {
-    "@character-foundry/character-foundry": "^0.1.3",
-    "@character-foundry/charx": "^0.0.6",
-    "@character-foundry/core": "^0.1.2",
-    "@character-foundry/federation": "^0.2.0",
-    "@character-foundry/loader": "^0.1.9",
-    "@character-foundry/png": "^0.0.5",
-    "@character-foundry/schemas": "^0.2.0",
-    "@character-foundry/voxta": "^0.1.11",
+    "@character-foundry/character-foundry": "^0.1.7",
     "@codemirror/commands": "^6.10.0",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.11.3",
@@ -73,6 +56,9 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.39.2",
     "@types/uuid": "^10.0.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "fflate": "^0.8.0",
+    "zod": "^3.24.1",
+    "gpt-tokenizer": "^2.6.1"
   }
 }

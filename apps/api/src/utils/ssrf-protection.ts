@@ -2,36 +2,41 @@
  * SSRF Protection Utility
  *
  * Validates URLs to prevent Server-Side Request Forgery attacks.
- * Used to validate LLM provider base URLs before making external requests.
+ * Uses canonical @character-foundry/image-utils implementation.
  */
 
+import { isURLSafe, type SSRFPolicy } from '@character-foundry/character-foundry/image-utils';
 import { config } from '../config.js';
-
-// Private IP ranges that should be blocked
-const PRIVATE_IP_PATTERNS = [
-  /^127\./,                        // Loopback
-  /^10\./,                         // Class A private
-  /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // Class B private
-  /^192\.168\./,                   // Class C private
-  /^169\.254\./,                   // Link-local
-  /^0\./,                          // "This" network
-  /^::1$/,                         // IPv6 loopback
-  /^fc00:/i,                       // IPv6 unique local
-  /^fe80:/i,                       // IPv6 link-local
-];
-
-// Dangerous hostnames
-const BLOCKED_HOSTNAMES = [
-  'localhost',
-  'metadata.google.internal',
-  'metadata.aws.internal',
-  '169.254.169.254', // AWS/GCP metadata
-];
 
 export interface SSRFValidationResult {
   valid: boolean;
   error?: string;
   url?: URL;
+}
+
+/**
+ * Convert Architect config to canonical SSRFPolicy
+ */
+function getSSRFPolicy(allowedDomainsOverride?: string[]): SSRFPolicy {
+  const allowedHosts = config.security.allowedLLMHosts
+    .split(',')
+    .map(h => h.trim().toLowerCase())
+    .filter(h => h.length > 0);
+
+  // Check if localhost is explicitly allowed in config
+  const localhostAllowed = allowedHosts.includes('localhost') ||
+                          allowedHosts.includes('127.0.0.1');
+
+  return {
+    allowPrivateIPs: !config.security.ssrfProtectionEnabled,
+    allowLocalhost: localhostAllowed,
+    allowedDomains: allowedDomainsOverride || allowedHosts,
+    blockedDomains: [
+      'metadata.google.internal',
+      'metadata.aws.internal',
+      '*.metadata.*',
+    ],
+  };
 }
 
 /**
@@ -47,69 +52,18 @@ export function validateURL(urlString: string): SSRFValidationResult {
     }
   }
 
-  // Parse URL
-  let url: URL;
+  const policy = getSSRFPolicy();
+  const check = isURLSafe(urlString, policy);
+
+  if (!check.safe) {
+    return { valid: false, error: check.reason };
+  }
+
   try {
-    url = new URL(urlString);
+    return { valid: true, url: new URL(urlString) };
   } catch {
     return { valid: false, error: 'Invalid URL format' };
   }
-
-  // Only allow http/https
-  if (!['http:', 'https:'].includes(url.protocol)) {
-    return { valid: false, error: `Blocked protocol: ${url.protocol}` };
-  }
-
-  const hostname = url.hostname.toLowerCase();
-
-  // Check against allowed LLM hosts
-  const allowedHosts = config.security.allowedLLMHosts.split(',').map(h => h.trim().toLowerCase());
-
-  // If localhost is in allowed hosts, allow it
-  const localhostAllowed = allowedHosts.includes('localhost') || allowedHosts.includes('127.0.0.1');
-
-  // Check if hostname is explicitly allowed
-  const isExplicitlyAllowed = allowedHosts.some(allowed => {
-    // Exact match
-    if (hostname === allowed) return true;
-    // Subdomain match (e.g., 'api.openai.com' matches 'openai.com')
-    if (hostname.endsWith('.' + allowed)) return true;
-    return false;
-  });
-
-  if (isExplicitlyAllowed) {
-    // Even if allowed, block metadata endpoints
-    if (BLOCKED_HOSTNAMES.some(blocked =>
-      hostname === blocked.toLowerCase() || hostname.includes('metadata')
-    )) {
-      return { valid: false, error: 'Blocked hostname (metadata endpoint)' };
-    }
-    return { valid: true, url };
-  }
-
-  // Block localhost if not explicitly allowed
-  if (!localhostAllowed) {
-    if (hostname === 'localhost' || hostname.startsWith('127.') || hostname === '::1') {
-      return { valid: false, error: 'Localhost not allowed' };
-    }
-  }
-
-  // Block private IPs
-  for (const pattern of PRIVATE_IP_PATTERNS) {
-    if (pattern.test(hostname)) {
-      return { valid: false, error: 'Private IP addresses are blocked' };
-    }
-  }
-
-  // Block dangerous hostnames
-  for (const blocked of BLOCKED_HOSTNAMES) {
-    if (hostname === blocked.toLowerCase()) {
-      return { valid: false, error: `Blocked hostname: ${blocked}` };
-    }
-  }
-
-  // URL passed all checks
-  return { valid: true, url };
 }
 
 /**
@@ -130,34 +84,40 @@ export function validateLLMProviderURL(baseURL: string | undefined): void {
  * Used for general web fetching operations
  */
 export function isURLSafeForFetch(urlString: string): SSRFValidationResult {
-  // Parse URL
-  let url: URL;
+  // Policy for general fetching: no allowlist, just block dangerous stuff
+  const policy: SSRFPolicy = {
+    allowPrivateIPs: !config.security.ssrfProtectionEnabled,
+    allowLocalhost: false,
+    allowedDomains: [], // No allowlist for general fetching
+    blockedDomains: [
+      'metadata.google.internal',
+      'metadata.aws.internal',
+      '*.metadata.*',
+      'localhost',
+    ],
+  };
+
+  const check = isURLSafe(urlString, policy);
+
+  if (!check.safe) {
+    return { valid: false, error: check.reason };
+  }
+
   try {
-    url = new URL(urlString);
+    return { valid: true, url: new URL(urlString) };
   } catch {
     return { valid: false, error: 'Invalid URL format' };
   }
+}
 
-  // Only allow http/https
-  if (!['http:', 'https:'].includes(url.protocol)) {
-    return { valid: false, error: `Blocked protocol: ${url.protocol}` };
+/**
+ * Re-validate a URL after following a redirect
+ * Ensures redirects don't bypass SSRF protection
+ */
+export function validateRedirectURL(_originalUrl: string, redirectUrl: string): SSRFValidationResult {
+  const result = isURLSafeForFetch(redirectUrl);
+  if (!result.valid) {
+    return { valid: false, error: `Redirect blocked: ${result.error}` };
   }
-
-  const hostname = url.hostname.toLowerCase();
-
-  // Always block metadata endpoints regardless of other settings
-  if (hostname === '169.254.169.254' || hostname.includes('metadata')) {
-    return { valid: false, error: 'Metadata endpoints are blocked' };
-  }
-
-  // Block private IPs in production
-  if (config.security.ssrfProtectionEnabled) {
-    for (const pattern of PRIVATE_IP_PATTERNS) {
-      if (pattern.test(hostname)) {
-        return { valid: false, error: 'Private IP addresses are blocked' };
-      }
-    }
-  }
-
-  return { valid: true, url };
+  return result;
 }

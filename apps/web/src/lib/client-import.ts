@@ -5,10 +5,10 @@
  * Parses PNG, CHARX, and Voxta files directly in the browser.
  */
 
-import { isPNG } from '@character-foundry/png';
-import { parseCard as parseCardLoader, getContainerFormat, type ExtractedAsset as LoaderAsset } from '@character-foundry/loader';
-import { readVoxta as extractVoxtaPackage, voxtaToCCv3 } from '@character-foundry/voxta';
-import { parseLorebook, detectLorebookFormat } from '@character-foundry/lorebook';
+import { isPNG } from '@character-foundry/character-foundry/png';
+import { parseCard as parseCardLoader, getContainerFormat, type ExtractedAsset as LoaderAsset } from '@character-foundry/character-foundry/loader';
+import { readVoxta as extractVoxtaPackage, voxtaToCCv3 } from '@character-foundry/character-foundry/voxta';
+import { parseLorebook, detectLorebookFormat } from '@character-foundry/character-foundry/lorebook';
 import type { Card, CCv2Data, CCv3Data, CollectionData, CollectionMember } from './types';
 
 /**
@@ -270,6 +270,85 @@ function createLorebookCard(
     },
     data: lorebookData,
   };
+}
+
+/**
+ * Normalize imported card data (client-side) to match schema expectations.
+ * Mirrors the API's lenient normalization for null/missing fields.
+ */
+function normalizeImportedCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
+  if (!cardData || typeof cardData !== 'object') return;
+  const obj = cardData as Record<string, unknown>;
+
+  if (spec === 'v3') {
+    if (obj.spec !== 'chara_card_v3') obj.spec = 'chara_card_v3';
+    if (typeof obj.spec_version !== 'string' || !String(obj.spec_version).startsWith('3')) {
+      obj.spec_version = '3.0';
+    }
+
+    if (!('data' in obj) || !obj.data || typeof obj.data !== 'object') return;
+    const dataObj = obj.data as Record<string, unknown>;
+
+    // Drop null optional fields that break strict schema parsing.
+    const nullableOptionalFields = [
+      'character_book',
+      'assets',
+      'creator_notes_multilingual',
+      'source',
+      'creation_date',
+      'modification_date',
+    ];
+    for (const field of nullableOptionalFields) {
+      if (dataObj[field] === null) delete dataObj[field];
+    }
+
+    const requiredStrings = [
+      'name',
+      'description',
+      'personality',
+      'scenario',
+      'first_mes',
+      'mes_example',
+      'creator',
+      'character_version',
+    ];
+    for (const field of requiredStrings) {
+      if (!(field in dataObj) || dataObj[field] === null || dataObj[field] === undefined) {
+        dataObj[field] = '';
+      }
+    }
+
+    if (!Array.isArray(dataObj.tags)) dataObj.tags = [];
+    if (!Array.isArray(dataObj.group_only_greetings)) dataObj.group_only_greetings = [];
+    if (!Array.isArray(dataObj.alternate_greetings)) dataObj.alternate_greetings = [];
+  } else {
+    if ('spec' in obj) {
+      if (obj.spec !== 'chara_card_v2') obj.spec = 'chara_card_v2';
+      if (typeof obj.spec_version !== 'string' || !String(obj.spec_version).startsWith('2')) {
+        obj.spec_version = '2.0';
+      }
+    }
+
+    const target = ('data' in obj && obj.data && typeof obj.data === 'object')
+      ? (obj.data as Record<string, unknown>)
+      : obj;
+
+    const requiredStrings = ['name', 'description', 'personality', 'scenario', 'first_mes', 'mes_example'];
+    for (const field of requiredStrings) {
+      if (!(field in target) || target[field] === null || target[field] === undefined) {
+        target[field] = '';
+      }
+    }
+
+    if ('tags' in target && target.tags !== undefined && !Array.isArray(target.tags)) target.tags = [];
+    if (
+      'alternate_greetings' in target &&
+      target.alternate_greetings !== undefined &&
+      !Array.isArray(target.alternate_greetings)
+    ) {
+      target.alternate_greetings = [];
+    }
+  }
 }
 
 /**
@@ -641,8 +720,10 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
       console.log(`[client-import] Using unified loader for ${containerFormat} file`);
       const result = parseCardLoader(buffer, { extractAssets: true });
 
-      // Create card from parsed data - use actual spec from loader (v2 or v3)
-      const spec = result.spec === 'v2' ? 'v2' : 'v3';
+      // Determine actual spec from card data structure (loader may normalize V2→V3)
+      // Check the actual card.spec field, not result.spec (which indicates source format)
+      const actualSpec = (result.card as any).spec;
+      const spec = actualSpec === 'chara_card_v3' ? 'v3' : 'v2';
       const card = createCard(result.card, spec);
       console.log(`[client-import] Parsed card: ${card.meta.name}, spec: ${spec}, source: ${result.sourceFormat}`);
 
@@ -693,15 +774,28 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
     // JSON file - could be character card or standalone lorebook
     try {
       const text = new TextDecoder().decode(buffer);
-      const json = JSON.parse(text);
+      let json: unknown = JSON.parse(text);
+
+      // RisuAI/Realm v1 wrapper: the actual character card lives under `definition`.
+      if (json && typeof json === 'object' && 'definition' in json) {
+        const def = (json as Record<string, unknown>).definition;
+        if (def && typeof def === 'object') {
+          const spec = (def as Record<string, unknown>).spec;
+          if (spec === 'chara_card_v3' || spec === 'chara_card_v2') {
+            json = def;
+          }
+        }
+      }
 
       // Check for character card spec first (definitive identification)
-      if (json.spec === 'chara_card_v3') {
+      if ((json as any).spec === 'chara_card_v3') {
+        normalizeImportedCardData(json, 'v3');
         const card = createCard(json as CCv3Data, 'v3');
         return { card };
       }
 
-      if (json.spec === 'chara_card_v2') {
+      if ((json as any).spec === 'chara_card_v2') {
+        normalizeImportedCardData(json, 'v2');
         const card = createCard(json as CCv2Data, 'v2');
         return { card };
       }
@@ -717,7 +811,9 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
       }
 
       // Legacy V2 format (has name but no spec)
-      if (json.name && (json.description !== undefined || json.personality !== undefined || json.first_mes !== undefined)) {
+      const legacy = json as any;
+      if (legacy.name && (legacy.description !== undefined || legacy.personality !== undefined || legacy.first_mes !== undefined)) {
+        normalizeImportedCardData(json, 'v2');
         const card = createCard(json as CCv2Data, 'v2');
         return { card };
       }

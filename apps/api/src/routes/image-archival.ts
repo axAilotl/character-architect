@@ -13,32 +13,15 @@ import { sanitizeFilename as sanitizeFilenameSecure, isFilenameSafe } from '../u
  * Extract image URLs from markdown content
  * Matches: ![alt](url) and ![alt](url =widthxheight)
  */
+/**
+ * Extract remote image URLs from card content using canonical image-utils.
+ * Supports markdown, HTML, CSS url(), and plain URLs.
+ */
 function extractImageUrls(content: string): Array<{ url: string; fullMatch: string }> {
-  const images: Array<{ url: string; fullMatch: string }> = [];
-
-  // Match markdown images: ![alt](url) or ![alt](url =dimensions)
-  // Also handles angle brackets: ![alt](<url>)
-  const mdImageRegex = /!\[([^\]]*)\]\(<?([^>\s)]+)>?(?:\s*=[^)]+)?\)/g;
-
-  let match;
-  while ((match = mdImageRegex.exec(content)) !== null) {
-    const url = match[2];
-    // Only process external URLs (http/https)
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      images.push({ url, fullMatch: match[0] });
-    }
-  }
-
-  // Also match HTML img tags
-  const htmlImageRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-  while ((match = htmlImageRegex.exec(content)) !== null) {
-    const url = match[1];
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      images.push({ url, fullMatch: match[0] });
-    }
-  }
-
-  return images;
+  const { extractRemoteImageUrls } = require('@character-foundry/character-foundry/image-utils');
+  const extracted = extractRemoteImageUrls(content);
+  // Map to existing return format for backwards compatibility
+  return extracted.map((img: any) => ({ url: img.url, fullMatch: img.context || img.url }));
 }
 
 /**
