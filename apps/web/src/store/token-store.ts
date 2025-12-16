@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import { api } from '../lib/api';
 import { extractCardData } from '../lib/card-utils';
 import { getDeploymentConfig } from '../config/deployment';
-import { registry } from '@character-foundry/tokenizers';
+import { registry } from '@character-foundry/character-foundry/tokenizers';
 import type { Card } from '../lib/types';
+import type { CardExtensions } from '../lib/extension-types';
+import { getVisualDescription, getDepthPrompt } from '../lib/extension-types';
 
 interface TokenCounts {
   [field: string]: number;
@@ -45,14 +47,14 @@ export const useTokenStore = create<TokenStore>((set, get) => ({
     payload.creator_notes = cardData.creator_notes || '';
 
     // Extensions: appearance (voxta or visual_description)
-    const extensions = (cardData as any).extensions || {};
-    const appearance = extensions.voxta?.appearance || extensions.visual_description || '';
+    const extensions = (cardData.extensions || {}) as CardExtensions;
+    const appearance = getVisualDescription(extensions) || '';
     if (appearance) {
       payload.appearance = appearance;
     }
 
     // Extensions: character_note (depth_prompt.prompt)
-    const characterNote = extensions.depth_prompt?.prompt || '';
+    const characterNote = getDepthPrompt(extensions)?.prompt || '';
     if (characterNote) {
       payload.character_note = characterNote;
     }
@@ -64,7 +66,7 @@ export const useTokenStore = create<TokenStore>((set, get) => ({
       });
     }
 
-    if (cardData.character_book?.entries) {
+    if (cardData.character_book && cardData.character_book.entries) {
       payload.lorebook = cardData.character_book.entries.map((e) => e.content).join('\n');
     }
 

@@ -8,21 +8,27 @@ Character Architect is a self-hostable CCv2/CCv3 character card editor with AI-p
 
 ```bash
 # Development
-pnpm run dev              # Start both API and web dev servers
-pnpm run dev:api          # API only (localhost:3456)
-pnpm run dev:web          # Web only (localhost:5173)
+npm run dev               # Start both API and web dev servers
+npm run dev:api           # API only (localhost:3456)
+npm run dev:web           # Web only (localhost:5173)
 
 # Building
-pnpm run build            # Build everything
-pnpm run build:api        # Build API only
-pnpm run build:web        # Build web only
+npm run build             # Build everything
+npm run build:api         # Build API only
+npm run build:web         # Build web only
 
 # Testing
-pnpm run test:e2e         # Run Playwright tests
-pnpm run test:e2e:ui      # Playwright UI mode
+npm run test              # Workspace tests (API + web)
+
+# Golden fixtures (shared across repos)
+export CF_FIXTURES_DIR=/home/vega/ai/character-foundry/fixtures
+
+npm run test:e2e           # Playwright (full-mode + light-mode fixture smoke)
+npm run test:e2e:fixtures  # Fixture smoke only
+npm run test:e2e:ui        # Playwright UI mode
 
 # Dependencies
-pnpm install
+npm install
 ```
 
 ## Project Structure
@@ -36,16 +42,40 @@ pnpm install
 
 ## Key External Dependencies
 
-From `@character-foundry/*` (npm):
-- `core` - Binary utilities, base64, ZIP, data URLs
-- `schemas` - TypeScript types, CCv2/CCv3 schemas
-- `loader` - Universal card loader with format auto-detection
-- `png` - PNG tEXt/zTXt chunk reading/writing
-- `charx` - CHARX format (ZIP-based cards)
-- `voxta` - Voxta .voxpkg format
-- `lorebook` - Lorebook parsing (SillyTavern, Agnai, RisuAI, Wyvern)
-- `federation` - Federation protocol
-- `tokenizers` - Token counting
+**Bundled Package (npm):**
+- `@character-foundry/character-foundry` - Monorepo bundle with subpath exports:
+  - `/schemas` - TypeScript types, CCv2/CCv3 schemas
+  - `/loader` - Universal card loader with format auto-detection
+  - `/png` - PNG tEXt/zTXt chunk reading/writing
+  - `/charx` - CHARX format (ZIP-based cards)
+  - `/voxta` - Voxta .voxpkg format
+  - `/lorebook` - Lorebook parsing (SillyTavern, Agnai, RisuAI, Wyvern)
+  - `/tokenizers` - Token counting
+  - `/app-framework` - Settings UI components, AutoForm (web only)
+  - `/federation` - Platform sync protocol (web only)
+  - `/normalizer` - V2 ↔ V3 conversion
+  - `/core` - Binary utilities, base64, ZIP, data URLs
+
+**Local Unpublished Package:**
+- `@character-foundry/image-utils` - SSRF protection and image URL extraction (file: reference from parent monorepo)
+
+### Canonical Implementations
+
+**Image URL Extraction** - Use `extractRemoteImageUrls()` from image-utils:
+```typescript
+import { extractRemoteImageUrls } from '@character-foundry/image-utils';
+const images = extractRemoteImageUrls(greeting);
+// Detects: markdown, HTML img, CSS url(), plain URLs
+```
+
+**SSRF Protection** - Use `isURLSafe()` from image-utils:
+```typescript
+import { isURLSafe } from '@character-foundry/image-utils';
+const check = isURLSafe(url, policy);
+if (!check.safe) console.error(check.reason);
+```
+
+**Architect Wrapper** - `apps/api/src/utils/ssrf-protection.ts` wraps canonical SSRF with Architect config integration.
 
 ## Card Types (Spec)
 
@@ -134,3 +164,11 @@ Use pnpm overrides in root `package.json` to force transitive dependency version
 
 ### API return type
 All list endpoints return `{ items: T[], total: number }`, not raw arrays.
+
+## Type Safety Helpers
+
+Use these utilities instead of `as any` casts:
+
+- `apps/web/src/lib/card-type-guards.ts` - `getCardFields()`, `getExtensions()`, `isV3Card()`, etc.
+- `apps/web/src/lib/extension-types.ts` - `CardExtensions`, `getLorebookEntryExtensions()`
+- `apps/web/src/store/card-store.ts` - `updateCardFields()`, `updateExtensions()`, `updateCharacterBook()`

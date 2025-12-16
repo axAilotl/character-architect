@@ -5,11 +5,12 @@ import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
 import { importCardClientSide, importCardFromURLClientSide, importVoxtaPackageClientSide } from '../../lib/client-import';
 import { exportCard as exportCardClientSide } from '../../lib/client-export';
-import type { Card } from '../../lib/types';
+import type { Card, CollectionData } from '../../lib/types';
 import type { CCv3Data } from '../../lib/types';
 import { SettingsModal } from '../../components/shared/SettingsModal';
 import { useFederationStore } from '../../modules/federation/lib/federation-store';
 import type { CardSyncState } from '../../modules/federation/lib/types';
+import { getExtensions, isCollectionData } from '../../lib/card-type-guards';
 
 /**
  * Generate a UUID that works in non-secure contexts (HTTP)
@@ -186,8 +187,8 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     }
   };
 
-  const toggleSelectCard = (cardId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleSelectCard = (cardId: string, e?: { stopPropagation?: () => void }) => {
+    e?.stopPropagation?.();
     setSelectedCards(prev => {
       const next = new Set(prev);
       if (next.has(cardId)) {
@@ -629,24 +630,25 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     return data.tags || [];
   };
 
+  // Feature checks
   const hasAlternateGreetings = (card: Card) => {
     const data = extractCardData(card);
-    return (data.alternate_greetings?.length ?? 0) > 0;
+    return data.alternate_greetings && data.alternate_greetings.length > 0;
   };
 
   const hasLorebook = (card: Card) => {
     const data = extractCardData(card);
-    return (data.character_book?.entries?.length ?? 0) > 0;
+    return data.character_book && data.character_book.entries && data.character_book.entries.length > 0;
   };
 
   const getLorebookEntryCount = (card: Card) => {
     const data = extractCardData(card);
-    return data.character_book?.entries?.length ?? 0;
+    return data.character_book?.entries?.length || 0;
   };
 
   const getAlternateGreetingCount = (card: Card) => {
     const data = extractCardData(card);
-    return data.alternate_greetings?.length ?? 0;
+    return data.alternate_greetings?.length || 0;
   };
 
   const hasAssets = (card: Card) => {
@@ -675,8 +677,9 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const isCollectionItem = (cardId: string): boolean => {
     return cards.some(c => {
       if (c.meta.spec !== 'collection') return false;
-      const data = c.data as any;
-      return data.members?.some((m: any) => m.cardId === cardId);
+      if (!isCollectionData(c.data)) return false;
+      const data = c.data as CollectionData;
+      return data.members?.some((m) => m.cardId === cardId);
     });
   };
 
@@ -718,8 +721,8 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     if (card.meta.tags?.includes('voxta')) {
       return 'voxta';
     }
-    const data = extractCardData(card);
-    if ((data as any).extensions?.voxta) {
+    const extensions = getExtensions(card);
+    if (extensions.voxta) {
       return 'voxta';
     }
 
@@ -1056,7 +1059,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 key={card.meta.id}
                 onClick={() => {
                   if (selectionMode) {
-                    toggleSelectCard(card.meta.id, { stopPropagation: () => {} } as any);
+                    toggleSelectCard(card.meta.id);
                   } else {
                     onCardClick(card.meta.id);
                   }
@@ -1078,7 +1081,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                       <input
                         type="checkbox"
                         checked={selectedCards.has(card.meta.id)}
-                        onChange={(e) => toggleSelectCard(card.meta.id, e as any)}
+                        onChange={() => toggleSelectCard(card.meta.id)}
                         className="w-5 h-5 rounded border-2 border-white bg-dark-bg/80 backdrop-blur cursor-pointer"
                         onClick={(e) => e.stopPropagation()}
                       />
