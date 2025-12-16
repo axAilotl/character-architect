@@ -11,6 +11,8 @@ This checklist covers the manual steps required to complete the deployment setup
 - [x] Created Cloudflare Pages deployment workflow (`.github/workflows/deploy-pages.yml`)
 - [x] Created dev Docker environment (`docker-compose.dev.yml`)
 - [x] Created documentation for dev workflow, Cloudflare setup, and GitHub config
+- [x] Created Cloudflare Pages project `character-architect` (production)
+- [x] Created Cloudflare Pages project `character-architect-dev` (dev)
 
 ## 🔴 Manual Steps Required
 
@@ -44,33 +46,14 @@ You need to add the following secrets via GitHub web UI or using `gh secret set`
    gh secret set CLOUDFLARE_ACCOUNT_ID
    ```
 
-### 2. Create Cloudflare Pages Project
-
-1. Go to https://dash.cloudflare.com/
-2. Navigate to **Workers & Pages** → **Create application** → **Pages**
-3. Connect to Git:
-   - Select your GitHub account
-   - Choose repository: `axAilotl/character-architect`
-4. Configure build settings:
-   - **Production branch**: `main`
-   - **Build command**: `pnpm run build:packages && pnpm --filter @card-architect/web run build`
-   - **Build output directory**: `apps/web/dist`
-   - **Root directory**: `/`
-5. Environment variables (optional):
-   ```
-   VITE_DEPLOYMENT_MODE=static
-   NODE_VERSION=20
-   ```
-6. Click **Save and Deploy**
-
-### 3. Configure Custom Domain (Production)
+### 2. Configure Custom Domain (Production)
 
 1. In Cloudflare Pages project settings → **Custom domains**
 2. Add custom domain: `ca.axailotl.ai`
 3. Follow DNS setup instructions
 4. Wait for SSL certificate provisioning (can take a few minutes)
 
-### 4. Verify Deployments
+### 3. Verify Deployments
 
 After secrets and Cloudflare project are set up:
 
@@ -117,7 +100,7 @@ gh workflow run deploy-pages.yml
 | Branch | Environment | URL | Port (Docker) | Data Directory |
 |--------|------------|-----|---------------|----------------|
 | `main` | Production | https://ca.axailotl.ai | 8765 | `data/`, `storage/` |
-| `dev` | Preview | Auto-generated | 8766 | `data-dev/`, `storage-dev/` |
+| `dev` | Dev | https://character-architect-dev.pages.dev | 8766 | `data-dev/`, `storage-dev/` |
 
 ## 🔧 Troubleshooting
 
