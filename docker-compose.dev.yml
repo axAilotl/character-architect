@@ -1,0 +1,46 @@
+services:
+  api:
+    build:
+      context: .
+      target: api
+    ports:
+      - "3457:3456"  # Dev API on different port
+    volumes:
+      - ./data-dev:/app/data
+      - ./storage-dev:/app/storage
+    environment:
+      - NODE_ENV=development
+      - PORT=3456
+      - HOST=0.0.0.0
+      - DATABASE_PATH=/app/data/cards.db
+      - STORAGE_PATH=/app/storage
+      # Dev: more verbose logging
+      - LOG_LEVEL=debug
+      # Trust proxy for local dev
+      - TRUST_PROXY=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3456/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      # Dev web on different port (8766 instead of 8765)
+      - "127.0.0.1:8766:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  data-dev:
+  storage-dev:

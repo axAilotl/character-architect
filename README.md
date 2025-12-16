@@ -144,6 +144,33 @@ pnpm run dev
 # Web UI will run on http://localhost:5173
 ```
 
+## Development vs Production Environments
+
+Character Architect supports separate dev and production environments to prevent data loss:
+
+| Environment | Branch | URL | Docker Compose | Data Location |
+|------------|--------|-----|----------------|---------------|
+| **Production** | `main` | http://localhost:8765 | `docker-compose.yml` | `./data/`, `./storage/` |
+| **Development** | `dev` | http://localhost:8766 | `docker-compose.dev.yml` | `./data-dev/`, `./storage-dev/` |
+
+**Starting Dev Environment:**
+```bash
+# Quick setup
+bash scripts/setup-dev.sh
+
+# Or manually
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+**Branch Workflow:**
+```
+feature/* → dev → main
+            ↓      ↓
+          DEV    PROD
+```
+
+See [`docs/DEV_WORKFLOW.md`](docs/DEV_WORKFLOW.md) for full development workflow guide.
+
 ## Deployment Modes
 
 Character Architect supports three deployment modes, set via `VITE_DEPLOYMENT_MODE`:

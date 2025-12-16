@@ -64,6 +64,12 @@ temp/
 # Assets storage (during development)
 apps/api/storage/
 
+# Dev environment data
+data-dev/
+storage-dev/
+data/
+storage/
+
 # Model cache
 apps/api/local_cache/
 
