@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@card-architect/defaults": "workspace:*",
+    "@card-architect/import-core": "workspace:*",
     "@character-foundry/app-framework": "^0.2.1",
     "@character-foundry/charx": "^0.0.6",
     "@character-foundry/core": "^0.1.2",
