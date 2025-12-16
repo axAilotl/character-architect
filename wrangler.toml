@@ -1,12 +1,11 @@
 # Character Architect - Cloudflare Workers Static Assets
-# Default deploys to DEV (safer - prevents accidental production deploys)
-name = "character-architect-dev"
+name = "character-architect"
 compatibility_date = "2025-12-05"
 
 [assets]
 directory = "./apps/web/dist"
 not_found_handling = "single-page-application"
 
-# Production requires explicit --env production
-[env.production]
-name = "character-architect"
+# Dev environment
+[env.dev]
+name = "character-architect-dev"

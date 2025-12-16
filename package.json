@@ -30,8 +30,8 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist",
-    "cf:deploy": "wrangler deploy --env production",
-    "cf:deploy:dev": "wrangler deploy"
+    "cf:deploy": "wrangler deploy",
+    "cf:deploy:dev": "wrangler deploy --env dev"
   },
   "devDependencies": {
     "wrangler": "^3.99.0",
