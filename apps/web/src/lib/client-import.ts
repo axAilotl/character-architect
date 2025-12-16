@@ -556,9 +556,10 @@ export async function importVoxtaPackageClientSide(buffer: Uint8Array): Promise<
     const now = new Date().toISOString();
     const results: ClientImportResult[] = [];
 
-    // Determine if this should be a collection (multi-character or has package metadata)
-    const isCollection = voxtaData.characters.length > 1 || voxtaData.package !== undefined;
-    console.log('[client-import] isCollection:', isCollection, '(chars > 1:', voxtaData.characters.length > 1, ', hasPackage:', !!voxtaData.package, ')');
+    // Only create collections for actual multi-character packages
+    // Single character packages should import as regular cards even if they have package metadata
+    const isCollection = voxtaData.characters.length > 1;
+    console.log('[client-import] isCollection:', isCollection, '(characters:', voxtaData.characters.length, ')');
 
     if (isCollection) {
       // Process all characters first WITHOUT packageId
@@ -717,15 +718,24 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
 
   if (containerFormat === 'charx' || (containerFormat === 'png' && isPNG(buffer))) {
     try {
-      console.log(`[client-import] Using unified loader for ${containerFormat} file`);
+      console.log(`[client-import] Using unified loader for ${containerFormat} file, buffer size: ${buffer.length}`);
       const result = parseCardLoader(buffer, { extractAssets: true });
+
+      // Debug: log raw loader result
+      console.log('[client-import] Loader result:', {
+        spec: result.spec,
+        sourceFormat: result.sourceFormat,
+        cardSpec: (result.card as any)?.spec,
+        cardName: (result.card as any)?.data?.name || (result.card as any)?.name,
+        assetCount: result.assets?.length,
+      });
 
       // Determine actual spec from card data structure (loader may normalize V2→V3)
       // Check the actual card.spec field, not result.spec (which indicates source format)
       const actualSpec = (result.card as any).spec;
       const spec = actualSpec === 'chara_card_v3' ? 'v3' : 'v2';
       const card = createCard(result.card, spec);
-      console.log(`[client-import] Parsed card: ${card.meta.name}, spec: ${spec}, source: ${result.sourceFormat}`);
+      console.log(`[client-import] Created card: ${card.meta.name}, meta.spec: ${card.meta.spec}, source: ${result.sourceFormat}`);
 
       // Process images - use the isMain icon asset (loader strips tEXt chunks for PNG containers)
       let fullImageDataUrl: string | undefined;
