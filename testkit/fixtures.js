@@ -1,21 +1,18 @@
 import { existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
-const DEFAULT_FIXTURES_DIR = '/home/vega/ai/character-foundry/fixtures';
-export function resolveFixturesDir(options = {}) {
+/**
+ * Resolve the fixtures directory from CF_FIXTURES_DIR env var.
+ * Returns null if not set or directory doesn't exist (CI-friendly).
+ */
+export function resolveFixturesDir(_options = {}) {
     const envDir = process.env.CF_FIXTURES_DIR?.trim();
-    const fixturesDir = envDir || (existsSync(DEFAULT_FIXTURES_DIR) ? DEFAULT_FIXTURES_DIR : null);
-    if (!fixturesDir) {
-        if (options.allowMissing)
-            return null;
-        throw new Error(`CF_FIXTURES_DIR is not set and no default fixtures directory exists at ${DEFAULT_FIXTURES_DIR}. ` +
-            `Point CF_FIXTURES_DIR at the shared golden fixtures root.`);
+    if (!envDir) {
+        return null;
     }
-    if (!existsSync(fixturesDir) || !statSync(fixturesDir).isDirectory()) {
-        if (options.allowMissing)
-            return null;
-        throw new Error(`CF_FIXTURES_DIR does not exist or is not a directory: ${fixturesDir}`);
+    if (!existsSync(envDir) || !statSync(envDir).isDirectory()) {
+        return null;
     }
-    return fixturesDir;
+    return envDir;
 }
 export function resolveFixturePath(fixturesDir, relativePath) {
     const absPath = join(fixturesDir, relativePath);
