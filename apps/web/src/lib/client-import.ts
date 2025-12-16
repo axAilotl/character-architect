@@ -662,7 +662,7 @@ export async function importVoxtaPackageClientSide(buffer: Uint8Array): Promise<
         voxtaData.characters[0] as Parameters<typeof processVoxtaCharacter>[0],
         voxtaData.books as Parameters<typeof processVoxtaCharacter>[1]
       );
-      results.push(result);
+      results.push({ ...result, isCollection: false });
     }
 
     console.log('[client-import] Returning', results.length, 'results, isCollection in first:', results[0]?.isCollection);
