@@ -28,7 +28,7 @@
     "test:e2e:cross-platform": "playwright test cross-platform.spec.ts",
     "test:e2e:report": "playwright show-report",
     "lint": "eslint .",
-    "type-check": "tsc --noEmit",
+    "type-check": "npm run type-check --workspaces --if-present",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist",
     "cf:deploy": "wrangler deploy",
     "cf:deploy:dev": "wrangler deploy --env dev"
@@ -50,7 +50,7 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
-    "@character-foundry/character-foundry": "0.4.3",
+    "@character-foundry/character-foundry": "0.4.2-dev.1765997746",
     "@codemirror/commands": "^6.10.0",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.11.3",
