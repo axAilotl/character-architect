@@ -273,6 +273,62 @@ export class LocalDB {
     }
     await tx.done;
   }
+
+  // Backup/restore methods
+  async exportAll(): Promise<{
+    cards: Card[];
+    images: Array<{ cardId: string; type: string; data: string }>;
+    versions: StoredVersion[];
+    assets: StoredAsset[];
+  }> {
+    if (!this.db) await this.init();
+    return {
+      cards: await this.db!.getAll(CARDS_STORE),
+      images: await this.db!.getAll(IMAGES_STORE),
+      versions: await this.db!.getAll(VERSIONS_STORE),
+      assets: await this.db!.getAll(ASSETS_STORE),
+    };
+  }
+
+  // Clear all stores (for replace mode)
+  async clearAll(): Promise<void> {
+    if (!this.db) await this.init();
+    const tx = this.db!.transaction([CARDS_STORE, IMAGES_STORE, VERSIONS_STORE, ASSETS_STORE, DRAFTS_STORE], 'readwrite');
+    await Promise.all([
+      tx.objectStore(CARDS_STORE).clear(),
+      tx.objectStore(IMAGES_STORE).clear(),
+      tx.objectStore(VERSIONS_STORE).clear(),
+      tx.objectStore(ASSETS_STORE).clear(),
+      tx.objectStore(DRAFTS_STORE).clear(),
+    ]);
+    await tx.done;
+  }
+
+  // Import data to IndexedDB stores
+  async importAll(data: {
+    cards: Card[];
+    images: Array<{ cardId: string; type: string; data: string }>;
+    versions: StoredVersion[];
+    assets: StoredAsset[];
+  }): Promise<void> {
+    if (!this.db) await this.init();
+    const tx = this.db!.transaction([CARDS_STORE, IMAGES_STORE, VERSIONS_STORE, ASSETS_STORE], 'readwrite');
+
+    for (const card of data.cards) {
+      await tx.objectStore(CARDS_STORE).put(card);
+    }
+    for (const image of data.images) {
+      await tx.objectStore(IMAGES_STORE).put(image);
+    }
+    for (const version of data.versions) {
+      await tx.objectStore(VERSIONS_STORE).put(version);
+    }
+    for (const asset of data.assets) {
+      await tx.objectStore(ASSETS_STORE).put(asset);
+    }
+
+    await tx.done;
+  }
 }
 
 export const localDB = new LocalDB();

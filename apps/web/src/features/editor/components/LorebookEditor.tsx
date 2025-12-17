@@ -246,8 +246,8 @@ export function LorebookEditor() {
                 <label className="label">Description</label>
                 <button
                   onClick={() => handleOpenLLMAssist('lorebook_description', lorebook?.description || '')}
-                  className="text-sm text-blue-400 hover:text-blue-300"
-                  title="LLM Assist"
+                  className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                  title="AI Assist"
                 >
                   ✨
                 </button>
@@ -387,8 +387,8 @@ export function LorebookEditor() {
                       <label className="label">Activation Keys (comma-separated)</label>
                       <button
                         onClick={() => handleOpenLLMAssist('lore_keys', (selectedEntry.keys || []).join(', '))}
-                        className="text-sm text-blue-400 hover:text-blue-300"
-                        title="LLM Assist"
+                        className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                        title="AI Assist"
                       >
                         ✨
                       </button>
@@ -426,8 +426,8 @@ export function LorebookEditor() {
                       <label className="label">Content</label>
                       <button
                         onClick={() => handleOpenLLMAssist('lore_content', selectedEntry.content)}
-                        className="text-sm text-blue-400 hover:text-blue-300"
-                        title="LLM Assist"
+                        className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                        title="AI Assist"
                       >
                         ✨
                       </button>
