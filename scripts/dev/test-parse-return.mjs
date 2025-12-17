@@ -1,7 +1,12 @@
 import { readFileSync } from 'fs';
 import { parseCard } from '@character-foundry/character-foundry/loader';
 
-const file = '/mnt/ai/test_cf_data/chub_v2/delilah_105800.png';
+const file = process.argv[2];
+if (!file) {
+  console.error('Usage: node scripts/dev/test-parse-return.mjs <path/to/card.(png|json|charx|voxpkg)>');
+  process.exit(1);
+}
+
 const buffer = readFileSync(file);
 const result = parseCard(new Uint8Array(buffer));
 

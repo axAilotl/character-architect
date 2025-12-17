@@ -1,13 +1,13 @@
 services:
   api:
     build:
-      context: .
+      context: ..
       target: api
     ports:
       - "3457:3456"  # Dev API on different port
     volumes:
-      - ./data-dev:/app/data
-      - ./storage-dev:/app/storage
+      - ../data-dev:/app/data
+      - ../storage-dev:/app/storage
     environment:
       - NODE_ENV=development
       - PORT=3456
@@ -27,7 +27,7 @@ services:
 
   web:
     build:
-      context: .
+      context: ..
       target: web
     ports:
       # Dev web on different port (8766 instead of 8765)

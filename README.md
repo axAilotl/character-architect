@@ -151,7 +151,7 @@ Character Architect supports separate dev and production environments to prevent
 | Environment | Branch | URL | Docker Compose | Data Location |
 |------------|--------|-----|----------------|---------------|
 | **Production** | `main` | http://localhost:8765 | `docker-compose.yml` | `./data/`, `./storage/` |
-| **Development** | `dev` | http://localhost:8766 | `docker-compose.dev.yml` | `./data-dev/`, `./storage-dev/` |
+| **Development** | `dev` | http://localhost:8766 | `docker/docker-compose.dev.yml` | `./data-dev/`, `./storage-dev/` |
 
 **Starting Dev Environment:**
 ```bash
@@ -159,7 +159,7 @@ Character Architect supports separate dev and production environments to prevent
 bash scripts/setup-dev.sh
 
 # Or manually
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker/docker-compose.dev.yml up -d
 ```
 
 **Branch Workflow:**
