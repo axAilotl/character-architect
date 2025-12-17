@@ -9,7 +9,7 @@ This checklist covers the manual steps required to complete the deployment setup
 - [x] Set up branch protection for `dev` (requires 0 approvals, status checks)
 - [x] Created CI workflow (`.github/workflows/ci.yml`)
 - [x] Created Cloudflare Pages deployment workflow (`.github/workflows/deploy-pages.yml`)
-- [x] Created dev Docker environment (`docker-compose.dev.yml`)
+- [x] Created dev Docker environment (`docker/docker-compose.dev.yml`)
 - [x] Created documentation for dev workflow, Cloudflare setup, and GitHub config
 - [x] Created Cloudflare Pages project `character-architect` (production)
 - [x] Created Cloudflare Pages project `character-architect-dev` (dev)
@@ -83,7 +83,7 @@ gh secret set CLOUDFLARE_ACCOUNT_ID
 gh secret list
 
 # Start dev environment
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker/docker-compose.dev.yml up -d
 
 # Check CI status
 gh run list --limit 5

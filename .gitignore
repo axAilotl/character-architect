@@ -42,6 +42,10 @@ Thumbs.db
 *.swo
 *~
 
+# Local tooling
+.mcp.json
+.claude/
+
 # Testing
 coverage/
 .nyc_output/
@@ -52,7 +56,6 @@ test-results/
 # Documentation (keep local only)
 # docs/
 docs/internal/
-AGENTS.md
 *_TODO.md
 *_CODE_REVIEW.md
 
@@ -92,4 +95,3 @@ db_dump.json
 !test-fixtures/**/*.charx
 profile_raw.txt
 apps/api/debug-*.ts
-

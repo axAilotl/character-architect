@@ -83,13 +83,13 @@ Or create PR from `dev` → `main`:
 **Docker Compose:**
 ```bash
 # Start dev environment
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker/docker-compose.dev.yml up -d
 
 # View logs
-docker-compose -f docker-compose.dev.yml logs -f
+docker compose -f docker/docker-compose.dev.yml logs -f
 
 # Stop
-docker-compose -f docker-compose.dev.yml down
+docker compose -f docker/docker-compose.dev.yml down
 ```
 
 **URLs:**
@@ -211,10 +211,10 @@ pnpm test
 
 ```bash
 # Clean rebuild
-docker-compose -f docker-compose.dev.yml down -v
+docker compose -f docker/docker-compose.dev.yml down -v
 docker system prune -a
-docker-compose -f docker-compose.dev.yml build --no-cache
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker/docker-compose.dev.yml build --no-cache
+docker compose -f docker/docker-compose.dev.yml up -d
 ```
 
 ### Database Issues
@@ -222,7 +222,7 @@ docker-compose -f docker-compose.dev.yml up -d
 ```bash
 # Dev database is separate - safe to delete
 rm -rf ./data-dev/
-docker-compose -f docker-compose.dev.yml restart api
+docker compose -f docker/docker-compose.dev.yml restart api
 
 # Production - BE CAREFUL
 # Always back up first
@@ -258,7 +258,7 @@ Create a test PR to `dev` and verify CI runs successfully.
 
 ```bash
 # Start dev docker containers
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker/docker-compose.dev.yml up -d
 
 # Verify health
 curl http://localhost:3457/health
