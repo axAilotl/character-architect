@@ -710,10 +710,20 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
   const buffer = await readFileAsArrayBuffer(file);
   const fileName = file.name.toLowerCase();
 
-  // Use the unified loader for CHARX and PNG files
+  // Use the unified loader for supported container formats
   const containerFormat = getContainerFormat(buffer);
 
-  if (containerFormat === 'charx' || (containerFormat === 'png' && isPNG(buffer))) {
+  // For Voxta, use loader for single-char, custom handling for multi-char (collections)
+  const useLoaderForVoxta = containerFormat === 'voxta' && (() => {
+    try {
+      const voxtaData = extractVoxtaPackage(buffer);
+      return voxtaData.characters.length === 1;
+    } catch {
+      return false;
+    }
+  })();
+
+  if (containerFormat === 'charx' || useLoaderForVoxta || (containerFormat === 'png' && isPNG(buffer))) {
     try {
       console.log(`[client-import] Using unified loader for ${containerFormat} file, buffer size: ${buffer.length}`);
       const result = parseCardLoader(buffer, { extractAssets: true });
@@ -731,6 +741,12 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
       // The loader may normalize V2→V3 internally, but we want to preserve original format
       const spec = result.spec === 'v3' ? 'v3' : 'v2';
       const card = createCard(result.card, spec);
+
+      // Add source format tag for Voxta
+      if (containerFormat === 'voxta') {
+        card.meta.tags = [...(card.meta.tags || []), 'voxta'];
+      }
+
       console.log(`[client-import] Created card: ${card.meta.name}, meta.spec: ${card.meta.spec}, source: ${result.sourceFormat}`);
 
       // Process images - use the isMain icon asset (loader strips tEXt chunks for PNG containers)
