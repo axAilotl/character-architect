@@ -33,6 +33,16 @@ function dataURLToUint8Array(dataURL: string): Uint8Array {
   return bytes;
 }
 
+function sanitizeArchiveExt(ext: string): string {
+  const normalized = (ext || '').trim().toLowerCase().replace(/^\.+/, '');
+  const last = normalized.split('.').pop() || 'bin';
+
+  // Prevent ZIP path traversal via extension tricks like `png/../../evil`
+  if (/[\\/]/.test(last)) return 'bin';
+  if (!/^[a-z0-9]+$/.test(last)) return 'bin';
+  return last;
+}
+
 /**
  * Create a simple 1x1 transparent PNG as fallback
  */
@@ -194,7 +204,7 @@ export async function exportCardAsCHARX(card: Card): Promise<Blob> {
       assets.push({
         type: asset.type as CharxWriteAsset['type'],
         name: asset.name,
-        ext: asset.ext,
+        ext: sanitizeArchiveExt(asset.ext),
         data: dataURLToUint8Array(asset.data),
         isMain: asset.isMain,
       });
@@ -219,7 +229,7 @@ export async function exportCardAsCHARX(card: Card): Promise<Blob> {
       assets.push({
         type: 'icon',
         name: 'main',
-        ext,
+        ext: sanitizeArchiveExt(ext),
         data: buffer,
         isMain: true,
       });
@@ -277,7 +287,7 @@ export async function exportCardAsVoxta(card: Card): Promise<Blob> {
       assets.push({
         type: asset.type as VoxtaWriteAsset['type'],
         name: asset.name,
-        ext: asset.ext,
+        ext: sanitizeArchiveExt(asset.ext),
         data: dataURLToUint8Array(asset.data),
         isMain: asset.isMain,
       });
@@ -301,7 +311,7 @@ export async function exportCardAsVoxta(card: Card): Promise<Blob> {
       assets.push({
         type: 'icon',
         name: 'main',
-        ext,
+        ext: sanitizeArchiveExt(ext),
         data: buffer,
         isMain: true,
       });

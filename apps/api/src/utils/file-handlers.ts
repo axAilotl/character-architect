@@ -64,6 +64,16 @@ import type { CharxData } from '@character-foundry/character-foundry/charx';
 import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 import type { Card } from '../types/index.js';
 
+function sanitizeArchiveExt(ext: string): string {
+  const normalized = (ext || '').trim().toLowerCase().replace(/^\.+/, '');
+  const last = normalized.split('.').pop() || 'bin';
+
+  // Prevent ZIP path traversal via extension tricks like `png/../../evil`
+  if (/[\\/]/.test(last)) return 'bin';
+  if (!/^[a-z0-9]+$/.test(last)) return 'bin';
+  return last;
+}
+
 // Re-export types for consumers (with Buffer-based types where needed)
 export interface CharxExtractionOptions extends CharxPackageExtractionOptions {
   fetchRemoteAssets?: boolean; // Whether to download remote (http/https) assets
@@ -282,7 +292,7 @@ export async function buildCharx(
 
     try {
       let buffer: Buffer = await fs.readFile(filePath);
-      let ext = asset.ext;
+      let ext = sanitizeArchiveExt(asset.ext);
 
       // Apply optimization if enabled
       if (options.optimization?.enabled) {
@@ -297,7 +307,7 @@ export async function buildCharx(
         }, ext);
 
         buffer = Buffer.from(optimized.buffer);
-        ext = optimized.ext;
+        ext = sanitizeArchiveExt(optimized.ext);
         totalSaved += optimized.originalSize - optimized.optimizedSize;
       }
 
@@ -404,7 +414,7 @@ export async function buildVoxtaPackage(
 
     try {
       let buffer: Buffer = await fs.readFile(filePath);
-      let ext = asset.ext;
+      let ext = sanitizeArchiveExt(asset.ext);
 
       // Apply optimization if enabled
       if (options.optimization?.enabled) {
@@ -419,7 +429,7 @@ export async function buildVoxtaPackage(
         }, ext);
 
         buffer = Buffer.from(optimized.buffer);
-        ext = optimized.ext;
+        ext = sanitizeArchiveExt(optimized.ext);
         totalSaved += optimized.originalSize - optimized.optimizedSize;
       }
 
