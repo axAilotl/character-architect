@@ -8,6 +8,7 @@ import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { isURLSafeForFetch } from '../utils/ssrf-protection.js';
 import { sanitizeFilename as sanitizeFilenameSecure, isFilenameSafe } from '../utils/path-security.js';
+import { extractRemoteImageUrls } from '@character-foundry/character-foundry/image-utils';
 
 /**
  * Extract image URLs from markdown content
@@ -18,10 +19,9 @@ import { sanitizeFilename as sanitizeFilenameSecure, isFilenameSafe } from '../u
  * Supports markdown, HTML, CSS url(), and plain URLs.
  */
 function extractImageUrls(content: string): Array<{ url: string; fullMatch: string }> {
-  const { extractRemoteImageUrls } = require('@character-foundry/character-foundry/image-utils');
   const extracted = extractRemoteImageUrls(content);
   // Map to existing return format for backwards compatibility
-  return extracted.map((img: any) => ({ url: img.url, fullMatch: img.context || img.url }));
+  return extracted.map((img) => ({ url: img.url, fullMatch: img.context || img.url }));
 }
 
 /**

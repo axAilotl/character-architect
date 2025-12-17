@@ -206,7 +206,7 @@ export function AssetsPanel() {
           nodes: [],
           summary: {
             totalAssets: storedAssets.length,
-            actors: [...new Set(storedAssets.filter(a => a.actorIndex).map(a => a.actorIndex!))],
+            actors: [...new Set(storedAssets.filter(a => a.actorIndex !== undefined).map(a => a.actorIndex!))],
             mainPortrait: mainIcon ? { id: mainIcon.id, name: mainIcon.name, url: mainIcon.data } : null,
             mainBackground: mainBg ? { id: mainBg.id, name: mainBg.name, url: mainBg.data } : null,
             animatedCount: storedAssets.filter(a => a.mimetype.includes('gif') || a.mimetype.includes('webp')).length,

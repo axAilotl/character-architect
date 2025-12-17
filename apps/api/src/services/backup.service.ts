@@ -9,9 +9,12 @@
 
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 import { promises as fs } from 'fs';
-import { join } from 'path';
+import { basename, dirname } from 'path';
+import { nanoid } from 'nanoid';
 import { CardRepository, AssetRepository, CardAssetRepository } from '../db/repository.js';
 import { PresetRepository } from '../db/preset-repository.js';
+import { getSchemaVersion } from '../db/migrations.js';
+import { safeJoin } from '../utils/path-security.js';
 import type Database from 'better-sqlite3';
 import type { Card, CardVersion, Asset, CardAsset, UserPreset } from '../types/index.js';
 
@@ -84,7 +87,18 @@ interface ClientImage {
   data: string; // base64 or data URL
 }
 
+// Client-side version format (from IndexedDB VERSIONS_STORE)
+interface ClientVersion {
+  id: string;
+  cardId: string;
+  versionNumber: number;
+  message?: string;
+  data: Card['data'];
+  createdAt: string;
+}
+
 export class BackupService {
+  private db: Database.Database;
   private cardRepo: CardRepository;
   private assetRepo: AssetRepository;
   private cardAssetRepo: CardAssetRepository;
@@ -95,6 +109,7 @@ export class BackupService {
     db: Database.Database,
     storagePath: string
   ) {
+    this.db = db;
     this.cardRepo = new CardRepository(db);
     this.assetRepo = new AssetRepository(db);
     this.cardAssetRepo = new CardAssetRepository(db);
@@ -142,24 +157,8 @@ export class BackupService {
     // Get presets if requested
     const presets = includePresets ? this.presetRepo.getAll() : [];
 
-    // Create manifest
-    const manifest: BackupManifest = {
-      version: '1.0',
-      createdAt: new Date().toISOString(),
-      sourceMode: 'full',
-      appVersion: process.env.npm_package_version || '1.0.0',
-      schemaVersion: 1,
-      counts: {
-        cards: cards.length,
-        versions: allVersions.length,
-        assets: assets.length,
-        presets: presets.length,
-      },
-    };
-
     // Build ZIP structure
     const zipContents: Record<string, Uint8Array> = {
-      'manifest.json': strToU8(JSON.stringify(manifest, null, 2)),
       'cards.json': strToU8(JSON.stringify(cards, null, 2)),
       'card_assets.json': strToU8(JSON.stringify(allCardAssets, null, 2)),
       'assets.json': strToU8(JSON.stringify(assets, null, 2)),
@@ -174,29 +173,49 @@ export class BackupService {
     }
 
     // Add original card images
+    let imagesCount = 0;
     for (const card of cards) {
       const originalImage = this.cardRepo.getOriginalImage(card.meta.id);
       if (originalImage) {
         zipContents[`images/cards/${card.meta.id}.png`] = new Uint8Array(originalImage);
+        imagesCount++;
       }
     }
 
     // Add physical asset files
     for (const asset of assets) {
       try {
-        // Asset URL can be either absolute path or relative path
-        const assetPath = asset.url.startsWith('/')
-          ? asset.url.substring(1) // Remove leading slash
-          : asset.url;
+        const fullPath = this.resolveStorageFilePath(asset.url);
+        if (!fullPath) {
+          console.warn(`[backup] Skipping asset with unsafe or non-storage URL: ${asset.url}`);
+          continue;
+        }
 
-        const fullPath = join(this.storagePath, assetPath);
         const fileBuffer = await fs.readFile(fullPath);
-        zipContents[`assets/${asset.filename}`] = new Uint8Array(fileBuffer);
+        zipContents[`assets/${asset.id}`] = new Uint8Array(fileBuffer);
       } catch (err) {
         // Asset file not found - skip it but log a warning
-        console.warn(`Asset file not found: ${asset.filename}, skipping`);
+        console.warn(`[backup] Asset file not found: ${asset.filename}, skipping`);
       }
     }
+
+    // Create manifest (last so counts reflect actual contents)
+    const manifest: BackupManifest = {
+      version: '1.0',
+      createdAt: new Date().toISOString(),
+      sourceMode: 'full',
+      appVersion: process.env.npm_package_version || '1.0.0',
+      schemaVersion: getSchemaVersion(this.db),
+      counts: {
+        cards: cards.length,
+        versions: allVersions.length,
+        assets: assets.length,
+        presets: presets.length,
+        images: imagesCount,
+      },
+    };
+
+    zipContents['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
 
     // Create ZIP
     const zipBuffer = zipSync(zipContents, { level: 6 });
@@ -209,6 +228,60 @@ export class BackupService {
   private isClientBackup(unzipped: Record<string, Uint8Array>): boolean {
     // Client backups have images.json (with base64 data) but no card_assets.json
     return !!unzipped['images.json'] && !unzipped['card_assets.json'];
+  }
+
+  private stripQueryAndHash(input: string): string {
+    return input.split('#')[0].split('?')[0];
+  }
+
+  private getStoragePathSegments(url: string): string[] | null {
+    if (!url || typeof url !== 'string') return null;
+
+    // We only support restoring local files into the /storage static directory.
+    // Remote URLs and data URLs are not filesystem-backed.
+    if (/^https?:\/\//i.test(url) || /^data:/i.test(url)) {
+      return null;
+    }
+
+    let normalized = this.stripQueryAndHash(url).replace(/\\/g, '/');
+
+    if (normalized.startsWith('/storage/')) {
+      normalized = normalized.slice('/storage/'.length);
+    } else if (normalized.startsWith('storage/')) {
+      normalized = normalized.slice('storage/'.length);
+    } else if (normalized.startsWith('/')) {
+      normalized = normalized.slice(1);
+    }
+
+    const segments = normalized.split('/').filter(Boolean);
+    return segments.length > 0 ? segments : null;
+  }
+
+  private resolveStorageFilePath(url: string): string | null {
+    const segments = this.getStoragePathSegments(url);
+    if (!segments) return null;
+    return safeJoin(this.storagePath, ...segments);
+  }
+
+  private getAssetBytesFromZip(unzipped: Record<string, Uint8Array>, asset: Asset): Uint8Array | undefined {
+    const urlBasename = basename(this.stripQueryAndHash(asset.url).replace(/\\/g, '/'));
+
+    const candidates = [
+      // New format (unique)
+      `assets/${asset.id}`,
+      // Optional nested format (if adopted later)
+      `assets/${asset.id}/${urlBasename}`,
+      // Legacy formats
+      `assets/${asset.filename}`,
+      `assets/${urlBasename}`,
+    ];
+
+    for (const key of candidates) {
+      const bytes = unzipped[key];
+      if (bytes) return bytes;
+    }
+
+    return undefined;
   }
 
   /**
@@ -274,7 +347,7 @@ export class BackupService {
       ? JSON.parse(strFromU8(unzipped['assets.json']))
       : [];
 
-    const versions: CardVersion[] = unzipped['versions.json']
+    const versions: ClientVersion[] = unzipped['versions.json']
       ? JSON.parse(strFromU8(unzipped['versions.json']))
       : [];
 
@@ -282,11 +355,12 @@ export class BackupService {
 
     // Handle replace mode - delete all existing data
     if (options.mode === 'replace') {
-      const existingCards = this.cardRepo.list('', 1, 999999);
-      for (const card of existingCards.items) {
-        this.cardAssetRepo.deleteByCard(card.meta.id);
-        this.cardRepo.delete(card.meta.id);
-      }
+      this.db.transaction(() => {
+        this.db.exec('DELETE FROM card_assets');
+        this.db.exec('DELETE FROM versions');
+        this.db.exec('DELETE FROM assets');
+        this.db.exec('DELETE FROM cards');
+      })();
     }
 
     // Build a map of card images by cardId
@@ -307,98 +381,147 @@ export class BackupService {
       assetsByCard.get(asset.cardId)!.push(asset);
     }
 
-    // Restore cards
+    const cardExistsStmt = this.db.prepare('SELECT 1 FROM cards WHERE id = ?');
+    const insertCardStmt = this.db.prepare(`
+      INSERT INTO cards (id, name, spec, data, tags, creator, character_version, rating, original_image, created_at, updated_at, package_id, member_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const insertVersionStmt = this.db.prepare(`
+      INSERT INTO versions (id, card_id, version, data, message, created_at, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const insertAssetStmt = this.db.prepare(`
+      INSERT INTO assets (id, filename, mimetype, size, width, height, path, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const insertCardAssetStmt = this.db.prepare(`
+      INSERT INTO card_assets (id, card_id, asset_id, type, name, ext, order_index, is_main, tags, original_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const importedCardIds = new Set<string>();
+
+    // Restore cards (preserving IDs so client backups import correctly)
     for (const card of cards) {
       try {
-        const existing = this.cardRepo.get(card.meta.id);
-
-        if (existing && options.mode === 'merge' && options.skipConflicts) {
+        const exists = !!cardExistsStmt.get(card.meta.id);
+        if (exists && options.mode === 'merge') {
           result.skipped++;
           continue;
         }
 
         // Get original image (the 'icon' type is the full-size image)
         const cardImages = imagesByCard.get(card.meta.id);
-        let originalImage: Buffer | undefined;
+        const iconData = cardImages?.get('icon');
+        const originalImage = iconData ? this.dataUrlToBuffer(iconData) : null;
 
-        if (cardImages) {
-          const iconData = cardImages.get('icon');
-          if (iconData) {
-            originalImage = this.dataUrlToBuffer(iconData);
-          }
-        }
+        const spec = card.meta.spec === 'chara_card_v2'
+          ? 'v2'
+          : card.meta.spec === 'chara_card_v3'
+            ? 'v3'
+            : card.meta.spec;
 
-        if (!existing) {
-          // Create new card
-          this.cardRepo.create({
-            data: card.data,
-            meta: {
-              name: card.meta.name,
-              spec: card.meta.spec,
-              tags: card.meta.tags,
-              creator: card.meta.creator,
-              characterVersion: card.meta.characterVersion,
-              rating: card.meta.rating,
-              packageId: card.meta.packageId,
-              memberCount: card.meta.memberCount,
-            },
-          }, originalImage);
-          result.imported.cards++;
-        } else if (options.mode === 'replace') {
-          // Update existing card
-          this.cardRepo.update(card.meta.id, {
-            data: card.data,
-            meta: card.meta,
-          });
-          if (originalImage) {
-            this.cardRepo.updateOriginalImage(card.meta.id, originalImage);
-          }
-          result.imported.cards++;
-        }
+        const now = new Date().toISOString();
+        const createdAt = card.meta.createdAt || now;
+        const updatedAt = card.meta.updatedAt || createdAt;
 
-        // Restore assets for this card
-        const cardAssets = assetsByCard.get(card.meta.id) || [];
-        for (const clientAsset of cardAssets) {
-          try {
-            // Create asset directory
-            const assetDir = join(this.storagePath, card.meta.id);
-            await fs.mkdir(assetDir, { recursive: true });
+        insertCardStmt.run(
+          card.meta.id,
+          card.meta.name,
+          spec,
+          JSON.stringify(card.data),
+          JSON.stringify(card.meta.tags || []),
+          card.meta.creator || null,
+          card.meta.characterVersion || null,
+          card.meta.rating || null,
+          originalImage,
+          createdAt,
+          updatedAt,
+          card.meta.packageId || null,
+          card.meta.memberCount || null
+        );
 
-            // Write asset file
-            const assetBuffer = this.dataUrlToBuffer(clientAsset.data);
-            const assetPath = join(assetDir, `${clientAsset.name}.${clientAsset.ext}`);
-            await fs.writeFile(assetPath, assetBuffer);
-
-            // Create asset record
-            const assetUrl = `${card.meta.id}/${clientAsset.name}.${clientAsset.ext}`;
-            const createdAsset = this.assetRepo.create({
-              filename: `${clientAsset.name}.${clientAsset.ext}`,
-              mimetype: clientAsset.mimetype,
-              size: clientAsset.size,
-              width: clientAsset.width,
-              height: clientAsset.height,
-              url: assetUrl,
-            });
-
-            // Create card-asset association
-            this.cardAssetRepo.create({
-              cardId: card.meta.id,
-              assetId: createdAsset.id,
-              type: clientAsset.type,
-              name: clientAsset.name,
-              ext: clientAsset.ext,
-              order: 0,
-              isMain: clientAsset.isMain,
-              tags: clientAsset.tags,
-            });
-
-            result.imported.assets++;
-          } catch (err) {
-            result.errors.push(`Failed to restore asset ${clientAsset.name}: ${err}`);
-          }
-        }
+        importedCardIds.add(card.meta.id);
+        result.imported.cards++;
       } catch (err) {
         result.errors.push(`Failed to restore card ${card.meta.name}: ${err}`);
+      }
+    }
+
+    // Restore versions (only for imported cards)
+    for (const version of versions) {
+      if (!importedCardIds.has(version.cardId)) continue;
+      try {
+        insertVersionStmt.run(
+          version.id,
+          version.cardId,
+          version.versionNumber,
+          JSON.stringify(version.data),
+          version.message || null,
+          version.createdAt,
+          null
+        );
+        result.imported.versions++;
+      } catch {
+        result.skipped++;
+      }
+    }
+
+    // Restore assets (filesystem + DB) for imported cards
+    for (const cardId of importedCardIds) {
+      const cardAssets = assetsByCard.get(cardId) || [];
+
+      for (const [index, clientAsset] of cardAssets.entries()) {
+        const ext = (clientAsset.ext || 'bin').replace(/^\./, '').toLowerCase() || 'bin';
+        const assetId = nanoid();
+        const cardAssetId = nanoid();
+
+        const filenameOnDisk = `${assetId}.${ext}`;
+        const assetUrl = `/storage/${cardId}/${filenameOnDisk}`;
+
+        const targetPath = safeJoin(this.storagePath, cardId, filenameOnDisk);
+        if (!targetPath) {
+          result.errors.push(`Failed to restore asset ${clientAsset.name}: unsafe file path`);
+          continue;
+        }
+
+        try {
+          await fs.mkdir(dirname(targetPath), { recursive: true });
+          await fs.writeFile(targetPath, this.dataUrlToBuffer(clientAsset.data));
+
+          insertAssetStmt.run(
+            assetId,
+            `${clientAsset.name}.${ext}`,
+            clientAsset.mimetype,
+            clientAsset.size,
+            clientAsset.width ?? null,
+            clientAsset.height ?? null,
+            assetUrl,
+            clientAsset.createdAt
+          );
+
+          insertCardAssetStmt.run(
+            cardAssetId,
+            cardId,
+            assetId,
+            clientAsset.type,
+            clientAsset.name,
+            ext,
+            index,
+            clientAsset.isMain ? 1 : 0,
+            clientAsset.tags?.length ? JSON.stringify(clientAsset.tags) : null,
+            null,
+            clientAsset.createdAt,
+            clientAsset.updatedAt
+          );
+
+          result.imported.assets++;
+        } catch (err) {
+          result.errors.push(`Failed to restore asset ${clientAsset.name}: ${err}`);
+        }
       }
     }
 
@@ -440,142 +563,219 @@ export class BackupService {
 
     // Handle replace mode - delete all existing data
     if (options.mode === 'replace') {
-      const existingCards = this.cardRepo.list('', 1, 999999);
-      for (const card of existingCards.items) {
-        this.cardAssetRepo.deleteByCard(card.meta.id);
-        this.cardRepo.delete(card.meta.id);
-      }
-
-      // Delete user presets (but keep built-in)
-      const existingPresets = this.presetRepo.getAll();
-      for (const preset of existingPresets) {
-        if (!preset.isBuiltIn) {
-          this.presetRepo.delete(preset.id);
-        }
-      }
+      this.db.transaction(() => {
+        this.db.exec('DELETE FROM card_assets');
+        this.db.exec('DELETE FROM versions');
+        this.db.exec('DELETE FROM assets');
+        this.db.exec('DELETE FROM cards');
+        // Delete user presets (but keep built-in)
+        this.db.exec('DELETE FROM llm_presets WHERE is_built_in = 0');
+      })();
     }
 
-    // Restore assets first
-    for (const asset of assets) {
-      try {
-        const existing = this.assetRepo.get(asset.id);
+    const cardExistsStmt = this.db.prepare('SELECT 1 FROM cards WHERE id = ?');
+    const assetExistsStmt = this.db.prepare('SELECT 1 FROM assets WHERE id = ?');
+    const cardAssetExistsStmt = this.db.prepare('SELECT 1 FROM card_assets WHERE id = ?');
+    const versionExistsStmt = this.db.prepare('SELECT 1 FROM versions WHERE id = ?');
+    const presetExistsStmt = this.db.prepare('SELECT 1 FROM llm_presets WHERE id = ?');
 
-        if (existing && options.mode === 'merge' && options.skipConflicts) {
-          result.skipped++;
-          continue;
-        }
+    const insertCardStmt = this.db.prepare(`
+      INSERT INTO cards (id, name, spec, data, tags, creator, character_version, rating, original_image, created_at, updated_at, package_id, member_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-        // Restore physical file
-        const assetFileName = `assets/${asset.filename}`;
-        if (unzipped[assetFileName]) {
-          // Extract card ID from asset URL
-          const urlParts = asset.url.split('/');
-          const cardId = urlParts.length > 1 ? urlParts[0] : 'unknown';
+    const insertAssetStmt = this.db.prepare(`
+      INSERT INTO assets (id, filename, mimetype, size, width, height, path, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-          const assetDir = join(this.storagePath, cardId);
-          await fs.mkdir(assetDir, { recursive: true });
+    const insertCardAssetStmt = this.db.prepare(`
+      INSERT INTO card_assets (id, card_id, asset_id, type, name, ext, order_index, is_main, tags, original_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-          const targetPath = join(assetDir, asset.filename);
-          await fs.writeFile(targetPath, unzipped[assetFileName]);
-        }
+    const insertVersionStmt = this.db.prepare(`
+      INSERT INTO versions (id, card_id, version, data, message, created_at, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
 
-        // Create asset record if it doesn't exist
-        if (!existing) {
-          this.assetRepo.create({
-            filename: asset.filename,
-            mimetype: asset.mimetype,
-            size: asset.size,
-            width: asset.width,
-            height: asset.height,
-            url: asset.url,
-          });
-          result.imported.assets++;
-        }
-      } catch (err) {
-        result.errors.push(`Failed to restore asset ${asset.filename}: ${err}`);
-      }
-    }
+    const insertPresetStmt = this.db.prepare(`
+      INSERT INTO llm_presets (id, name, description, instruction, category, is_built_in, is_hidden, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-    // Restore cards
+    const importedCardIds = new Set<string>();
+
+    // Restore cards (preserve IDs so relationships remain valid)
     for (const card of cards) {
       try {
-        const existing = this.cardRepo.get(card.meta.id);
-
-        if (existing && options.mode === 'merge' && options.skipConflicts) {
+        const exists = !!cardExistsStmt.get(card.meta.id);
+        if (exists && options.mode === 'merge') {
           result.skipped++;
           continue;
         }
 
-        // Get original image if present
         const imageFileName = `images/cards/${card.meta.id}.png`;
-        const originalImage = unzipped[imageFileName]
-          ? Buffer.from(unzipped[imageFileName])
-          : undefined;
+        const originalImage = unzipped[imageFileName] ? Buffer.from(unzipped[imageFileName]) : null;
 
-        if (!existing) {
-          // Create new card
-          this.cardRepo.create({
-            data: card.data,
-            meta: {
-              name: card.meta.name,
-              spec: card.meta.spec,
-              tags: card.meta.tags,
-              creator: card.meta.creator,
-              characterVersion: card.meta.characterVersion,
-              rating: card.meta.rating,
-              packageId: card.meta.packageId,
-              memberCount: card.meta.memberCount,
-            },
-          }, originalImage);
-          result.imported.cards++;
-        } else if (options.mode === 'replace') {
-          // Update existing card
-          this.cardRepo.update(card.meta.id, {
-            data: card.data,
-            meta: card.meta,
-          });
-          if (originalImage) {
-            this.cardRepo.updateOriginalImage(card.meta.id, originalImage);
-          }
-          result.imported.cards++;
-        }
+        const spec = card.meta.spec === 'chara_card_v2'
+          ? 'v2'
+          : card.meta.spec === 'chara_card_v3'
+            ? 'v3'
+            : card.meta.spec;
+
+        const now = new Date().toISOString();
+        const createdAt = card.meta.createdAt || now;
+        const updatedAt = card.meta.updatedAt || createdAt;
+
+        insertCardStmt.run(
+          card.meta.id,
+          card.meta.name,
+          spec,
+          JSON.stringify(card.data),
+          JSON.stringify(card.meta.tags || []),
+          card.meta.creator || null,
+          card.meta.characterVersion || null,
+          card.meta.rating || null,
+          originalImage,
+          createdAt,
+          updatedAt,
+          card.meta.packageId || null,
+          card.meta.memberCount || null
+        );
+
+        importedCardIds.add(card.meta.id);
+        result.imported.cards++;
       } catch (err) {
         result.errors.push(`Failed to restore card ${card.meta.name}: ${err}`);
       }
     }
 
-    // Restore card assets
-    for (const cardAsset of cardAssets) {
+    const cardAssetsToImport = cardAssets.filter((ca) => importedCardIds.has(ca.cardId));
+    const versionsToImport = versions.filter((v) => importedCardIds.has(v.cardId));
+
+    const assetIdsToImport = new Set(cardAssetsToImport.map((ca) => ca.assetId));
+    const assetsToImport = assets.filter((a) => assetIdsToImport.has(a.id));
+
+    const importedAssetIds = new Set<string>();
+
+    // Restore asset records (preserve IDs)
+    for (const asset of assetsToImport) {
       try {
-        // Check if card exists
-        const card = this.cardRepo.get(cardAsset.cardId);
-        if (!card) {
+        const exists = !!assetExistsStmt.get(asset.id);
+        if (exists && options.mode === 'merge') {
           result.skipped++;
           continue;
         }
 
-        // Create card asset association
-        this.cardAssetRepo.create({
-          cardId: cardAsset.cardId,
-          assetId: cardAsset.assetId,
-          type: cardAsset.type,
-          name: cardAsset.name,
-          ext: cardAsset.ext,
-          order: cardAsset.order,
-          isMain: cardAsset.isMain,
-          tags: cardAsset.tags,
-          originalUrl: cardAsset.originalUrl,
-        });
+        insertAssetStmt.run(
+          asset.id,
+          asset.filename,
+          asset.mimetype,
+          asset.size,
+          asset.width ?? null,
+          asset.height ?? null,
+          asset.url,
+          asset.createdAt
+        );
+
+        importedAssetIds.add(asset.id);
+        result.imported.assets++;
       } catch (err) {
-        // Card asset might already exist - ignore
+        result.errors.push(`Failed to restore asset ${asset.filename}: ${err}`);
+      }
+    }
+
+    // Restore physical asset files (only for newly imported assets to avoid overwrites in merge mode)
+    for (const asset of assetsToImport) {
+      if (!importedAssetIds.has(asset.id)) continue;
+
+      const bytes = this.getAssetBytesFromZip(unzipped, asset);
+      if (!bytes) {
+        console.warn(`[backup] Missing asset file bytes for ${asset.filename} (${asset.id}), skipping file restore`);
+        continue;
+      }
+
+      const targetPath = this.resolveStorageFilePath(asset.url);
+      if (!targetPath) {
+        console.warn(`[backup] Unsafe asset path for ${asset.filename}: ${asset.url}, skipping file restore`);
+        continue;
+      }
+
+      try {
+        await fs.mkdir(dirname(targetPath), { recursive: true });
+        if (options.mode === 'merge') {
+          const exists = await fs.stat(targetPath).then(() => true).catch(() => false);
+          if (exists) {
+            console.warn(`[backup] Asset file already exists, skipping overwrite in merge mode: ${asset.url}`);
+            continue;
+          }
+        }
+        await fs.writeFile(targetPath, bytes);
+      } catch (err) {
+        result.errors.push(`Failed to write asset file ${asset.filename}: ${err}`);
+      }
+    }
+
+    // Restore card-asset associations (preserve IDs)
+    for (const cardAsset of cardAssetsToImport) {
+      try {
+        const exists = !!cardAssetExistsStmt.get(cardAsset.id);
+        if (exists && options.mode === 'merge') {
+          result.skipped++;
+          continue;
+        }
+
+        const assetExists = !!assetExistsStmt.get(cardAsset.assetId);
+        if (!assetExists) {
+          result.skipped++;
+          continue;
+        }
+
+        insertCardAssetStmt.run(
+          cardAsset.id,
+          cardAsset.cardId,
+          cardAsset.assetId,
+          cardAsset.type,
+          cardAsset.name,
+          cardAsset.ext,
+          cardAsset.order,
+          cardAsset.isMain ? 1 : 0,
+          cardAsset.tags?.length ? JSON.stringify(cardAsset.tags) : null,
+          cardAsset.originalUrl || null,
+          cardAsset.createdAt,
+          cardAsset.updatedAt
+        );
+      } catch (err) {
         result.skipped++;
       }
     }
 
-    // Restore versions (skipped for now - would need raw SQL)
-    result.skipped += versions.length;
+    // Restore versions (preserve IDs)
+    for (const version of versionsToImport) {
+      try {
+        const exists = !!versionExistsStmt.get(version.id);
+        if (exists && options.mode === 'merge') {
+          result.skipped++;
+          continue;
+        }
 
-    // Restore presets (skip built-in)
+        insertVersionStmt.run(
+          version.id,
+          version.cardId,
+          version.version,
+          JSON.stringify(version.data),
+          version.message || null,
+          version.createdAt,
+          version.createdBy || null
+        );
+        result.imported.versions++;
+      } catch {
+        result.skipped++;
+      }
+    }
+
+    // Restore presets (skip built-in; preserve IDs for user presets)
     for (const preset of presets) {
       try {
         if (preset.isBuiltIn) {
@@ -583,22 +783,24 @@ export class BackupService {
           continue;
         }
 
-        const existing = this.presetRepo.getById(preset.id);
-
-        if (existing && options.mode === 'merge' && options.skipConflicts) {
+        const exists = !!presetExistsStmt.get(preset.id);
+        if (exists && options.mode === 'merge') {
           result.skipped++;
           continue;
         }
 
-        if (!existing) {
-          this.presetRepo.create({
-            name: preset.name,
-            description: preset.description,
-            instruction: preset.instruction,
-            category: preset.category,
-          });
-          result.imported.presets++;
-        }
+        insertPresetStmt.run(
+          preset.id,
+          preset.name,
+          preset.description || null,
+          preset.instruction,
+          preset.category || null,
+          0,
+          preset.isHidden ? 1 : 0,
+          preset.createdAt,
+          preset.updatedAt
+        );
+        result.imported.presets++;
       } catch (err) {
         result.errors.push(`Failed to restore preset ${preset.name}: ${err}`);
       }
