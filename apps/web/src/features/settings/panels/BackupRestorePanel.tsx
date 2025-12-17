@@ -100,7 +100,7 @@ export function BackupRestorePanel() {
       const result = await restoreBackup(selectedFile, { mode: restoreMode });
       if (result.success) {
         setSuccess(
-          `Restored ${result.imported.cards} cards, ${result.imported.assets} assets, ${result.imported.versions} versions`
+          `Restored ${result.imported.cards} cards, ${result.imported.images} images, ${result.imported.assets} assets, ${result.imported.versions} versions`
         );
         setSelectedFile(null);
         setPreview(null);
@@ -233,6 +233,9 @@ export function BackupRestorePanel() {
               </p>
               <p className="text-dark-muted">
                 <span className="font-medium">Cards:</span> {preview.manifest.counts.cards}
+              </p>
+              <p className="text-dark-muted">
+                <span className="font-medium">Images:</span> {preview.manifest.counts.images || 0}
               </p>
               <p className="text-dark-muted">
                 <span className="font-medium">Assets:</span> {preview.manifest.counts.assets}
