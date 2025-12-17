@@ -564,6 +564,55 @@ class ApiClient {
       onError(error.message);
     }
   }
+
+  // Backup/Restore
+  async createBackup(options: { includeVersions?: boolean; includePresets?: boolean } = {}): Promise<Blob> {
+    const response = await fetch(`${this.baseURL}/backup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
+    if (!response.ok) throw new Error('Backup failed');
+    return response.blob();
+  }
+
+  async restoreBackup(file: File, mode: 'replace' | 'merge'): Promise<{
+    success: boolean;
+    imported: { cards: number; versions: number; assets: number; presets: number };
+    errors: string[];
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${this.baseURL}/backup/restore?mode=${mode}`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Restore failed');
+    }
+    return response.json();
+  }
+
+  async validateBackup(file: File): Promise<{ valid: boolean; manifest?: any; errors: string[] }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${this.baseURL}/backup/validate`, {
+      method: 'POST',
+      body: formData,
+    });
+    return response.json();
+  }
+
+  async previewBackup(file: File): Promise<{ manifest: any; cardNames: string[] }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${this.baseURL}/backup/preview`, {
+      method: 'POST',
+      body: formData,
+    });
+    return response.json();
+  }
 }
 
 export const api = new ApiClient();

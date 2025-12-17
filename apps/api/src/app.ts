@@ -25,6 +25,7 @@ import { webImportRoutes } from './routes/web-import.js';
 import { imageArchivalRoutes, userImagesRoutes } from './routes/image-archival.js';
 import { charxOptimizerRoutes } from './routes/charx-optimizer.js';
 import { federationRoutes } from './routes/federation.js';
+import { backupRoutes } from './routes/backup.js';
 import type Database from 'better-sqlite3';
 
 // Extend Fastify instance type
@@ -117,6 +118,7 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(webImportRoutes, apiPrefix);
   await fastify.register(imageArchivalRoutes, apiPrefix);
   await fastify.register(charxOptimizerRoutes, apiPrefix);
+  await fastify.register(backupRoutes, apiPrefix);
 
   // Register user images route at root level (SillyTavern compatibility)
   // This serves archived images at /user/images/:characterName/:filename
