@@ -235,6 +235,12 @@ function createLorebookCard(
   const now = new Date().toISOString();
   const name = book.name || fileName.replace(/\.[^/.]+$/, '') || 'Imported Lorebook';
 
+  // Normalize entries to ensure keys is always an array (schema may have it optional)
+  const normalizedEntries = book.entries.map(entry => ({
+    ...entry,
+    keys: entry.keys || [],
+  }));
+
   const lorebookData: CCv3Data = {
     spec: 'chara_card_v3',
     spec_version: '3.0',
@@ -252,7 +258,7 @@ function createLorebookCard(
       post_history_instructions: '',
       alternate_greetings: [],
       group_only_greetings: [],
-      character_book: book,
+      character_book: { ...book, entries: normalizedEntries },
     },
   };
 
@@ -828,7 +834,8 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
       if (lorebookFormat !== 'unknown') {
         // This is a standalone lorebook file
         const parsed = parseLorebook(buffer);
-        const lorebookCard = createLorebookCard(parsed.book, fileName);
+        // Cast needed because zod types have optional keys, but we normalize inside createLorebookCard
+        const lorebookCard = createLorebookCard(parsed.book as Parameters<typeof createLorebookCard>[0], fileName);
         return { card: lorebookCard };
       }
 
@@ -844,7 +851,8 @@ export async function importCardClientSide(file: File): Promise<ClientImportResu
       try {
         const parsed = parseLorebook(buffer);
         if (parsed.book && parsed.book.entries && parsed.book.entries.length > 0) {
-          const lorebookCard = createLorebookCard(parsed.book, fileName);
+          // Cast needed because zod types have optional keys, but we normalize inside createLorebookCard
+          const lorebookCard = createLorebookCard(parsed.book as Parameters<typeof createLorebookCard>[0], fileName);
           return { card: lorebookCard };
         }
       } catch {

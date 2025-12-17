@@ -331,7 +331,7 @@ export function LorebookEditor() {
                       {entry.name || `Entry ${index + 1}`}
                     </div>
                     <div className="text-xs text-dark-muted">
-                      {entry.keys.filter(Boolean).join(', ') || 'No keywords'}
+                      {(entry.keys || []).filter(Boolean).join(', ') || 'No keywords'}
                     </div>
 
                     {/* Action buttons on hover */}
@@ -386,7 +386,7 @@ export function LorebookEditor() {
                     <div className="flex items-center justify-between">
                       <label className="label">Activation Keys (comma-separated)</label>
                       <button
-                        onClick={() => handleOpenLLMAssist('lore_keys', selectedEntry.keys.join(', '))}
+                        onClick={() => handleOpenLLMAssist('lore_keys', (selectedEntry.keys || []).join(', '))}
                         className="text-sm text-blue-400 hover:text-blue-300"
                         title="LLM Assist"
                       >
@@ -395,7 +395,7 @@ export function LorebookEditor() {
                     </div>
                     <input
                       type="text"
-                      value={selectedEntry.keys.join(', ')}
+                      value={(selectedEntry.keys || []).join(', ')}
                       onChange={(e) =>
                         handleUpdateEntry(selectedEntryIndex, {
                           keys: e.target.value.split(',').map((k) => k.trim()),

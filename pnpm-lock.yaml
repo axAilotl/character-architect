@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@character-foundry/character-foundry':
-        specifier: ^0.1.7
-        version: 0.1.7(@hookform/resolvers@3.10.0(react-hook-form@7.68.0(react@18.3.1)))(react-dom@18.3.1(react@18.3.1))(react-hook-form@7.68.0(react@18.3.1))(react@18.3.1)
+        specifier: 0.1.9-dev.1765932375
+        version: 0.1.9-dev.1765932375(@hookform/resolvers@3.10.0(react-hook-form@7.68.0(react@18.3.1)))(react-dom@18.3.1(react@18.3.1))(react-hook-form@7.68.0(react@18.3.1))(react@18.3.1)
       '@codemirror/commands':
         specifier: ^6.10.0
         version: 6.10.0
@@ -1008,6 +1008,23 @@ packages:
 
   '@character-foundry/character-foundry@0.1.7':
     resolution: {integrity: sha512-Y7vWjdIT3la03Qlkk5aldo/GrMFI4q1pLTiDXMP7brTEZpaaBJMQVkw1fEcj/HEGaPcTk1Xeek6G/SseT3tZnw==}
+    peerDependencies:
+      '@hookform/resolvers': ^3.0.0
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+      react-hook-form: ^7.0.0
+    peerDependenciesMeta:
+      '@hookform/resolvers':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      react-hook-form:
+        optional: true
+
+  '@character-foundry/character-foundry@0.1.9-dev.1765932375':
+    resolution: {integrity: sha512-GU2sybNivEWY8dUqhjIg+kI5FDqcjLZtyxVxFZau4xX9tjCSJEbPhVlL5THA6j7N06FDC43JCkXiSI/ps3ZpBA==}
     peerDependencies:
       '@hookform/resolvers': ^3.0.0
       react: ^18.0.0 || ^19.0.0
@@ -6448,6 +6465,18 @@ snapshots:
       zod: 3.25.76
 
   '@character-foundry/character-foundry@0.1.7(@hookform/resolvers@3.10.0(react-hook-form@7.68.0(react@18.3.1)))(react-dom@18.3.1(react@18.3.1))(react-hook-form@7.68.0(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      fflate: 0.8.2
+      gpt-tokenizer: 3.4.0
+      zod: 3.25.76
+    optionalDependencies:
+      '@hookform/resolvers': 3.10.0(react-hook-form@7.68.0(react@18.3.1))
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      react-hook-form: 7.68.0(react@18.3.1)
+      sharp: 0.33.5
+
+  '@character-foundry/character-foundry@0.1.9-dev.1765932375(@hookform/resolvers@3.10.0(react-hook-form@7.68.0(react@18.3.1)))(react-dom@18.3.1(react@18.3.1))(react-hook-form@7.68.0(react@18.3.1))(react@18.3.1)':
     dependencies:
       fflate: 0.8.2
       gpt-tokenizer: 3.4.0
