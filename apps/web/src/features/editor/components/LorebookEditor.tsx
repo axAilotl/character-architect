@@ -469,7 +469,7 @@ export function LorebookEditor() {
                       <label className="label">Insertion Order</label>
                       <input
                         type="number"
-                        value={selectedEntry.insertion_order}
+                        value={selectedEntry.insertion_order ?? 0}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, { insertion_order: parseInt(e.target.value, 10) || 0 })
                         }
