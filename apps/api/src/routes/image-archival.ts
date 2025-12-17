@@ -118,6 +118,7 @@ export function restoreOriginalUrls(
   // Replace local paths with original URLs
   let firstMes = (innerData.first_mes as string) || '';
   let alternateGreetings = [...((innerData.alternate_greetings as string[]) || [])];
+  let creatorNotes = (innerData.creator_notes as string) || '';
 
   for (const [localPath, originalUrl] of localToOriginal) {
     const escapedPath = localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -125,6 +126,7 @@ export function restoreOriginalUrls(
     alternateGreetings = alternateGreetings.map(g =>
       g.replace(new RegExp(escapedPath, 'g'), originalUrl)
     );
+    creatorNotes = creatorNotes.replace(new RegExp(escapedPath, 'g'), originalUrl);
   }
 
   // Update the correct location based on data structure
@@ -132,10 +134,12 @@ export function restoreOriginalUrls(
     // Wrapped format
     (clonedData.data as Record<string, unknown>).first_mes = firstMes;
     (clonedData.data as Record<string, unknown>).alternate_greetings = alternateGreetings;
+    (clonedData.data as Record<string, unknown>).creator_notes = creatorNotes;
   } else {
     // Direct fields format
     clonedData.first_mes = firstMes;
     clonedData.alternate_greetings = alternateGreetings;
+    clonedData.creator_notes = creatorNotes;
   }
 
   return clonedData;
@@ -185,6 +189,7 @@ export function convertToEmbeddedUrls(
   // Replace local paths with embedded URLs
   let firstMes = (innerData.first_mes as string) || '';
   let alternateGreetings = [...((innerData.alternate_greetings as string[]) || [])];
+  let creatorNotes = (innerData.creator_notes as string) || '';
 
   for (const [localPath, embeddedUrl] of localToEmbedded) {
     const escapedPath = localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -192,15 +197,18 @@ export function convertToEmbeddedUrls(
     alternateGreetings = alternateGreetings.map(g =>
       g.replace(new RegExp(escapedPath, 'g'), embeddedUrl)
     );
+    creatorNotes = creatorNotes.replace(new RegExp(escapedPath, 'g'), embeddedUrl);
   }
 
   // Update the correct location based on data structure
   if (clonedData.data) {
     (clonedData.data as Record<string, unknown>).first_mes = firstMes;
     (clonedData.data as Record<string, unknown>).alternate_greetings = alternateGreetings;
+    (clonedData.data as Record<string, unknown>).creator_notes = creatorNotes;
   } else {
     clonedData.first_mes = firstMes;
     clonedData.alternate_greetings = alternateGreetings;
+    clonedData.creator_notes = creatorNotes;
   }
 
   return { cardData: clonedData, embeddedAssets };
@@ -228,13 +236,14 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
     const innerData = (rawData.data as Record<string, unknown>) || rawData;
     const firstMes = (innerData.first_mes as string) || '';
     const alternateGreetings = (innerData.alternate_greetings as string[]) || [];
+    const creatorNotes = (innerData.creator_notes as string) || '';
     const characterName = (innerData.name as string) || 'character';
 
     // Extract all image URLs
     const imagesToArchive: Array<{
       url: string;
       fullMatch: string;
-      field: 'first_mes' | 'alternate_greetings';
+      field: 'first_mes' | 'alternate_greetings' | 'creator_notes';
       index?: number;
     }> = [];
 
@@ -249,6 +258,11 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
         imagesToArchive.push({ ...img, field: 'alternate_greetings', index });
       }
     });
+
+    // From creator_notes
+    for (const img of extractImageUrls(creatorNotes)) {
+      imagesToArchive.push({ ...img, field: 'creator_notes' });
+    }
 
     if (imagesToArchive.length === 0) {
       return {
@@ -378,6 +392,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
     // Update card content with local paths
     let updatedFirstMes = firstMes;
     const updatedAlternateGreetings = [...alternateGreetings];
+    let updatedCreatorNotes = creatorNotes;
 
     for (const img of imagesToArchive) {
       const localPath = urlToLocalPath.get(img.url);
@@ -393,6 +408,8 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
           img.fullMatch,
           newMatch
         );
+      } else if (img.field === 'creator_notes') {
+        updatedCreatorNotes = updatedCreatorNotes.replace(img.fullMatch, newMatch);
       }
     }
 
@@ -406,6 +423,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
           ...innerData,
           first_mes: updatedFirstMes,
           alternate_greetings: updatedAlternateGreetings,
+          creator_notes: updatedCreatorNotes,
         },
       } as typeof card.data;
     } else {
@@ -414,6 +432,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
         ...rawData,
         first_mes: updatedFirstMes,
         alternate_greetings: updatedAlternateGreetings,
+        creator_notes: updatedCreatorNotes,
       } as typeof card.data;
     }
 
@@ -503,12 +522,15 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
     // Revert URLs in card content
     let firstMes = (innerData.first_mes as string) || '';
     let alternateGreetings = [...((innerData.alternate_greetings as string[]) || [])];
+    let creatorNotes = (innerData.creator_notes as string) || '';
 
     for (const [localPath, originalUrl] of localToOriginal) {
-      firstMes = firstMes.replace(new RegExp(localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), originalUrl);
+      const escapedPath = localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      firstMes = firstMes.replace(new RegExp(escapedPath, 'g'), originalUrl);
       alternateGreetings = alternateGreetings.map(g =>
-        g.replace(new RegExp(localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), originalUrl)
+        g.replace(new RegExp(escapedPath, 'g'), originalUrl)
       );
+      creatorNotes = creatorNotes.replace(new RegExp(escapedPath, 'g'), originalUrl);
     }
 
     // Update card - update the inner data while preserving wrapper structure
@@ -521,6 +543,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
           ...innerData,
           first_mes: firstMes,
           alternate_greetings: alternateGreetings,
+          creator_notes: creatorNotes,
         },
       } as typeof card.data;
     } else {
@@ -529,6 +552,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
         ...rawData,
         first_mes: firstMes,
         alternate_greetings: alternateGreetings,
+        creator_notes: creatorNotes,
       } as typeof card.data;
     }
 
@@ -565,6 +589,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
 
     const firstMes = (innerData.first_mes as string) || '';
     const alternateGreetings = (innerData.alternate_greetings as string[]) || [];
+    const creatorNotes = (innerData.creator_notes as string) || '';
 
     let externalImageCount = 0;
     const firstMesImages = extractImageUrls(firstMes);
@@ -575,6 +600,9 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
       externalImageCount += greetingImages.length;
     }
 
+    const creatorNotesImages = extractImageUrls(creatorNotes);
+    externalImageCount += creatorNotesImages.length;
+
     // Count archived images
     const assets = cardAssetRepo.listByCard(card.meta.id);
     const archivedCount = assets.filter(a => a.originalUrl).length;
@@ -583,6 +611,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
       cardId: card.meta.id,
       firstMesLength: firstMes.length,
       alternateGreetingsCount: alternateGreetings.length,
+      creatorNotesLength: creatorNotes.length,
       externalImageCount,
       archivedCount,
     }, 'Archive status check');
