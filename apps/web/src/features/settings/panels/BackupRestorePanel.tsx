@@ -8,7 +8,6 @@ import {
 
 export function BackupRestorePanel() {
   const [includeVersions, setIncludeVersions] = useState(true);
-  const [includePresets, setIncludePresets] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -19,15 +18,12 @@ export function BackupRestorePanel() {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get library stats from store (placeholder - actual implementation may vary)
-  const cardCount = 0; // TODO: Get from store/API
-
   const handleCreateBackup = async () => {
     setIsCreating(true);
     setError(null);
     setSuccess(null);
     try {
-      const blob = await createBackup({ includeVersions, includePresets });
+      const blob = await createBackup({ includeVersions });
       // Download the file
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -144,6 +140,21 @@ export function BackupRestorePanel() {
       <div className="border border-dark-border rounded-lg p-6 space-y-4">
         <div>
           <h4 className="font-semibold mb-3">Create Backup</h4>
+
+          {/* What's included */}
+          <div className="mb-4 p-3 bg-dark-surface rounded text-xs text-dark-muted">
+            <p className="font-medium text-dark-text mb-2">Always included:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>All character cards with metadata</li>
+              <li>Card images (thumbnails &amp; full-size)</li>
+              <li>Card assets (icons, emotions, sounds, etc.)</li>
+              <li>App settings (theme, editor, features)</li>
+              <li>Templates &amp; snippets</li>
+              <li>LLM providers &amp; presets</li>
+              <li>wwwyzzerdd prompts</li>
+            </ul>
+          </div>
+
           <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -152,17 +163,7 @@ export function BackupRestorePanel() {
                 onChange={(e) => setIncludeVersions(e.target.checked)}
                 className="w-4 h-4 rounded border-dark-border bg-dark-surface text-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
               />
-              <span className="text-sm">Include version history</span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includePresets}
-                onChange={(e) => setIncludePresets(e.target.checked)}
-                className="w-4 h-4 rounded border-dark-border bg-dark-surface text-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-              />
-              <span className="text-sm">Include LLM presets</span>
+              <span className="text-sm">Include version history (snapshots)</span>
             </label>
           </div>
         </div>
@@ -174,12 +175,6 @@ export function BackupRestorePanel() {
         >
           <span>{isCreating ? 'Creating...' : '📦 Create Backup'}</span>
         </button>
-
-        <div className="pt-3 border-t border-dark-border">
-          <p className="text-xs text-dark-muted">
-            Library: {cardCount} cards
-          </p>
-        </div>
       </div>
 
       {/* Restore from Backup Section */}
