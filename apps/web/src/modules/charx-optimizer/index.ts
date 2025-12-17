@@ -22,6 +22,7 @@ export const MODULE_METADATA: ModuleDefinition = {
   badge: 'Export',
   color: 'purple',
   order: 45,
+  requiresServer: true, // Uses server-side Sharp for image optimization
 };
 
 // Lazy-load the settings component

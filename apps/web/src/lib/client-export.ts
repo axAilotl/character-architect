@@ -52,7 +52,65 @@ function createPlaceholderPNG(): Uint8Array {
 }
 
 /**
+ * Detect image format from buffer magic bytes
+ */
+function detectImageFormat(bytes: Uint8Array): 'png' | 'jpeg' | 'webp' | 'gif' | 'unknown' {
+  if (bytes.length < 4) return 'unknown';
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'png';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return 'jpeg';
+  // WebP: RIFF....WEBP
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes.length >= 12) {
+    if (bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'webp';
+  }
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return 'gif';
+  return 'unknown';
+}
+
+/**
+ * Load an image from a URL
+ */
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = src;
+  });
+}
+
+/**
+ * Convert non-PNG image bytes to PNG using Canvas API
+ */
+async function convertToPNG(bytes: Uint8Array, mimeType: string): Promise<Uint8Array> {
+  // Create ArrayBuffer-backed Uint8Array for Blob compatibility
+  const arrayBuffer = new ArrayBuffer(bytes.length);
+  const blobBytes = new Uint8Array(arrayBuffer);
+  blobBytes.set(bytes);
+
+  const blob = new Blob([blobBytes], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+
+  try {
+    const img = await loadImage(url);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get canvas context');
+    ctx.drawImage(img, 0, 0);
+
+    const pngBlob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((b) => b ? resolve(b) : reject(new Error('Failed to convert to PNG')), 'image/png')
+    );
+    return new Uint8Array(await pngBlob.arrayBuffer());
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
  * Export card as PNG with embedded character data
+ * Converts non-PNG images (WebP, JPEG, GIF) to PNG before embedding
  */
 export async function exportCardAsPNG(card: Card): Promise<Blob> {
   // Get the full original image (icon) for export - NOT the thumbnail
@@ -68,8 +126,22 @@ export async function exportCardAsPNG(card: Card): Promise<Blob> {
   let pngBuffer: Uint8Array;
 
   if (imageData) {
-    pngBuffer = dataURLToUint8Array(imageData);
-    console.log('[client-export] PNG buffer size:', pngBuffer.length);
+    let imageBytes = dataURLToUint8Array(imageData);
+    const format = detectImageFormat(imageBytes);
+    console.log('[client-export] Detected image format:', format, 'buffer size:', imageBytes.length);
+
+    // Convert non-PNG images to PNG
+    if (format !== 'png') {
+      const mimeType = format === 'jpeg' ? 'image/jpeg'
+                     : format === 'webp' ? 'image/webp'
+                     : format === 'gif' ? 'image/gif'
+                     : 'application/octet-stream';
+      console.log('[client-export] Converting', format, 'to PNG');
+      imageBytes = await convertToPNG(imageBytes, mimeType);
+      console.log('[client-export] Converted PNG buffer size:', imageBytes.length);
+    }
+
+    pngBuffer = imageBytes;
   } else {
     // Use placeholder if no image
     console.log('[client-export] Using placeholder PNG');

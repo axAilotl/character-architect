@@ -7,6 +7,7 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import sharp from 'sharp';
 import { optimizeMedia } from './image-optimizer.js';
 
 // CHARX package
@@ -492,14 +493,40 @@ export function validatePNGSize(
 }
 
 /**
+ * Detect image format from buffer magic bytes
+ */
+function detectImageFormat(buffer: Buffer): 'png' | 'jpeg' | 'webp' | 'gif' | 'unknown' {
+  if (buffer.length < 4) return 'unknown';
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return 'png';
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) return 'jpeg';
+  // WebP: RIFF....WEBP
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 && buffer.length >= 12) {
+    if (buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return 'webp';
+  }
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return 'gif';
+  return 'unknown';
+}
+
+/**
  * Create PNG with embedded card data
+ * Converts non-PNG images (WebP, JPEG, GIF) to PNG before embedding
  */
 export async function createCardPNG(
   imageBuffer: Buffer,
   card: Card
 ): Promise<Buffer> {
+  const format = detectImageFormat(imageBuffer);
+
+  let pngBuffer: Buffer;
+  if (format !== 'png') {
+    // Convert to PNG using Sharp
+    pngBuffer = await sharp(imageBuffer).png().toBuffer();
+  } else {
+    pngBuffer = imageBuffer;
+  }
+
   // embedIntoPNG expects card data directly, not the wrapper Card type
-  const result = embedIntoPNGBuffer(new Uint8Array(imageBuffer), card.data as CCv2Data | CCv3Data);
+  const result = embedIntoPNGBuffer(new Uint8Array(pngBuffer), card.data as CCv2Data | CCv3Data);
   return Buffer.from(result);
 }
 

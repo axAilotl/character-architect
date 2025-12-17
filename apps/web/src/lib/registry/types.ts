@@ -99,4 +99,10 @@ export interface ModuleDefinition {
   color?: 'blue' | 'purple' | 'green' | 'orange' | 'red' | 'pink' | 'cyan' | 'amber' | 'teal';
   /** Display order in the modules list (lower = earlier) */
   order?: number;
+  /**
+   * Whether this module requires a server backend to function.
+   * If true, the module will NOT appear in light/static deployment modes.
+   * Examples: ComfyUI (needs local server), Web Import (needs API processing)
+   */
+  requiresServer?: boolean;
 }

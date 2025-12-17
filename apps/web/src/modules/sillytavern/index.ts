@@ -8,7 +8,6 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import { getModuleDefault } from '../../config/deployment';
 import type { ModuleDefinition } from '../../lib/registry/types';
 
 /**
@@ -22,6 +21,7 @@ export const MODULE_METADATA: ModuleDefinition = {
   badge: 'Push',
   color: 'pink',
   order: 50,
+  requiresServer: true,
 };
 
 // Lazy-load the settings component
@@ -33,6 +33,7 @@ const SillyTavernSettings = lazy(() =>
 
 /**
  * Register the SillyTavern module
+ * Note: In light/static mode, this module is NOT loaded at all (requiresServer: true)
  */
 export function registerSillytavernModule(): void {
   // Register settings panel
@@ -43,11 +44,7 @@ export function registerSillytavernModule(): void {
     row: 'modules',
     color: 'pink',
     order: 70,
-    condition: () => {
-      const featureFlag = useSettingsStore.getState().features?.sillytavernEnabled;
-      // If user has explicitly set the flag, use that; otherwise use deployment default
-      return featureFlag !== undefined ? featureFlag : getModuleDefault('sillytavern');
-    },
+    condition: () => useSettingsStore.getState().features?.sillytavernEnabled ?? false,
   });
 
   console.log('[sillytavern] Module registered (settings panel)');
