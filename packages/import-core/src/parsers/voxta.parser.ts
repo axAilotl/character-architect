@@ -151,7 +151,7 @@ export function parseVoxta(file: Buffer | Uint8Array): ParsedData {
       thumbnail,
       members: members,
       scenarios,
-      originalPackage: file instanceof Buffer ? file : Buffer.from(file)
+      originalPackage: file instanceof Uint8Array ? file : new Uint8Array(file)
     };
   }
 

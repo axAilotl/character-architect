@@ -246,8 +246,8 @@ export function LorebookEditor() {
                 <label className="label">Description</label>
                 <button
                   onClick={() => handleOpenLLMAssist('lorebook_description', lorebook?.description || '')}
-                  className="text-sm text-blue-400 hover:text-blue-300"
-                  title="LLM Assist"
+                  className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                  title="AI Assist"
                 >
                   ✨
                 </button>
@@ -331,7 +331,7 @@ export function LorebookEditor() {
                       {entry.name || `Entry ${index + 1}`}
                     </div>
                     <div className="text-xs text-dark-muted">
-                      {entry.keys.filter(Boolean).join(', ') || 'No keywords'}
+                      {(entry.keys || []).filter(Boolean).join(', ') || 'No keywords'}
                     </div>
 
                     {/* Action buttons on hover */}
@@ -386,16 +386,16 @@ export function LorebookEditor() {
                     <div className="flex items-center justify-between">
                       <label className="label">Activation Keys (comma-separated)</label>
                       <button
-                        onClick={() => handleOpenLLMAssist('lore_keys', selectedEntry.keys.join(', '))}
-                        className="text-sm text-blue-400 hover:text-blue-300"
-                        title="LLM Assist"
+                        onClick={() => handleOpenLLMAssist('lore_keys', (selectedEntry.keys || []).join(', '))}
+                        className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                        title="AI Assist"
                       >
                         ✨
                       </button>
                     </div>
                     <input
                       type="text"
-                      value={selectedEntry.keys.join(', ')}
+                      value={(selectedEntry.keys || []).join(', ')}
                       onChange={(e) =>
                         handleUpdateEntry(selectedEntryIndex, {
                           keys: e.target.value.split(',').map((k) => k.trim()),
@@ -426,8 +426,8 @@ export function LorebookEditor() {
                       <label className="label">Content</label>
                       <button
                         onClick={() => handleOpenLLMAssist('lore_content', selectedEntry.content)}
-                        className="text-sm text-blue-400 hover:text-blue-300"
-                        title="LLM Assist"
+                        className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                        title="AI Assist"
                       >
                         ✨
                       </button>
@@ -469,7 +469,7 @@ export function LorebookEditor() {
                       <label className="label">Insertion Order</label>
                       <input
                         type="number"
-                        value={selectedEntry.insertion_order}
+                        value={selectedEntry.insertion_order ?? 0}
                         onChange={(e) =>
                           handleUpdateEntry(selectedEntryIndex, { insertion_order: parseInt(e.target.value, 10) || 0 })
                         }

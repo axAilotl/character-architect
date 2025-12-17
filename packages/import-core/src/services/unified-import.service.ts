@@ -169,7 +169,8 @@ export class UnifiedImportService {
  * Detect file format from magic bytes and filename
  */
 function detectFormat(file: Buffer | Uint8Array, filename: string): FileFormat {
-  const bytes = file instanceof Buffer ? file : new Uint8Array(file);
+  // Browser-safe: check for Uint8Array (Buffer extends Uint8Array in Node)
+  const bytes = file instanceof Uint8Array ? file : new Uint8Array(file as ArrayBuffer);
 
   // Check magic bytes
   if (bytes.length >= 4) {

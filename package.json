@@ -29,7 +29,9 @@
     "test:e2e:report": "playwright show-report",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist"
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist",
+    "cf:deploy": "wrangler deploy",
+    "cf:deploy:dev": "wrangler deploy --env dev"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -40,14 +42,15 @@
     "playwright": "^1.57.0",
     "prettier": "^3.2.4",
     "typescript": "^5.3.3",
-    "typescript-eslint": "^8.18.2"
+    "typescript-eslint": "^8.18.2",
+    "wrangler": "^3.99.0"
   },
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
   },
   "dependencies": {
-    "@character-foundry/character-foundry": "^0.1.7",
+    "@character-foundry/character-foundry": "0.4.3",
     "@codemirror/commands": "^6.10.0",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.11.3",
@@ -56,9 +59,9 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.39.2",
     "@types/uuid": "^10.0.0",
-    "uuid": "^13.0.0",
     "fflate": "^0.8.0",
-    "zod": "^3.24.1",
-    "gpt-tokenizer": "^2.6.1"
+    "gpt-tokenizer": "^2.6.1",
+    "uuid": "^13.0.0",
+    "zod": "^3.24.1"
   }
 }

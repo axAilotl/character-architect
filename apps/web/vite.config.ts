@@ -156,6 +156,10 @@ export default defineConfig({
     __VUE_OPTIONS_API__: true,
     __VUE_PROD_DEVTOOLS__: false,
     __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
+    // Node.js process polyfill for libraries that check process.env
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    'process.env': JSON.stringify({ NODE_ENV: 'production' }),
+    global: 'globalThis',
   },
   server: {
     host: '0.0.0.0',

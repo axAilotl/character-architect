@@ -105,7 +105,7 @@ function FieldHeader({
             className="text-sm px-1.5 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
             title="Templates & Snippets"
           >
-            &nbsp;
+            📄
           </button>
         )}
         {definition.llmAssist && onOpenLLMAssist && (
@@ -114,7 +114,7 @@ function FieldHeader({
             className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
             title="AI Assist"
           >
-            &nbsp;
+            ✨
           </button>
         )}
         {definition.aiGenerate && onGenerate && (
@@ -293,7 +293,7 @@ function ArrayField({
                   className="text-sm px-1.5 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                   title="Templates & Snippets"
                 >
-                  &nbsp;
+                  📄
                 </button>
               )}
               {definition.llmAssist && onOpenLLMAssist && (
@@ -302,7 +302,7 @@ function ArrayField({
                   className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                   title="AI Assist"
                 >
-                  &nbsp;
+                  ✨
                 </button>
               )}
               <button

@@ -146,8 +146,10 @@ const STATIC_CONFIG: DeploymentConfig = {
 function isPrivateNetwork(hostname: string): boolean {
   // Localhost variants
   if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
-  // .local mDNS domains
-  if (hostname.endsWith('.local') || hostname.includes('.local.')) return true;
+
+  // .local mDNS domains (ONLY if it ends with .local, not subdomains like foo.local.example.com)
+  // mDNS domains are things like "mycomputer.local", not "foo.local.example.com"
+  if (hostname.endsWith('.local')) return true;
 
   // RFC1918 private IP ranges
   const ipMatch = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);

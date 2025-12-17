@@ -3,8 +3,7 @@ import { useCardStore, extractCardData } from '../../store/card-store';
 import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
-import { UnifiedImportService } from '@card-architect/import-core';
-import { ClientStorageAdapter } from '../../adapters/client-storage.adapter';
+import { importCardClientSide, importVoxtaPackageClientSide } from '../../lib/client-import';
 import { exportCard as exportCardClientSide } from '../../lib/client-export';
 import type { Card, CollectionData } from '../../lib/types';
 import type { CCv3Data } from '../../lib/types';
@@ -12,6 +11,20 @@ import { SettingsModal } from '../../components/shared/SettingsModal';
 import { useFederationStore } from '../../modules/federation/lib/federation-store';
 import type { CardSyncState } from '../../modules/federation/lib/types';
 import { getExtensions, isCollectionData } from '../../lib/card-type-guards';
+
+/**
+ * Generate a UUID that works in non-secure contexts (HTTP)
+ */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 interface CardGridProps {
   onCardClick: (cardId: string) => void;
@@ -30,7 +43,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [cachedImages, setCachedImages] = useState<Map<string, string>>(new Map());
   const [sortBy, setSortBy] = useState<SortOption>('edited');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
-  const [showImportMenu, setShowImportMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [cardsPerPage, setCardsPerPage] = useState(20);
@@ -277,7 +289,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setShowImportMenu(false);
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -291,26 +302,55 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
         if (file.name.endsWith('.voxpkg')) {
           if (config.mode === 'light' || config.mode === 'static') {
-            // Use unified import service
-            const storageAdapter = new ClientStorageAdapter(localDB);
-            const importService = new UnifiedImportService(storageAdapter);
+            // Client-side Voxta import
+            const buffer = await file.arrayBuffer();
+            const results = await importVoxtaPackageClientSide(new Uint8Array(buffer));
 
-            const arrayBuffer = await file.arrayBuffer();
-            const buffer = new Uint8Array(arrayBuffer);
-
-            const cardIds = await importService.importFile(buffer, file.name);
-
-            if (cardIds.length === 0) {
+            if (results.length === 0) {
               alert('Voxta package contains no characters');
               e.target.value = '';
               return;
             }
 
-            if (cardIds.length > 1) {
-              alert(`Imported ${cardIds.length} characters from Voxta package`);
+            // Import all characters from the package (includes collection card if multi-character)
+            for (const result of results) {
+              await localDB.saveCard(result.card);
+              if (result.fullImageDataUrl) {
+                await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+              }
+              if (result.thumbnailDataUrl) {
+                await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+              }
+              // Save assets (including original-package for collections)
+              console.log(`[CardGrid] Card ${result.card.meta.name} has ${result.assets?.length || 0} assets to save`);
+              if (result.assets && result.assets.length > 0) {
+                for (const asset of result.assets) {
+                  console.log(`[CardGrid] Saving asset: ${asset.name}.${asset.ext} (${asset.type}) for card ${result.card.meta.id}`);
+                  await localDB.saveAsset({
+                    id: generateUUID(),
+                    cardId: result.card.meta.id,
+                    name: asset.name,
+                    type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                    ext: asset.ext,
+                    mimetype: asset.mimetype,
+                    size: asset.size,
+                    width: asset.width,
+                    height: asset.height,
+                    data: asset.data,
+                    isMain: asset.isMain ?? false,
+                    tags: [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  });
+                }
+              }
             }
 
-            id = cardIds[0];
+            if (results.length > 1) {
+              alert(`Imported ${results.length} characters from Voxta package`);
+            }
+
+            id = results[0].card.meta.id;
           } else {
             id = await useCardStore.getState().importVoxtaPackage(file);
           }
@@ -337,26 +377,73 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           const file = files[i];
           try {
             if (file.name.endsWith('.voxpkg')) {
-              // Use unified import service for Voxta
-              const storageAdapter = new ClientStorageAdapter(localDB);
-              const importService = new UnifiedImportService(storageAdapter);
+              // Client-side Voxta import for bulk
+              const buffer = await file.arrayBuffer();
+              const results = await importVoxtaPackageClientSide(new Uint8Array(buffer));
 
-              const arrayBuffer = await file.arrayBuffer();
-              const buffer = new Uint8Array(arrayBuffer);
-
-              const cardIds = await importService.importFile(buffer, file.name);
-              successCount += cardIds.length;
+              for (const result of results) {
+                await localDB.saveCard(result.card);
+                if (result.fullImageDataUrl) {
+                  await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+                }
+                if (result.thumbnailDataUrl) {
+                  await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+                }
+                // Save assets (including original-package for collections)
+                if (result.assets && result.assets.length > 0) {
+                  for (const asset of result.assets) {
+                    await localDB.saveAsset({
+                      id: generateUUID(),
+                      cardId: result.card.meta.id,
+                      name: asset.name,
+                      type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                      ext: asset.ext,
+                      mimetype: asset.mimetype,
+                      size: asset.size,
+                      width: asset.width,
+                      height: asset.height,
+                      data: asset.data,
+                      isMain: asset.isMain ?? false,
+                      tags: [],
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                  }
+                }
+                successCount++;
+              }
               continue;
             }
 
-            // Use unified import service
-            const storageAdapter = new ClientStorageAdapter(localDB);
-            const importService = new UnifiedImportService(storageAdapter);
-
-            const arrayBuffer = await file.arrayBuffer();
-            const buffer = new Uint8Array(arrayBuffer);
-
-            await importService.importFile(buffer, file.name);
+            const result = await importCardClientSide(file);
+            await localDB.saveCard(result.card);
+            if (result.fullImageDataUrl) {
+              await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
+            }
+            if (result.thumbnailDataUrl) {
+              await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+            }
+            // Save assets for regular imports too
+            if (result.assets && result.assets.length > 0) {
+              for (const asset of result.assets) {
+                await localDB.saveAsset({
+                  id: generateUUID(),
+                  cardId: result.card.meta.id,
+                  name: asset.name,
+                  type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                  ext: asset.ext,
+                  mimetype: asset.mimetype,
+                  size: asset.size,
+                  width: asset.width,
+                  height: asset.height,
+                  data: asset.data,
+                  isMain: asset.isMain ?? false,
+                  tags: [],
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+            }
             successCount++;
           } catch (err) {
             failures.push({
@@ -701,79 +788,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     setCurrentPage(1);
   }, [searchQuery, filterBy, cardsPerPage]);
 
-  // Drag and drop handlers
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-
-    // Handle multiple files
-    if (files.length > 1) {
-      await handleMultipleFileDrop(files);
-    } else {
-      // Single file
-      const file = files[0];
-      if (file.name.endsWith('.voxpkg')) {
-        await useCardStore.getState().importVoxtaPackage(file);
-      } else {
-        await importCard(file);
-      }
-      await loadCards();
-    }
-  };
-
-  const handleMultipleFileDrop = async (files: File[]) => {
-    const config = getDeploymentConfig();
-
-    if (config.mode === 'light' || config.mode === 'static') {
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const file of files) {
-        try {
-          if (file.name.endsWith('.voxpkg')) {
-            const storageAdapter = new ClientStorageAdapter(localDB);
-            const importService = new UnifiedImportService(storageAdapter);
-            const arrayBuffer = await file.arrayBuffer();
-            const buffer = new Uint8Array(arrayBuffer);
-            const cardIds = await importService.importFile(buffer, file.name);
-            successCount += cardIds.length;
-          } else {
-            const storageAdapter = new ClientStorageAdapter(localDB);
-            const importService = new UnifiedImportService(storageAdapter);
-            const arrayBuffer = await file.arrayBuffer();
-            const buffer = new Uint8Array(arrayBuffer);
-            await importService.importFile(buffer, file.name);
-            successCount++;
-          }
-        } catch (err) {
-          console.error(`Failed to import ${file.name}:`, err);
-          failCount++;
-        }
-      }
-
-      await loadCards();
-      alert(`Import complete: ${successCount} succeeded${failCount > 0 ? `, ${failCount} failed` : ''}`);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -783,12 +797,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   }
 
   return (
-    <div
-      className={`h-full flex flex-col bg-dark-bg ${isDragging ? 'ring-4 ring-blue-500 ring-inset' : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
+    <div className="h-full flex flex-col bg-dark-bg">
       {/* Header */}
       <div className="bg-dark-surface border-b border-dark-border">
         {/* Main Row */}
@@ -833,40 +842,23 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             >
               ⚙️
             </button>
-            <div className="relative">
-              <button
-                onClick={() => setShowImportMenu(!showImportMenu)}
-                className="btn-secondary"
-              >
-                Import ▾
-              </button>
-              {showImportMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowImportMenu(false)}
-                  />
-                  <div className="absolute right-0 mt-1 bg-dark-surface border border-dark-border rounded shadow-lg z-50 min-w-[150px]">
-                                          <label
-                                          htmlFor="import-card-file"
-                                          className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded-t cursor-pointer"
-                                          title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
-                                        >
-                                          From File                      <input
-                        id="import-card-file"
-                        name="import-card-file"
-                        type="file"
-                        accept=".json,.png,.charx,.voxpkg"
-                        multiple
-                        onChange={handleImportFile}
-                        className="hidden"
-                        title="Import JSON, PNG, CHARX, or VOXPKG files (select multiple)"
-                      />
-                    </label>
-                  </div>
-                </>
-              )}
-            </div>
+            <label
+              htmlFor="import-card-file"
+              className="btn-secondary inline-flex items-center cursor-pointer"
+              title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
+            >
+              Import
+              <input
+                id="import-card-file"
+                name="import-card-file"
+                type="file"
+                accept=".json,.png,.charx,.voxpkg"
+                multiple
+                onChange={handleImportFile}
+                className="hidden"
+                title="Import JSON, PNG, CHARX, or VOXPKG files (select multiple)"
+              />
+            </label>
             <button onClick={handleNewCard} className="btn-primary">
               New Card
             </button>
@@ -1176,6 +1168,16 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                       {formatDate(card.meta.updatedAt)}
                     </span>
                     <div className="flex gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(`/cards/${card.meta.id}`, '_blank');
+                        }}
+                        className="px-2 py-1 bg-dark-bg hover:bg-dark-border rounded text-xs transition-colors"
+                        title="Open in new tab"
+                      >
+                        ↗
+                      </button>
                       <button
                         onClick={(e) => handleExport(card.meta.id, 'json', e)}
                         className="px-2 py-1 bg-dark-bg hover:bg-dark-border rounded text-xs transition-colors"
