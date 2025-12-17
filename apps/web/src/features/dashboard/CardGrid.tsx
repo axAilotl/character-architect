@@ -1169,6 +1169,16 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                     </span>
                     <div className="flex gap-1">
                       <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(`/cards/${card.meta.id}`, '_blank');
+                        }}
+                        className="px-2 py-1 bg-dark-bg hover:bg-dark-border rounded text-xs transition-colors"
+                        title="Open in new tab"
+                      >
+                        ↗
+                      </button>
+                      <button
                         onClick={(e) => handleExport(card.meta.id, 'json', e)}
                         className="px-2 py-1 bg-dark-bg hover:bg-dark-border rounded text-xs transition-colors"
                         title="Export JSON"
