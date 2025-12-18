@@ -21,8 +21,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const allSettingsPanels = useSettingsPanels();
 
   // Separate core panels and module panels
-  const coreSettingsPanels = allSettingsPanels.filter(panel => panel.row === 'main' || !panel.row); 
-  const moduleSettingsPanels = allSettingsPanels.filter(panel => panel.row === 'modules');
+  const coreSettingsPanels = allSettingsPanels.filter(
+    (panel) => panel.row === 'main' || !panel.row
+  );
+  const moduleSettingsPanels = allSettingsPanels.filter((panel) => panel.row === 'modules');
 
   // Get registered modules for dynamic toggles in the sub-nav
   // We only show module tabs if the module is enabled
@@ -38,15 +40,42 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // Helper to get color class for panel tab
   const getColorClass = (color: SettingsPanelDefinition['color'], isActive: boolean) => {
     const colorMap: Record<string, { active: string; inactive: string }> = {
-      blue: { active: 'border-b-2 border-blue-500 text-blue-500', inactive: 'text-dark-muted hover:text-dark-text' },
-      purple: { active: 'border-b-2 border-purple-500 text-purple-500', inactive: 'text-dark-muted hover:text-dark-text' },
-      green: { active: 'border-b-2 border-green-500 text-green-500', inactive: 'text-dark-muted hover:text-dark-text' },
-      orange: { active: 'border-b-2 border-orange-500 text-orange-500', inactive: 'text-dark-muted hover:text-dark-text' },
-      red: { active: 'border-b-2 border-red-500 text-red-500', inactive: 'text-dark-muted hover:text-dark-text' },
-      pink: { active: 'border-b-2 border-pink-500 text-pink-500', inactive: 'text-dark-muted hover:text-pink-text' },
-      cyan: { active: 'border-b-2 border-cyan-500 text-cyan-500', inactive: 'text-dark-muted hover:text-cyan-text' },
-      amber: { active: 'border-b-2 border-amber-500 text-amber-500', inactive: 'text-dark-muted hover:text-amber-text' },
-      teal: { active: 'border-b-2 border-teal-500 text-teal-500', inactive: 'text-dark-muted hover:text-teal-text' },
+      blue: {
+        active: 'border-b-2 border-blue-500 text-blue-500',
+        inactive: 'text-dark-muted hover:text-dark-text',
+      },
+      purple: {
+        active: 'border-b-2 border-purple-500 text-purple-500',
+        inactive: 'text-dark-muted hover:text-dark-text',
+      },
+      green: {
+        active: 'border-b-2 border-green-500 text-green-500',
+        inactive: 'text-dark-muted hover:text-dark-text',
+      },
+      orange: {
+        active: 'border-b-2 border-orange-500 text-orange-500',
+        inactive: 'text-dark-muted hover:text-dark-text',
+      },
+      red: {
+        active: 'border-b-2 border-red-500 text-red-500',
+        inactive: 'text-dark-muted hover:text-dark-text',
+      },
+      pink: {
+        active: 'border-b-2 border-pink-500 text-pink-500',
+        inactive: 'text-dark-muted hover:text-pink-text',
+      },
+      cyan: {
+        active: 'border-b-2 border-cyan-500 text-cyan-500',
+        inactive: 'text-dark-muted hover:text-cyan-text',
+      },
+      amber: {
+        active: 'border-b-2 border-amber-500 text-amber-500',
+        inactive: 'text-dark-muted hover:text-amber-text',
+      },
+      teal: {
+        active: 'border-b-2 border-teal-500 text-teal-500',
+        inactive: 'text-dark-muted hover:text-teal-text',
+      },
     };
     const classes = colorMap[color || 'blue'] || colorMap.blue;
     return isActive ? classes.active : classes.inactive;
@@ -68,14 +97,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* Core Settings Tabs - Row 1 */}
+        {/* Settings Tabs - Row 1: Core */}
         <div className="flex border-b border-dark-border overflow-x-auto">
           {coreSettingsPanels.map((panel) => (
             <button
               key={panel.id}
-              className={`px-4 py-3 font-medium transition-colors whitespace-nowrap ${
-                getColorClass(panel.color, activeTab === panel.id)
-              }`}
+              className={`font-medium transition-colors whitespace-nowrap ${getColorClass(
+                panel.color,
+                activeTab === panel.id
+              )}`}
               onClick={() => setActiveTab(panel.id)}
             >
               {panel.label}
@@ -83,34 +113,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           ))}
         </div>
 
-        {/* Module Settings Tabs - Row 2 */}
-        {moduleSettingsPanels.length > 0 && (
-          <div className="flex border-b border-dark-border overflow-x-auto bg-dark-card/50">
-            <span className="px-4 py-2 text-xs text-dark-muted uppercase tracking-wide self-center">Module Settings:</span>
+        {/* Settings Tabs - Row 2: Module Settings (only if modules are enabled) */}
+        {moduleSettingsPanels.filter((panel) => {
+          const module = allRegisteredModules.find((m) => m.id === panel.id);
+          return !module || isModuleEnabled(module);
+        }).length > 0 && (
+          <div className="flex border-b border-dark-border overflow-x-auto bg-dark-bg/50">
             {moduleSettingsPanels.map((panel) => {
-              // Check if this module is enabled
-              // We need to find the module definition corresponding to this panel
-              // Assuming panel.id matches module.id for now, or we check all modules
-              // Actually moduleSettingsPanels come from registry, which are registered by plugins
-              // We want to hide tabs for disabled modules
-              
-              // A better way is to check if the panel ID corresponds to an enabled module
-              // But panel IDs might not match module IDs exactly (though they usually do)
-              
-              // For now, let's just render them all. The "Modules" tab allows enabling/disabling.
-              // If a module is disabled, maybe we shouldn't show its settings tab?
-              // Yes, that's the existing behavior.
-              
-              // Find corresponding module if possible
-              const module = allRegisteredModules.find(m => m.id === panel.id);
+              const module = allRegisteredModules.find((m) => m.id === panel.id);
               if (module && !isModuleEnabled(module)) {
-                 return null;
+                return null;
               }
-
               return (
                 <button
                   key={panel.id}
-                  className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${getColorClass(panel.color, activeTab === panel.id)}`}
+                  className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${getColorClass(panel.color, activeTab === panel.id)}`}
                   onClick={() => setActiveTab(panel.id)}
                 >
                   {panel.label}
@@ -122,13 +139,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6">
-          {allSettingsPanels.map(panel => (
-            activeTab === panel.id && (
-              <Suspense key={panel.id} fallback={<div>Loading {panel.label} settings...</div>}>
-                <panel.component />
-              </Suspense>
-            )
-          ))}
+          {allSettingsPanels.map(
+            (panel) =>
+              activeTab === panel.id && (
+                <Suspense key={panel.id} fallback={<div>Loading {panel.label} settings...</div>}>
+                  <panel.component />
+                </Suspense>
+              )
+          )}
 
           {/* Special Case: Templates (Legacy, not yet a registered panel) */}
           {activeTab === 'templates' && (

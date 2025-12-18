@@ -79,7 +79,13 @@ export function ElaraVossPanel() {
     setReplaceResult(null);
   };
 
-  const replaceInString = (str: string, oldFirst: string, newFirst: string, oldLast: string, newLast: string): string => {
+  const replaceInString = (
+    str: string,
+    oldFirst: string,
+    newFirst: string,
+    oldLast: string,
+    newLast: string
+  ): string => {
     if (!str) return str;
     let result = str;
 
@@ -119,7 +125,9 @@ export function ElaraVossPanel() {
 
     try {
       // Create snapshot first
-      await createSnapshot(`Before ELARA VOSS replacement: ${offendingFirst} ${offendingLast} -> ${generatedName.firstName} ${generatedName.lastName}`);
+      await createSnapshot(
+        `Before ELARA VOSS replacement: ${offendingFirst} ${offendingLast} -> ${generatedName.firstName} ${generatedName.lastName}`
+      );
 
       const cardData = extractCardData(currentCard);
 
@@ -215,7 +223,9 @@ export function ElaraVossPanel() {
       // Update card data using type-safe helper
       updateCardFields(updatedData);
 
-      setReplaceResult(`Replacement complete! Modified ${replacementCount} field(s). Snapshot created.`);
+      setReplaceResult(
+        `Replacement complete! Modified ${replacementCount} field(s). Snapshot created.`
+      );
     } catch (err) {
       console.error('Replacement failed:', err);
       setReplaceResult(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -323,7 +333,7 @@ export function ElaraVossPanel() {
               <button
                 onClick={handleReplace}
                 disabled={replacing}
-                className="px-8 py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
               >
                 {replacing ? 'Replacing...' : 'REPLACE'}
               </button>
@@ -344,7 +354,10 @@ export function ElaraVossPanel() {
 
           {/* Info */}
           <div className="text-sm text-dark-muted text-center">
-            <p>Names from: {nameDb.filter((n) => n.type === 'first').length} first names, {nameDb.filter((n) => n.type === 'last').length} last names</p>
+            <p>
+              Names from: {nameDb.filter((n) => n.type === 'first').length} first names,{' '}
+              {nameDb.filter((n) => n.type === 'last').length} last names
+            </p>
           </div>
         </>
       )}

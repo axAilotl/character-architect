@@ -20,25 +20,26 @@ import { useLLMStore } from '../../../store/llm-store';
 import { localDB } from '../../../lib/db';
 import { getDeploymentConfig } from '../../../config/deployment';
 import { invokeClientLLM } from '../../../lib/client-llm';
-import { normalizeSpec, type FocusField, type Template, type Snippet, type LLMProvider } from '../../../lib/types';
+import {
+  normalizeSpec,
+  type FocusField,
+  type Template,
+  type Snippet,
+  type LLMProvider,
+} from '../../../lib/types';
 
 import { DynamicField } from './DynamicField';
 import { LorebookEditor } from './LorebookEditor';
-import { ElaraVossPanel } from './ElaraVossPanel';
 import { LLMAssistSidebar } from './LLMAssistSidebar';
 import { TemplateSnippetPanel } from './TemplateSnippetPanel';
 
-import {
-  getFieldsForTab,
-  tabDefinitions,
-  type TabId,
-} from '../config/field-definitions';
+import { getFieldsForTab, tabDefinitions, type TabId } from '../config/field-definitions';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type EditTab = TabId | 'lorebook' | 'elara-voss' | 'extensions';
+type EditTab = TabId | 'lorebook' | 'extensions';
 
 // ============================================================================
 // AVATAR UPLOAD COMPONENT (Special handling, not schema-driven)
@@ -58,7 +59,6 @@ function AvatarUpload({ cardId, isLightMode, cachedImageUrl, onImageUploaded }: 
 
     try {
       if (isLightMode) {
-        // Light mode: create thumbnail and save to IndexedDB
         const reader = new FileReader();
         reader.onload = async () => {
           const fullDataUrl = reader.result as string;
@@ -96,7 +96,7 @@ function AvatarUpload({ cardId, isLightMode, cachedImageUrl, onImageUploaded }: 
               }
             }
           } catch {
-            // Use full image if thumbnail creation fails
+            // Use full image if thumbnail fails
           }
 
           await localDB.saveImage(cardId, 'thumbnail', thumbnailUrl);
@@ -105,7 +105,6 @@ function AvatarUpload({ cardId, isLightMode, cachedImageUrl, onImageUploaded }: 
         };
         reader.readAsDataURL(file);
       } else {
-        // Server mode: upload via API
         const formData = new FormData();
         formData.append('file', file);
 
@@ -118,7 +117,6 @@ function AvatarUpload({ cardId, isLightMode, cachedImageUrl, onImageUploaded }: 
           throw new Error('Failed to upload image');
         }
 
-        // Force image reload
         onImageUploaded(`/api/cards/${cardId}/image?t=${Date.now()}`);
         alert('Image updated successfully!');
       }
@@ -130,62 +128,46 @@ function AvatarUpload({ cardId, isLightMode, cachedImageUrl, onImageUploaded }: 
     }
   };
 
-  // Use cachedImageUrl (which has timestamp after upload) or stable URL for caching
   const imageUrl = isLightMode
     ? cachedImageUrl || ''
     : cachedImageUrl || `/api/cards/${cardId}/image`;
 
   return (
-    <div className="input-group">
-      <label className="label">Character Avatar</label>
-      <div className="flex gap-6 items-start">
-        <div className="w-64 bg-dark-bg border border-dark-border rounded overflow-hidden flex-shrink-0">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt="Character Avatar"
-              className="w-full h-auto object-contain"
-              style={{ minHeight: '256px', maxHeight: '384px' }}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const parent = e.currentTarget.parentElement;
-                if (parent && !parent.querySelector('.no-image-placeholder')) {
-                  const placeholder = document.createElement('div');
-                  placeholder.className =
-                    'no-image-placeholder flex items-center justify-center text-dark-muted text-sm';
-                  placeholder.style.height = '256px';
-                  placeholder.textContent = 'No Image';
-                  parent.appendChild(placeholder);
-                }
-              }}
-            />
-          ) : (
-            <div
-              className="flex items-center justify-center text-dark-muted text-sm"
-              style={{ height: '256px' }}
-            >
-              No Image
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1">
-          <p className="text-sm text-dark-muted mb-3">
-            Upload a new image to replace the current character avatar. Supports PNG, JPG, and
-            WebP.
-          </p>
-          <label htmlFor="avatar-upload" className="btn-primary cursor-pointer inline-block">
-            Upload New Image
-            <input
-              id="avatar-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleUpload}
-            />
-          </label>
-        </div>
+    <div className="flex flex-col items-center">
+      <div className="w-[300px] bg-dark-bg border border-dark-border rounded overflow-hidden mb-2">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt="Character Avatar"
+            className="w-full h-auto"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const parent = e.currentTarget.parentElement;
+              if (parent && !parent.querySelector('.no-image-placeholder')) {
+                const placeholder = document.createElement('div');
+                placeholder.className =
+                  'no-image-placeholder flex items-center justify-center text-dark-muted text-sm w-full h-48';
+                placeholder.textContent = 'No Image';
+                parent.appendChild(placeholder);
+              }
+            }}
+          />
+        ) : (
+          <div className="flex items-center justify-center text-dark-muted text-sm w-full h-48">
+            No Image
+          </div>
+        )}
       </div>
+      <label htmlFor="avatar-upload" className="btn-secondary text-sm cursor-pointer">
+        Upload Image
+        <input
+          id="avatar-upload"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleUpload}
+        />
+      </label>
     </div>
   );
 }
@@ -228,8 +210,8 @@ function ExtensionsView({ cardData }: ExtensionsViewProps) {
       <div>
         <h3 className="text-lg font-semibold mb-2">Extensions Data</h3>
         <p className="text-dark-muted">
-          Read-only view of extension data. Character Note and Appearance are edited in the
-          Advanced and Character tabs.
+          Read-only view of extension data. Character Note and Appearance are edited in the Advanced
+          and Character tabs.
         </p>
       </div>
 
@@ -288,19 +270,69 @@ function TabContent({
 }: TabContentProps) {
   const fields = getFieldsForTab(tab);
 
+  if (tab === 'basic') {
+    const coreFieldIds = ['name', 'nickname', 'creator', 'character_version'];
+    const coreFields = fields.filter((f) => coreFieldIds.includes(f.id));
+    const fullWidthFields = fields.filter((f) => !coreFieldIds.includes(f.id));
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-6">
+          {cardId && onImageUploaded && (
+            <div className="flex justify-center md:justify-start">
+              <AvatarUpload
+                cardId={cardId}
+                isLightMode={isLightMode}
+                cachedImageUrl={cachedImageUrl || null}
+                onImageUploaded={onImageUploaded}
+              />
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {coreFields.map((field) => (
+              <DynamicField
+                key={field.id}
+                definition={field}
+                cardData={cardData}
+                onFieldChange={onFieldChange}
+                spec={spec}
+                showV3Fields={showV3Fields}
+                tokenCounts={tokenCounts}
+                onOpenLLMAssist={onOpenLLMAssist}
+                onOpenTemplates={onOpenTemplates}
+                llmSettings={llmSettings}
+                aiPrompts={aiPrompts}
+                isLightMode={isLightMode}
+                invokeClientLLM={isLightMode ? invokeClientLLM : undefined}
+              />
+            ))}
+          </div>
+        </div>
+
+        {fullWidthFields.map((field) => (
+          <DynamicField
+            key={field.id}
+            definition={field}
+            cardData={cardData}
+            onFieldChange={onFieldChange}
+            spec={spec}
+            showV3Fields={showV3Fields}
+            tokenCounts={tokenCounts}
+            onOpenLLMAssist={onOpenLLMAssist}
+            onOpenTemplates={onOpenTemplates}
+            llmSettings={llmSettings}
+            aiPrompts={aiPrompts}
+            isLightMode={isLightMode}
+            invokeClientLLM={isLightMode ? invokeClientLLM : undefined}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Avatar upload only on basic tab */}
-      {tab === 'basic' && cardId && onImageUploaded && (
-        <AvatarUpload
-          cardId={cardId}
-          isLightMode={isLightMode}
-          cachedImageUrl={cachedImageUrl || null}
-          onImageUploaded={onImageUploaded}
-        />
-      )}
-
-      {/* Render all fields for this tab */}
       {fields.map((field) => (
         <DynamicField
           key={field.id}
@@ -373,8 +405,7 @@ export function EditPanelV2() {
   // Field change handler
   const handleFieldChange = (field: string, value: unknown) => {
     const v2Data = currentCard.data as unknown as Record<string, unknown>;
-    const isWrappedV2 =
-      !isV3 && v2Data.spec === 'chara_card_v2' && 'data' in v2Data;
+    const isWrappedV2 = !isV3 && v2Data.spec === 'chara_card_v2' && 'data' in v2Data;
 
     if (isV3 || isWrappedV2) {
       updateCardData({
@@ -516,9 +547,6 @@ export function EditPanelV2() {
     // Character cards: All tabs
     return [
       ...tabDefinitions.map((t) => ({ id: t.id as EditTab, label: t.label })),
-      { id: 'lorebook', label: 'Lorebook' },
-      // ELARA VOSS requires server - hide in light mode
-      ...(!isLightMode ? [{ id: 'elara-voss' as EditTab, label: 'ELARA VOSS' }] : []),
       ...(editor.showExtensionsTab ? [{ id: 'extensions' as EditTab, label: 'Extensions' }] : []),
     ];
   })();
@@ -543,7 +571,7 @@ export function EditPanelV2() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 font-medium transition-colors ${
+                className={`font-medium transition-colors ${
                   activeTab === tab.id
                     ? 'bg-dark-bg text-dark-text border-b-2 border-blue-500'
                     : 'text-dark-muted hover:text-dark-text'
@@ -590,9 +618,6 @@ export function EditPanelV2() {
 
           {/* Lorebook Tab - separate component */}
           {activeTab === 'lorebook' && <LorebookEditor />}
-
-          {/* ELARA VOSS Tab - separate component */}
-          {activeTab === 'elara-voss' && <ElaraVossPanel />}
 
           {/* Extensions Tab - read-only view */}
           {activeTab === 'extensions' && <ExtensionsView cardData={cardData} />}

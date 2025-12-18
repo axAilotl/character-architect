@@ -109,13 +109,21 @@ body {
   }
 
   /* Header and navigation */
-  header, nav, .header, .nav {
+  header,
+  nav,
+  .header,
+  .nav {
     background-color: var(--color-surface);
     border-color: var(--color-border);
   }
 
   /* All text should inherit theme colors */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     color: var(--color-text);
   }
 
@@ -148,6 +156,10 @@ body {
 
   .btn-primary {
     background-color: var(--color-accent);
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
     @apply text-white;
   }
   .btn-primary:hover {

@@ -89,6 +89,8 @@ export function getDiscoveredModules(): Array<{
 /**
  * Register all module metadata from discovered modules
  * This runs eagerly at startup to populate the registry with module info
+ * ALL modules are registered so they show in the Modules settings panel
+ * Modules that require a server in light/static mode will be marked as unavailable
  */
 function registerAllModuleMetadata(): void {
   const isLightMode = deploymentConfig.mode === 'light' || deploymentConfig.mode === 'static';
@@ -96,13 +98,16 @@ function registerAllModuleMetadata(): void {
   for (const [path, exports] of Object.entries(moduleMetadata)) {
     const metadata = exports.MODULE_METADATA;
     if (metadata) {
-      // Skip server-only modules in light/static mode (they require backend functionality)
-      if (isLightMode && metadata.requiresServer) {
-        console.log(`[Modules] Skipping ${metadata.id} in ${deploymentConfig.mode} mode (requiresServer: true)`);
-        continue;
-      }
-      registry.registerModule(metadata);
-      console.log(`[Modules] Registered metadata: ${metadata.id}`);
+      // Mark server-only modules as unavailable in light/static mode, but still register them
+      // so they appear in the Modules settings panel (user can see what's available in full mode)
+      const metadataWithAvailability = {
+        ...metadata,
+        unavailableInCurrentMode: isLightMode && metadata.requiresServer,
+      };
+      registry.registerModule(metadataWithAvailability);
+      console.log(
+        `[Modules] Registered metadata: ${metadata.id}${metadataWithAvailability.unavailableInCurrentMode ? ' (requires server)' : ''}`
+      );
     } else {
       // Module doesn't export metadata - that's okay, it just won't have a toggle
       const id = getModuleId(path);
@@ -122,32 +127,30 @@ async function loadCoreFeatures(): Promise<void> {
   registerCoreSettingsPanels();
 }
 
-/**
- * Load optional modules based on feature flags
- */
 async function loadOptionalModules(): Promise<void> {
   const { features } = useSettingsStore.getState();
   const modules = getDiscoveredModules();
+  const isLightMode = deploymentConfig.mode === 'light' || deploymentConfig.mode === 'static';
 
-  // Filter to enabled modules that haven't been loaded yet
   const enabledModules = modules.filter((module) => {
     if (loadedModules.has(module.id)) return false;
 
-    // Check feature flag, falling back to deployment config then module's default
+    // Skip server-required modules in light/static mode entirely
+    const metadata = registry.getModule(module.id);
+    if (isLightMode && metadata?.requiresServer) {
+      return false;
+    }
+
     const flagValue = features[module.featureFlag];
     if (flagValue !== undefined) {
       return flagValue === true;
     }
 
-    // Check deployment config for module defaults
     const deploymentDefault = getModuleDefault(module.id);
     if (deploymentDefault === false) {
-      // Deployment config explicitly disables this module
       return false;
     }
 
-    // Use module's default from metadata
-    const metadata = registry.getModule(module.id);
     return metadata?.defaultEnabled ?? false;
   });
 
@@ -165,7 +168,9 @@ async function loadOptionalModules(): Promise<void> {
           loadedModules.add(module.id);
           console.log(`[Modules] Loaded: ${module.id}`);
         } else {
-          console.warn(`[Modules] ${module.id}: register function "${module.registerFn}" not found`);
+          console.warn(
+            `[Modules] ${module.id}: register function "${module.registerFn}" not found`
+          );
         }
       } catch (err) {
         console.error(`[Modules] Failed to load ${module.id}:`, err);
@@ -182,7 +187,12 @@ async function loadOptionalModules(): Promise<void> {
 export async function initializeModules(): Promise<void> {
   console.log('[Modules] Initializing...');
   console.log('[Modules] Deployment mode:', deploymentConfig.mode);
-  console.log('[Modules] Discovered:', getDiscoveredModules().map((m) => m.id).join(', '));
+  console.log(
+    '[Modules] Discovered:',
+    getDiscoveredModules()
+      .map((m) => m.id)
+      .join(', ')
+  );
 
   // Register all module metadata first (for Settings toggles)
   registerAllModuleMetadata();

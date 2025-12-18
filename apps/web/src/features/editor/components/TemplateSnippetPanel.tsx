@@ -1,17 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTemplateStore } from '../../../store/template-store';
-import type { Template, Snippet, TemplateCategory, SnippetCategory, FocusField } from '../../../lib/types';
+import type {
+  Template,
+  Snippet,
+  TemplateCategory,
+  SnippetCategory,
+  FocusField,
+} from '../../../lib/types';
 import { TemplateEditor } from './TemplateEditor';
 import { SnippetEditor } from './SnippetEditor';
-import { getDeploymentConfig } from '../../../config/deployment';
-
-// ELARA VOSS stats type
-interface ElaraVossStats {
-  total: number;
-  male: { first: number; last: number };
-  female: { first: number; last: number };
-  neutral: { first: number; last: number };
-}
 
 interface TemplateSnippetPanelProps {
   isOpen: boolean;
@@ -23,7 +20,7 @@ interface TemplateSnippetPanelProps {
   embedded?: boolean; // If true, doesn't render as modal (for embedding in settings)
 }
 
-type Tab = 'templates' | 'snippets' | 'elara-voss';
+type Tab = 'templates' | 'snippets';
 
 export function TemplateSnippetPanel({
   isOpen,
@@ -37,7 +34,9 @@ export function TemplateSnippetPanel({
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [selectedSnippet, setSelectedSnippet] = useState<Snippet | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<TemplateCategory | SnippetCategory | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<TemplateCategory | SnippetCategory | 'all'>(
+    'all'
+  );
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
@@ -45,18 +44,8 @@ export function TemplateSnippetPanel({
   const [showSnippetEditor, setShowSnippetEditor] = useState(false);
   const [editingSnippet, setEditingSnippet] = useState<Snippet | undefined>(undefined);
 
-  // ELARA VOSS state
-  const [elaraVossStats, setElaraVossStats] = useState<ElaraVossStats | null>(null);
-  const [elaraVossLoading, setElaraVossLoading] = useState(false);
-  const [elaraVossStatus, setElaraVossStatus] = useState<string | null>(null);
-  const elaraVossImportRef = useRef<HTMLInputElement>(null);
-
   const templateImportRef = useRef<HTMLInputElement>(null);
   const snippetImportRef = useRef<HTMLInputElement>(null);
-
-  // Light mode check - ELARA VOSS requires server
-  const deploymentConfig = getDeploymentConfig();
-  const isLightMode = deploymentConfig.mode === 'light' || deploymentConfig.mode === 'static';
 
   const {
     templates,
@@ -85,120 +74,22 @@ export function TemplateSnippetPanel({
     }
   }, [isOpen, embedded, loadTemplates, loadSnippets]);
 
-  // Load ELARA VOSS stats when tab is active
-  const loadElaraVossStats = async () => {
-    const config = getDeploymentConfig();
-    // ELARA VOSS requires server - skip in light mode
-    if (config.mode === 'light' || config.mode === 'static') {
-      setElaraVossLoading(false);
-      return;
-    }
-
-    setElaraVossLoading(true);
-    try {
-      const response = await fetch('/api/elara-voss/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setElaraVossStats(data);
-      }
-    } catch (err) {
-      console.error('Failed to load ELARA VOSS stats:', err);
-    } finally {
-      setElaraVossLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if ((isOpen || embedded) && activeTab === 'elara-voss') {
-      loadElaraVossStats();
-    }
-  }, [isOpen, embedded, activeTab]);
-
-  // ELARA VOSS import handler
-  const handleElaraVossImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const config = getDeploymentConfig();
-    if (config.mode === 'light' || config.mode === 'static') {
-      setElaraVossStatus('ELARA VOSS requires server. Run Character Architect locally.');
-      setTimeout(() => setElaraVossStatus(null), 5000);
-      return;
-    }
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setElaraVossStatus('Importing...');
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      const names = Array.isArray(parsed) ? parsed : (parsed.names || []);
-
-      const response = await fetch('/api/elara-voss/names/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ names, merge: false }),
-      });
-
-      const result = await response.json();
-      if (response.ok) {
-        setElaraVossStatus(`Imported ${result.imported} names`);
-        loadElaraVossStats();
-      } else {
-        setElaraVossStatus(`Import failed: ${result.error}`);
-      }
-    } catch (err: any) {
-      setElaraVossStatus(`Import error: ${err.message}`);
-    }
-
-    setTimeout(() => setElaraVossStatus(null), 5000);
-    e.target.value = '';
-  };
-
-  // ELARA VOSS export handler
-  const handleElaraVossExport = async () => {
-    const config = getDeploymentConfig();
-    if (config.mode === 'light' || config.mode === 'static') {
-      alert('ELARA VOSS requires server. Run Character Architect locally.');
-      return;
-    }
-    window.location.href = '/api/elara-voss/names/export';
-  };
-
-  // ELARA VOSS reset handler
-  const handleElaraVossReset = async () => {
-    const config = getDeploymentConfig();
-    if (config.mode === 'light' || config.mode === 'static') {
-      alert('ELARA VOSS requires server. Run Character Architect locally.');
-      return;
-    }
-
-    if (confirm('Reset ELARA VOSS names to defaults? This will remove all custom names.')) {
-      try {
-        const response = await fetch('/api/elara-voss/names/reset', { method: 'POST' });
-        if (response.ok) {
-          setElaraVossStatus('Reset to defaults');
-          loadElaraVossStats();
-        }
-      } catch (err: any) {
-        setElaraVossStatus(`Reset error: ${err.message}`);
-      }
-      setTimeout(() => setElaraVossStatus(null), 3000);
-    }
-  };
-
   if (!isOpen && !embedded) return null;
 
   // Filter templates
   const filteredTemplates = templates.filter((t) => {
-    const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (t.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || t.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
   // Filter snippets
   const filteredSnippets = snippets.filter((s) => {
-    const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (s.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || s.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
@@ -264,7 +155,9 @@ export function TemplateSnippetPanel({
     }
   };
 
-  const handleSaveTemplate = async (templateData: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveTemplate = async (
+    templateData: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
     if (editingTemplate && editingTemplate.id) {
       // Editing existing template
       await updateTemplate(editingTemplate.id, templateData);
@@ -301,7 +194,9 @@ export function TemplateSnippetPanel({
     }
   };
 
-  const handleSaveSnippet = async (snippetData: Omit<Snippet, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveSnippet = async (
+    snippetData: Omit<Snippet, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
     if (editingSnippet && editingSnippet.id) {
       // Editing existing snippet
       await updateSnippet(editingSnippet.id, snippetData);
@@ -328,9 +223,8 @@ export function TemplateSnippetPanel({
 
     setImportStatus('Importing...');
     try {
-      const result = activeTab === 'templates'
-        ? await importTemplates(file)
-        : await importSnippets(file);
+      const result =
+        activeTab === 'templates' ? await importTemplates(file) : await importSnippets(file);
 
       if (result.success) {
         setImportStatus(`Imported ${result.imported} ${activeTab}`);
@@ -350,7 +244,11 @@ export function TemplateSnippetPanel({
 
   const handleReset = async () => {
     const type = activeTab === 'templates' ? 'templates' : 'snippets';
-    if (confirm(`Reset all ${type} to defaults? This will remove user ${type} and restore built-in ones.`)) {
+    if (
+      confirm(
+        `Reset all ${type} to defaults? This will remove user ${type} and restore built-in ones.`
+      )
+    ) {
       if (activeTab === 'templates') {
         await resetTemplates();
         setSelectedTemplate(null);
@@ -376,14 +274,18 @@ export function TemplateSnippetPanel({
     } else {
       const field = template.targetFields[0];
       const content = template.content[field];
-      return (
-        <div className="text-sm text-dark-muted whitespace-pre-wrap">{content}</div>
-      );
+      return <div className="text-sm text-dark-muted whitespace-pre-wrap">{content}</div>;
     }
   };
 
   const panelContent = (
-    <div className={embedded ? "h-full flex flex-col" : "bg-dark-surface border border-dark-border rounded-lg shadow-xl w-[90vw] h-[85vh] flex flex-col"}>
+    <div
+      className={
+        embedded
+          ? 'h-full flex flex-col'
+          : 'bg-dark-surface border border-dark-border rounded-lg shadow-xl w-[90vw] h-[85vh] flex flex-col'
+      }
+    >
       {/* Header */}
       {!embedded && (
         <div className="flex items-center justify-between p-4 border-b border-dark-border">
@@ -394,389 +296,269 @@ export function TemplateSnippetPanel({
         </div>
       )}
 
-        {/* Tabs */}
-        <div className="flex border-b border-dark-border">
+      {/* Tabs */}
+      <div className="flex border-b border-dark-border">
+        <button
+          onClick={() => {
+            setActiveTab('templates');
+            setSelectedSnippet(null);
+            setCategoryFilter('all');
+          }}
+          className={`font-medium transition-colors ${
+            activeTab === 'templates'
+              ? 'bg-dark-bg text-blue-400 border-b-2 border-blue-400'
+              : 'text-dark-muted hover:text-dark-text'
+          }`}
+        >
+          Templates
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('snippets');
+            setSelectedTemplate(null);
+            setCategoryFilter('all');
+          }}
+          className={`font-medium transition-colors ${
+            activeTab === 'snippets'
+              ? 'bg-dark-bg text-blue-400 border-b-2 border-blue-400'
+              : 'text-dark-muted hover:text-dark-text'
+          }`}
+        >
+          Snippets
+        </button>
+      </div>
+
+      {/* Search and Filter */}
+      <div className="p-4 border-b border-dark-border flex flex-col gap-3">
+        <div className="flex gap-3">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 px-3 py-2 bg-dark-bg border border-dark-border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as any)}
+            className="px-3 py-2 bg-dark-bg border border-dark-border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Categories</option>
+            {activeTab === 'templates' ? (
+              <>
+                <option value="character">Character</option>
+                <option value="scenario">Scenario</option>
+                <option value="dialogue">Dialogue</option>
+                <option value="custom">Custom</option>
+              </>
+            ) : (
+              <>
+                <option value="jed">JED Format</option>
+                <option value="instruction">Instruction</option>
+                <option value="format">Format</option>
+                <option value="custom">Custom</option>
+              </>
+            )}
+          </select>
+        </div>
+        <div className="flex gap-2 items-center">
           <button
-            onClick={() => {
-              setActiveTab('templates');
-              setSelectedSnippet(null);
-              setCategoryFilter('all');
-            }}
-            className={`px-6 py-3 font-medium transition-colors ${
+            onClick={activeTab === 'templates' ? handleCreateTemplate : handleCreateSnippet}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors whitespace-nowrap"
+          >
+            + Create
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            Export
+          </button>
+          <button
+            onClick={() =>
               activeTab === 'templates'
-                ? 'bg-dark-bg text-blue-400 border-b-2 border-blue-400'
-                : 'text-dark-muted hover:text-dark-text'
-            }`}
+                ? templateImportRef.current?.click()
+                : snippetImportRef.current?.click()
+            }
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
           >
-            Templates
+            Import
           </button>
           <button
-            onClick={() => {
-              setActiveTab('snippets');
-              setSelectedTemplate(null);
-              setCategoryFilter('all');
-            }}
-            className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === 'snippets'
-                ? 'bg-dark-bg text-blue-400 border-b-2 border-blue-400'
-                : 'text-dark-muted hover:text-dark-text'
-            }`}
+            onClick={handleReset}
+            className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors whitespace-nowrap"
           >
-            Snippets
+            Reset
           </button>
-          {/* ELARA VOSS requires server - hide in light mode */}
-          {!isLightMode && (
-            <button
-              onClick={() => {
-                setActiveTab('elara-voss');
-                setSelectedTemplate(null);
-                setSelectedSnippet(null);
-              }}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'elara-voss'
-                  ? 'bg-dark-bg text-purple-400 border-b-2 border-purple-400'
-                  : 'text-dark-muted hover:text-dark-text'
-              }`}
+          {importStatus && (
+            <span
+              className={`ml-2 text-sm ${importStatus.includes('failed') || importStatus.includes('error') ? 'text-red-400' : 'text-green-400'}`}
             >
-              ELARA VOSS
-            </button>
+              {importStatus}
+            </span>
+          )}
+          {/* Hidden file inputs */}
+          <input
+            type="file"
+            ref={templateImportRef}
+            onChange={handleImportFile}
+            accept=".json"
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={snippetImportRef}
+            onChange={handleImportFile}
+            accept=".json"
+            className="hidden"
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 flex min-h-0">
+        {/* List */}
+        <div className="w-1/3 border-r border-dark-border overflow-y-auto">
+          {activeTab === 'templates' ? (
+            <div className="divide-y divide-dark-border">
+              {filteredTemplates.map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => setSelectedTemplate(template)}
+                  className={`w-full text-left p-4 hover:bg-dark-bg transition-colors ${
+                    selectedTemplate?.id === template.id
+                      ? 'bg-dark-bg border-l-4 border-blue-500'
+                      : ''
+                  }`}
+                >
+                  <div className="font-semibold mb-1">{template.name}</div>
+                  <div className="text-sm text-dark-muted mb-2">{template.description}</div>
+                  <div className="flex gap-2">
+                    <span className="text-xs px-2 py-0.5 bg-blue-600/20 text-blue-300 rounded">
+                      {template.category}
+                    </span>
+                    {template.isDefault && (
+                      <span className="text-xs px-2 py-0.5 bg-green-600/20 text-green-300 rounded">
+                        default
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+              {filteredTemplates.length === 0 && (
+                <div className="p-4 text-center text-dark-muted">No templates found</div>
+              )}
+            </div>
+          ) : (
+            <div className="divide-y divide-dark-border">
+              {filteredSnippets.map((snippet) => (
+                <button
+                  key={snippet.id}
+                  onClick={() => setSelectedSnippet(snippet)}
+                  className={`w-full text-left p-4 hover:bg-dark-bg transition-colors ${
+                    selectedSnippet?.id === snippet.id
+                      ? 'bg-dark-bg border-l-4 border-blue-500'
+                      : ''
+                  }`}
+                >
+                  <div className="font-semibold mb-1">{snippet.name}</div>
+                  <div className="text-sm text-dark-muted mb-2">{snippet.description}</div>
+                  <div className="flex gap-2">
+                    <span className="text-xs px-2 py-0.5 bg-purple-600/20 text-purple-300 rounded">
+                      {snippet.category}
+                    </span>
+                    {snippet.isDefault && (
+                      <span className="text-xs px-2 py-0.5 bg-green-600/20 text-green-300 rounded">
+                        default
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+              {filteredSnippets.length === 0 && (
+                <div className="p-4 text-center text-dark-muted">No snippets found</div>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Search and Filter - only for templates/snippets tabs */}
-        {activeTab !== 'elara-voss' && (
-        <div className="p-4 border-b border-dark-border flex flex-col gap-3">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 px-3 py-2 bg-dark-bg border border-dark-border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value as any)}
-              className="px-3 py-2 bg-dark-bg border border-dark-border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Categories</option>
-              {activeTab === 'templates' ? (
-                <>
-                  <option value="character">Character</option>
-                  <option value="scenario">Scenario</option>
-                  <option value="dialogue">Dialogue</option>
-                  <option value="custom">Custom</option>
-                </>
-              ) : (
-                <>
-                  <option value="jed">JED Format</option>
-                  <option value="instruction">Instruction</option>
-                  <option value="format">Format</option>
-                  <option value="custom">Custom</option>
-                </>
+        {/* Preview */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          {activeTab === 'templates' && selectedTemplate ? (
+            <div>
+              <h3 className="text-lg font-bold mb-2">{selectedTemplate.name}</h3>
+              <p className="text-dark-muted mb-4">{selectedTemplate.description}</p>
+              <div className="mb-4">
+                <span className="text-sm font-semibold text-dark-muted">Target: </span>
+                <span className="text-sm">
+                  {selectedTemplate.targetFields === 'all'
+                    ? 'All fields'
+                    : Array.isArray(selectedTemplate.targetFields)
+                      ? selectedTemplate.targetFields.join(', ')
+                      : selectedTemplate.targetFields}
+                </span>
+              </div>
+              <div className="bg-dark-bg border border-dark-border rounded p-4 mb-4">
+                {renderTemplateContent(selectedTemplate)}
+              </div>
+
+              {!manageMode && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleApplyTemplate('replace')} className="btn-primary">
+                    Replace
+                  </button>
+                  <button onClick={() => handleApplyTemplate('append')} className="btn-secondary">
+                    Append
+                  </button>
+                  <button onClick={() => handleApplyTemplate('prepend')} className="btn-secondary">
+                    Prepend
+                  </button>
+                </div>
               )}
-            </select>
-          </div>
-          <div className="flex gap-2 items-center">
-            <button
-              onClick={activeTab === 'templates' ? handleCreateTemplate : handleCreateSnippet}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors whitespace-nowrap"
-            >
-              + Create
-            </button>
-            <button
-              onClick={handleExport}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
-            >
-              Export
-            </button>
-            <button
-              onClick={() => activeTab === 'templates' ? templateImportRef.current?.click() : snippetImportRef.current?.click()}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
-            >
-              Import
-            </button>
-            <button
-              onClick={handleReset}
-              className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors whitespace-nowrap"
-            >
-              Reset
-            </button>
-            {importStatus && (
-              <span className={`ml-2 text-sm ${importStatus.includes('failed') || importStatus.includes('error') ? 'text-red-400' : 'text-green-400'}`}>
-                {importStatus}
-              </span>
-            )}
-            {/* Hidden file inputs */}
-            <input
-              type="file"
-              ref={templateImportRef}
-              onChange={handleImportFile}
-              accept=".json"
-              className="hidden"
-            />
-            <input
-              type="file"
-              ref={snippetImportRef}
-              onChange={handleImportFile}
-              accept=".json"
-              className="hidden"
-            />
-          </div>
-        </div>
-        )}
 
-        {/* Content Area - Templates/Snippets only */}
-        {activeTab !== 'elara-voss' && (
-        <div className="flex-1 flex min-h-0">
-          {/* List */}
-          <div className="w-1/3 border-r border-dark-border overflow-y-auto">
-            {activeTab === 'templates' ? (
-              <div className="divide-y divide-dark-border">
-                {filteredTemplates.map((template) => (
-                  <button
-                    key={template.id}
-                    onClick={() => setSelectedTemplate(template)}
-                    className={`w-full text-left p-4 hover:bg-dark-bg transition-colors ${
-                      selectedTemplate?.id === template.id ? 'bg-dark-bg border-l-4 border-blue-500' : ''
-                    }`}
-                  >
-                    <div className="font-semibold mb-1">{template.name}</div>
-                    <div className="text-sm text-dark-muted mb-2">{template.description}</div>
-                    <div className="flex gap-2">
-                      <span className="text-xs px-2 py-0.5 bg-blue-600/20 text-blue-300 rounded">
-                        {template.category}
-                      </span>
-                      {template.isDefault && (
-                        <span className="text-xs px-2 py-0.5 bg-green-600/20 text-green-300 rounded">
-                          default
-                        </span>
-                      )}
-                    </div>
+              {manageMode && (
+                <div className="flex gap-2">
+                  <button onClick={handleEditTemplate} className="btn-primary">
+                    {selectedTemplate?.isDefault ? 'Copy & Edit' : 'Edit'}
                   </button>
-                ))}
-                {filteredTemplates.length === 0 && (
-                  <div className="p-4 text-center text-dark-muted">No templates found</div>
-                )}
-              </div>
-            ) : (
-              <div className="divide-y divide-dark-border">
-                {filteredSnippets.map((snippet) => (
-                  <button
-                    key={snippet.id}
-                    onClick={() => setSelectedSnippet(snippet)}
-                    className={`w-full text-left p-4 hover:bg-dark-bg transition-colors ${
-                      selectedSnippet?.id === snippet.id ? 'bg-dark-bg border-l-4 border-blue-500' : ''
-                    }`}
-                  >
-                    <div className="font-semibold mb-1">{snippet.name}</div>
-                    <div className="text-sm text-dark-muted mb-2">{snippet.description}</div>
-                    <div className="flex gap-2">
-                      <span className="text-xs px-2 py-0.5 bg-purple-600/20 text-purple-300 rounded">
-                        {snippet.category}
-                      </span>
-                      {snippet.isDefault && (
-                        <span className="text-xs px-2 py-0.5 bg-green-600/20 text-green-300 rounded">
-                          default
-                        </span>
-                      )}
-                    </div>
+                  <button onClick={handleDelete} className="btn-secondary">
+                    Delete
                   </button>
-                ))}
-                {filteredSnippets.length === 0 && (
-                  <div className="p-4 text-center text-dark-muted">No snippets found</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Preview */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            {activeTab === 'templates' && selectedTemplate ? (
-              <div>
-                <h3 className="text-lg font-bold mb-2">{selectedTemplate.name}</h3>
-                <p className="text-dark-muted mb-4">{selectedTemplate.description}</p>
-                <div className="mb-4">
-                  <span className="text-sm font-semibold text-dark-muted">Target: </span>
-                  <span className="text-sm">
-                    {selectedTemplate.targetFields === 'all'
-                      ? 'All fields'
-                      : Array.isArray(selectedTemplate.targetFields)
-                        ? selectedTemplate.targetFields.join(', ')
-                        : selectedTemplate.targetFields}
-                  </span>
                 </div>
-                <div className="bg-dark-bg border border-dark-border rounded p-4 mb-4">
-                  {renderTemplateContent(selectedTemplate)}
-                </div>
-
-                {!manageMode && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleApplyTemplate('replace')}
-                      className="btn-primary"
-                    >
-                      Replace
-                    </button>
-                    <button
-                      onClick={() => handleApplyTemplate('append')}
-                      className="btn-secondary"
-                    >
-                      Append
-                    </button>
-                    <button
-                      onClick={() => handleApplyTemplate('prepend')}
-                      className="btn-secondary"
-                    >
-                      Prepend
-                    </button>
-                  </div>
-                )}
-
-                {manageMode && (
-                  <div className="flex gap-2">
-                    <button onClick={handleEditTemplate} className="btn-primary">
-                      {selectedTemplate?.isDefault ? 'Copy & Edit' : 'Edit'}
-                    </button>
-                    <button onClick={handleDelete} className="btn-secondary">
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : activeTab === 'snippets' && selectedSnippet ? (
-              <div>
-                <h3 className="text-lg font-bold mb-2">{selectedSnippet.name}</h3>
-                <p className="text-dark-muted mb-4">{selectedSnippet.description}</p>
-                <div className="bg-dark-bg border border-dark-border rounded p-4 mb-4 font-mono text-sm">
-                  {selectedSnippet.content}
-                </div>
-
-                {!manageMode && (
-                  <button
-                    onClick={handleInsertSnippet}
-                    className="btn-primary"
-                  >
-                    Insert
-                  </button>
-                )}
-
-                {manageMode && (
-                  <div className="flex gap-2">
-                    <button onClick={handleEditSnippet} className="btn-primary">
-                      {selectedSnippet?.isDefault ? 'Copy & Edit' : 'Edit'}
-                    </button>
-                    <button onClick={handleDelete} className="btn-secondary">
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-dark-muted">
-                Select a {activeTab === 'templates' ? 'template' : 'snippet'} to preview
-              </div>
-            )}
-          </div>
-        </div>
-        )}
-
-        {/* ELARA VOSS Content */}
-        {activeTab === 'elara-voss' && (
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="max-w-2xl mx-auto space-y-6">
-              <div>
-                <h3 className="text-lg font-bold mb-2">ELARA VOSS Name Database</h3>
-                <p className="text-dark-muted">
-                  Manage the name database used by the ELARA VOSS name replacement tool.
-                  Import custom names or reset to defaults.
-                </p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 items-center flex-wrap">
-                <button
-                  onClick={() => elaraVossImportRef.current?.click()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                >
-                  Import Names
-                </button>
-                <button
-                  onClick={handleElaraVossExport}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                >
-                  Export Names
-                </button>
-                <button
-                  onClick={handleElaraVossReset}
-                  className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
-                >
-                  Reset to Defaults
-                </button>
-                {elaraVossStatus && (
-                  <span className={`ml-2 text-sm ${elaraVossStatus.includes('failed') || elaraVossStatus.includes('error') ? 'text-red-400' : 'text-green-400'}`}>
-                    {elaraVossStatus}
-                  </span>
-                )}
-                <input
-                  type="file"
-                  ref={elaraVossImportRef}
-                  onChange={handleElaraVossImport}
-                  accept=".json"
-                  className="hidden"
-                />
-              </div>
-
-              {/* Stats */}
-              {elaraVossLoading ? (
-                <div className="text-center py-8 text-dark-muted">Loading...</div>
-              ) : elaraVossStats ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-dark-bg border border-dark-border rounded p-4 text-center">
-                    <div className="text-3xl font-bold text-purple-400">{elaraVossStats.total}</div>
-                    <div className="text-sm text-dark-muted">Total Names</div>
-                  </div>
-                  <div className="bg-dark-bg border border-dark-border rounded p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-400">{elaraVossStats.male.first}</div>
-                    <div className="text-sm text-dark-muted">Male First</div>
-                  </div>
-                  <div className="bg-dark-bg border border-dark-border rounded p-4 text-center">
-                    <div className="text-2xl font-bold text-pink-400">{elaraVossStats.female.first}</div>
-                    <div className="text-sm text-dark-muted">Female First</div>
-                  </div>
-                  <div className="bg-dark-bg border border-dark-border rounded p-4 text-center">
-                    <div className="text-2xl font-bold text-gray-400">{elaraVossStats.neutral.last}</div>
-                    <div className="text-sm text-dark-muted">Last Names</div>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Format Documentation */}
-              <div className="bg-dark-bg border border-dark-border rounded p-4">
-                <h4 className="font-semibold mb-2">JSON File Format</h4>
-                <p className="text-sm text-dark-muted mb-3">
-                  Import a JSON file containing an array of name objects with the following structure:
-                </p>
-                <pre className="bg-dark-surface p-3 rounded text-xs overflow-x-auto">
-{`[
-  { "gender": "male", "type": "first", "name": "Ace" },
-  { "gender": "female", "type": "first", "name": "Nova" },
-  { "gender": "neutral", "type": "last", "name": "Vega" }
-]`}
-                </pre>
-                <div className="mt-3 space-y-1 text-xs text-dark-muted">
-                  <p><strong>gender:</strong> "male" | "female" | "neutral"</p>
-                  <p><strong>type:</strong> "first" | "last"</p>
-                  <p><strong>name:</strong> The actual name string</p>
-                </div>
-                <p className="mt-3 text-xs text-amber-400">
-                  Note: "neutral" gender names with type "last" are used as surnames for all genders.
-                </p>
-              </div>
+              )}
             </div>
-          </div>
-        )}
+          ) : activeTab === 'snippets' && selectedSnippet ? (
+            <div>
+              <h3 className="text-lg font-bold mb-2">{selectedSnippet.name}</h3>
+              <p className="text-dark-muted mb-4">{selectedSnippet.description}</p>
+              <div className="bg-dark-bg border border-dark-border rounded p-4 mb-4 font-mono text-sm">
+                {selectedSnippet.content}
+              </div>
+
+              {!manageMode && (
+                <button onClick={handleInsertSnippet} className="btn-primary">
+                  Insert
+                </button>
+              )}
+
+              {manageMode && (
+                <div className="flex gap-2">
+                  <button onClick={handleEditSnippet} className="btn-primary">
+                    {selectedSnippet?.isDefault ? 'Copy & Edit' : 'Edit'}
+                  </button>
+                  <button onClick={handleDelete} className="btn-secondary">
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full text-dark-muted">
+              Select a {activeTab === 'templates' ? 'template' : 'snippet'} to preview
+            </div>
+          )}
+        </div>
       </div>
+    </div>
   );
 
   if (embedded) {

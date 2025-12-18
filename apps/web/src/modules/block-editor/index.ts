@@ -46,7 +46,7 @@ export function registerBlockEditorModule(): void {
     label: 'Blocks',
     component: BlockEditorPanel,
     color: 'orange',
-    order: 25, // After Edit (0), Assets (10), Focused (20), before wwwyzzerdd (30)
+    order: 20, // After Edit (0), Focused (10), before Diff (30)
     contexts: ['card'],
     condition: () => useSettingsStore.getState().features?.blockEditorEnabled ?? true,
   });

@@ -44,8 +44,12 @@ export function ModulesSettingsPanel() {
       {registeredModules.map((module) => {
         const colorClasses = getModuleToggleColors(module.color);
         const enabled = isModuleEnabled(module);
+        const unavailable = module.unavailableInCurrentMode;
         return (
-          <div key={module.id} className="border border-dark-border rounded-lg p-6 space-y-4">
+          <div
+            key={module.id}
+            className={`border border-dark-border rounded-lg p-6 space-y-4 ${unavailable ? 'opacity-60' : ''}`}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-semibold flex items-center gap-2">
@@ -55,28 +59,34 @@ export function ModulesSettingsPanel() {
                       {module.badge}
                     </span>
                   )}
+                  {unavailable && (
+                    <span className="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded">
+                      Requires Server
+                    </span>
+                  )}
                 </h4>
-                <p className="text-sm text-dark-muted mt-1">
-                  {module.description}
-                </p>
+                <p className="text-sm text-dark-muted mt-1">{module.description}</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label
+                className={`relative inline-flex items-center ${unavailable ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+              >
                 <input
                   type="checkbox"
-                  checked={enabled}
-                  onChange={(e) => handleModuleToggle(module, e.target.checked)}
+                  checked={enabled && !unavailable}
+                  onChange={(e) => !unavailable && handleModuleToggle(module, e.target.checked)}
+                  disabled={unavailable}
                   className="sr-only peer"
                 />
-                <div className={`w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 ${colorClasses.ring} rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${colorClasses.bg}`}></div>
+                <div
+                  className={`w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 ${colorClasses.ring} rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${unavailable ? 'opacity-50' : colorClasses.bg}`}
+                ></div>
               </label>
             </div>
-            {enabled && (
+            {enabled && !unavailable && (
               <div className="pt-4 border-t border-dark-border">
                 <p className="text-xs text-dark-muted">
                   Configure settings in the{' '}
-                  <span className={`${colorClasses.text}`}>
-                    {module.name} tab
-                  </span>.
+                  <span className={`${colorClasses.text}`}>{module.name} tab</span>.
                 </p>
               </div>
             )}

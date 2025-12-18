@@ -52,35 +52,35 @@ export function registerCoreTabs(): void {
     contexts: ['card', 'template', 'lorebook', 'collection', 'all'],
   });
 
-  // Lorebook - Character book / world info editor (order: 5)
+  // Lorebook - Character book / world info editor (order: 40)
   // Available for cards, lorebooks, and collections
   registry.registerTab({
     id: 'lorebook',
     label: 'Lorebook',
     component: LorebookEditor,
-    order: 5,
+    order: 40,
     color: 'green',
     contexts: ['card', 'lorebook', 'collection'],
   });
 
-  // Assets - Image/asset management (order: 10)
+  // Assets - Image/asset management (order: 50)
   // Available for cards and collections, not for standalone lorebooks
   registry.registerTab({
     id: 'assets',
     label: 'Assets',
     component: AssetsPanel,
-    order: 10,
+    order: 50,
     contexts: ['card', 'collection'],
     condition: () => useSettingsStore.getState().features?.assetsEnabled ?? true,
   });
 
-  // Focused - Distraction-free editing (order: 20)
+  // Focused - Distraction-free editing (order: 10)
   // Only for character cards, not lorebooks or collections
   registry.registerTab({
     id: 'focused',
     label: 'Focused',
     component: FocusedEditor,
-    order: 20,
+    order: 10,
     contexts: ['card'],
     condition: () => useSettingsStore.getState().features?.focusedEnabled ?? true,
   });
@@ -95,13 +95,13 @@ export function registerCoreTabs(): void {
     contexts: ['card', 'lorebook', 'collection'],
   });
 
-  // Diff - Version comparison (order: 70)
+  // Diff - Version comparison (order: 30)
   // Available for cards, lorebooks, and collections
   registry.registerTab({
     id: 'diff',
     label: 'Diff',
     component: DiffPanel,
-    order: 70,
+    order: 30,
     contexts: ['card', 'lorebook', 'collection'],
     condition: () => useSettingsStore.getState().features?.diffEnabled ?? true,
   });
@@ -115,7 +115,7 @@ export function registerCoreTabs(): void {
     component: FocusedSettings,
     row: 'main',
     color: 'cyan',
-    order: 10,
+    order: 30,
     condition: () => useSettingsStore.getState().features?.focusedEnabled ?? true,
   });
 
@@ -126,7 +126,7 @@ export function registerCoreTabs(): void {
     component: DiffSettings,
     row: 'main',
     color: 'amber',
-    order: 20,
+    order: 35,
     condition: () => useSettingsStore.getState().features?.diffEnabled ?? true,
   });
 

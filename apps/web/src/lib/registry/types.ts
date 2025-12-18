@@ -105,4 +105,6 @@ export interface ModuleDefinition {
    * Examples: ComfyUI (needs local server), Web Import (needs API processing)
    */
   requiresServer?: boolean;
+  /** Runtime flag: true if module can't work in current deployment mode */
+  unavailableInCurrentMode?: boolean;
 }
