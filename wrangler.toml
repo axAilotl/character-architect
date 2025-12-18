@@ -1,5 +1,5 @@
 # Character Architect - Cloudflare Workers Static Assets
-name = "character-architect-dev"
+name = "character-architect"
 compatibility_date = "2025-12-05"
 
 [assets]
