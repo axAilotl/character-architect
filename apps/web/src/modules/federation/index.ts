@@ -63,6 +63,4 @@ export function unregisterFederationModule(): void {
   console.log('[federation] Module unregistered');
 }
 
-// Re-export the store for use in other components
-export { useFederationStore } from './lib/federation-store';
 export type { PlatformId, CardSyncState, SyncResult } from './lib/types';

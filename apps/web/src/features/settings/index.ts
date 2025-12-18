@@ -7,6 +7,7 @@ import { ProvidersSettingsPanel } from './panels/ProvidersSettingsPanel';
 import { RagSettingsPanel } from './panels/RagSettingsPanel';
 import { PresetsSettingsPanel } from './panels/PresetsSettingsPanel';
 import { BackupRestorePanel } from './panels/BackupRestorePanel';
+import { TemplatesSettingsPanel } from './panels/TemplatesSettingsPanel';
 
 export function registerCoreSettingsPanels() {
   registry.registerSettingsPanel({
@@ -57,7 +58,13 @@ export function registerCoreSettingsPanels() {
     color: 'blue',
   });
 
-  // Templates is 60 (but currently hardcoded/special case, will be migrated later)
+  registry.registerSettingsPanel({
+    id: 'templates',
+    label: 'Templates',
+    component: TemplatesSettingsPanel,
+    order: 60,
+    color: 'blue',
+  });
 
   registry.registerSettingsPanel({
     id: 'presets',

@@ -434,7 +434,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
 
     // Use server API for full mode
-    const { data, error } = await api.importCard(file);
+    const { data, error } = await api.unifiedImport(file);
     if (error) {
       return null;
     }
@@ -514,22 +514,25 @@ export const useCardStore = create<CardStore>((set, get) => ({
       }
     }
 
-    // Server mode: use API
-    const { data, error } = await api.importVoxtaPackage(file);
+    // Server mode: use unified import API
+    const { data, error } = await api.unifiedImport(file);
     if (error) {
       alert(`Failed to import Voxta package: ${error}`);
       return null;
     }
 
-    if (data && data.cards && data.cards.length > 0) {
-      const firstCard = data.cards[0];
+    if (data && data.card) {
+      const firstCard = data.card;
 
       // Set the first card as active
       set({ currentCard: firstCard, isDirty: false });
       useTokenStore.getState().updateTokenCounts(firstCard);
 
-      if (data.cards.length > 1) {
-        alert(`Imported ${data.cards.length} characters from Voxta package. "${firstCard.meta.name}" is now active.`);
+      const importedCount = Array.isArray(data.cardIds) ? data.cardIds.length : 1;
+      if (importedCount > 1) {
+        alert(
+          `Imported ${importedCount} cards from Voxta package. "${firstCard.meta.name}" is now active.`
+        );
       }
       return firstCard.meta.id;
     } else {

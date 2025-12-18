@@ -234,6 +234,24 @@ class ApiClient {
   }
 
   // Import/Export
+  async unifiedImport(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/unified-import`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Import failed' }));
+      return { error: error.error };
+    }
+
+    const data = await response.json();
+    return { data };
+  }
+
   async importCard(file: File) {
     const formData = new FormData();
     formData.append('file', file);

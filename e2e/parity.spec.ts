@@ -587,7 +587,7 @@ test.describe('Deployment Mode Parity Tests', () => {
           await waitForAppLoad(page);
 
           // Try to import an invalid file
-          await page.locator('button:has-text("Import")').click();
+          await page.locator('button:has-text("Import"), label:has-text("Import")').first().click();
           await page.waitForTimeout(300);
 
           // This would trigger an error - but we're just checking the UI is consistent
