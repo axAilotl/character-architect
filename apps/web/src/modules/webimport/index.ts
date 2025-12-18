@@ -7,21 +7,7 @@
 
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
-import type { ModuleDefinition } from '../../lib/registry/types';
-
-/**
- * Module metadata for auto-discovery
- */
-export const MODULE_METADATA: ModuleDefinition = {
-  id: 'webimport',
-  name: 'Web Import',
-  description: 'One-click import from character sites via browser userscript.',
-  defaultEnabled: false,
-  badge: 'Import',
-  color: 'teal',
-  order: 40,
-  requiresServer: true,
-};
+export { MODULE_METADATA } from './metadata';
 
 // Lazy-load the settings component
 const WebImportSettings = lazy(() =>

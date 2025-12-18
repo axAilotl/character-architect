@@ -8,21 +8,7 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import type { ModuleDefinition } from '../../lib/registry/types';
-
-/**
- * Module metadata for auto-discovery
- */
-export const MODULE_METADATA: ModuleDefinition = {
-  id: 'comfyui',
-  name: 'ComfyUI',
-  description: 'Image generation integration with ComfyUI server (scaffolding).',
-  defaultEnabled: false,
-  badge: 'Beta',
-  color: 'green',
-  order: 30,
-  requiresServer: true,
-};
+export { MODULE_METADATA } from './metadata';
 
 // Lazy-load the components
 const ComfyUITab = lazy(() =>

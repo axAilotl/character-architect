@@ -8,7 +8,7 @@
  * - Folder: modules/{module-id}/index.ts
  * - Feature flag: {camelCaseId}Enabled (e.g., blockEditorEnabled)
  * - Register function: register{PascalCaseId}Module (e.g., registerBlockEditorModule)
- * - Metadata export: MODULE_METADATA (ModuleDefinition)
+ * - Metadata export: MODULE_METADATA (ModuleDefinition) in modules/{module-id}/metadata.ts
  *
  * Deployment modes affect default module states:
  * - 'full': All modules enabled by default
@@ -34,7 +34,7 @@ const moduleLoaders = import.meta.glob('../modules/*/index.ts');
  * This allows us to show module toggles before modules are loaded
  */
 const moduleMetadata = import.meta.glob<{ MODULE_METADATA?: ModuleDefinition }>(
-  '../modules/*/index.ts',
+  '../modules/*/metadata.ts',
   { eager: true }
 );
 
@@ -60,7 +60,7 @@ function toPascalCase(str: string): string {
  * e.g., "../modules/block-editor/index.ts" -> "block-editor"
  */
 function getModuleId(path: string): string {
-  const match = path.match(/\.\.\/modules\/([^/]+)\/index\.ts$/);
+  const match = path.match(/\.\.\/modules\/([^/]+)\/(?:index|metadata)\.ts$/);
   return match ? match[1] : '';
 }
 

@@ -218,7 +218,8 @@ export function isClientFeatureAvailable(feature: keyof DeploymentConfig['client
  */
 export function getModuleDefault(moduleId: string): boolean {
   const config = getDeploymentConfig();
-  const key = moduleId.replace(/-/g, '') as keyof typeof config.moduleDefaults;
+  const camelId = moduleId.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+  const key = camelId as keyof typeof config.moduleDefaults;
   return config.moduleDefaults[key] ?? true;
 }
 
