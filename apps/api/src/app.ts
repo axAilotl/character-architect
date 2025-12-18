@@ -119,7 +119,9 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(userImagesRoutes);
 
   // Federation routes (no prefix - routes define their own /api/federation paths)
-  await fastify.register(federationRoutes);
+  if (config.security.federation.enabled) {
+    await fastify.register(federationRoutes);
+  }
 
   // Add hook to close database when server closes
   fastify.addHook('onClose', async () => {

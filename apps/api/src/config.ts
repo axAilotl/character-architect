@@ -57,6 +57,8 @@ export const config = {
 
     // Federation Security (Federation 0.2.0)
     federation: {
+      // Federation routes are disabled by default; enable explicitly when self-hosting federation.
+      enabled: process.env.FEDERATION_ENABLED === 'true',
       // Enable strict HTTP signature verification (requires signed headers)
       strictMode: process.env.FEDERATION_STRICT_MODE === 'true',
       // Use SHA-256 instead of djb2 for hashing (recommended for cross-system federation)
