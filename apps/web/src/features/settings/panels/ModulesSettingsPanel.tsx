@@ -9,20 +9,15 @@
 import { useSettingsStore } from '../../../store/settings-store';
 import { useModules } from '../../../lib/registry/hooks';
 import { registry } from '../../../lib/registry';
-import { getDeploymentConfig } from '../../../config/deployment';
 import { getModuleToggleColors } from '../../../lib/schemas/settings/modules';
 import type { ModuleDefinition } from '../../../lib/registry/types';
 
 export function ModulesSettingsPanel() {
-  const allRegisteredModules = useModules();
-  const deploymentConfig = getDeploymentConfig();
+  // Get modules from registry - server-only modules are already filtered by the module loader
+  // based on their requiresServer metadata property
+  const registeredModules = useModules();
   const features = useSettingsStore((state) => state.features);
   const setModuleEnabled = useSettingsStore((state) => state.setModuleEnabled);
-
-  // Filter out modules that shouldn't appear in LITE/static modes
-  const registeredModules = deploymentConfig.mode === 'full'
-    ? allRegisteredModules
-    : allRegisteredModules.filter(m => !['federation', 'sillytavern'].includes(m.id));
 
   // Check if a module is enabled based on its feature flag
   const isModuleEnabled = (module: ModuleDefinition): boolean => {

@@ -18,7 +18,7 @@ interface CardStore {
   currentCard: Card | null;
   isDirty: boolean;
   isSaving: boolean;
-  autoSaveTimeout: NodeJS.Timeout | null;
+  autoSaveTimeout: ReturnType<typeof setTimeout> | null;
 
   // Actions
   setCurrentCard: (card: Card | null) => void;

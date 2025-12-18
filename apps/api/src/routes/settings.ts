@@ -37,7 +37,6 @@ function loadSettings(): Settings {
 function saveSettings(settings: Settings) {
   const dir = dirname(SETTINGS_PATH);
   if (!existsSync(dir)) {
-    const { mkdirSync } = require('fs');
     mkdirSync(dir, { recursive: true });
   }
   writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');

@@ -8,7 +8,6 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import { getDeploymentConfig } from '../../config/deployment';
 import type { ModuleDefinition } from '../../lib/registry/types';
 
 /**
@@ -22,6 +21,7 @@ export const MODULE_METADATA: ModuleDefinition = {
   badge: 'Beta',
   color: 'green',
   order: 30,
+  requiresServer: true,
 };
 
 // Lazy-load the components
@@ -39,28 +39,18 @@ const ComfyUISettings = lazy(() =>
 
 /**
  * Check if ComfyUI should be visible
- * Must be enabled AND not in light/static mode (requires local ComfyUI server)
+ * The module loader already handles deployment mode filtering via requiresServer.
+ * This just checks if the user has enabled the module.
  */
 function isComfyUIAvailable(): boolean {
-  const config = getDeploymentConfig();
-  if (config.mode === 'light' || config.mode === 'static') {
-    return false; // ComfyUI requires local server
-  }
   return useSettingsStore.getState().features?.comfyuiEnabled ?? false;
 }
 
 /**
  * Register the ComfyUI module
- * Note: In light/static mode, this module is NOT registered at all
+ * Note: In light/static mode, this module is NOT loaded at all (requiresServer: true)
  */
 export function registerComfyuiModule(): void {
-  // Don't register in light/static mode - ComfyUI requires local server
-  const config = getDeploymentConfig();
-  if (config.mode === 'light' || config.mode === 'static') {
-    console.log('[comfyui] Skipping registration in light mode');
-    return;
-  }
-
   // Register editor tab
   registry.registerTab({
     id: 'comfyui',

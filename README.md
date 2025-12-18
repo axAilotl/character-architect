@@ -110,8 +110,8 @@ The installer will set up:
 
 ```bash
 # Clone the repository
-git clone https://github.com/axAilotl/card-architect.git
-cd card-architect
+git clone https://github.com/axAilotl/character-architect.git
+cd character-architect
 
 # Start with Docker Compose
 docker compose up -d
@@ -133,6 +133,8 @@ To expose the API port directly (for debugging), uncomment the `ports` section i
 
 ```bash
 # Prerequisites: Node.js 20+, pnpm
+# Note: If install fails for @character-foundry/* packages, you may need a GitHub token (read:packages):
+# export GITHUB_TOKEN=... (or configure npm auth for GitHub Packages)
 
 # Install dependencies
 pnpm install
@@ -151,7 +153,7 @@ Character Architect supports separate dev and production environments to prevent
 | Environment | Branch | URL | Docker Compose | Data Location |
 |------------|--------|-----|----------------|---------------|
 | **Production** | `main` | http://localhost:8765 | `docker-compose.yml` | `./data/`, `./storage/` |
-| **Development** | `dev` | http://localhost:8766 | `docker-compose.dev.yml` | `./data-dev/`, `./storage-dev/` |
+| **Development** | `dev` | http://localhost:8766 | `docker/docker-compose.dev.yml` | `./data-dev/`, `./storage-dev/` |
 
 **Starting Dev Environment:**
 ```bash
@@ -159,7 +161,7 @@ Character Architect supports separate dev and production environments to prevent
 bash scripts/setup-dev.sh
 
 # Or manually
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker/docker-compose.dev.yml up -d
 ```
 
 **Branch Workflow:**
@@ -192,7 +194,7 @@ All features enabled with full server backend:
 
 ```bash
 # Docker or local dev - full mode auto-detected on localhost
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Light Mode
@@ -245,6 +247,9 @@ Character Architect is a monorepo with:
 /apps/web              # React frontend (Vite + TypeScript + Tailwind)
 /packages/defaults     # Shared default templates, snippets, and presets
 /packages/plugins      # Plugin SDK (stub)
+/docker                # Nginx config + dev Docker Compose
+/e2e                   # Playwright end-to-end tests
+/scripts               # Dev workflow scripts + utilities
 ```
 
 **External Dependencies:**
@@ -252,7 +257,7 @@ Character Architect is a monorepo with:
   - `/schemas`, `/loader`, `/png`, `/charx`, `/voxta`, `/lorebook`, `/tokenizers`
   - `/app-framework`, `/federation`, `/normalizer`, `/core`
   - Includes all format handlers, token counting, and UI components
-- `@character-foundry/image-utils` - SSRF protection and image URL extraction (local file: reference)
+- `@character-foundry/character-foundry/image-utils` - Image URL extraction + SSRF policy helpers (subpath export)
 - `fflate` - Fast compression (ZIP/GZIP)
 - `zod` - Runtime schema validation
 - `gpt-tokenizer` - Token counting for LLMs
@@ -263,7 +268,7 @@ Character Architect is a monorepo with:
 - **Fastify** - Fast, low-overhead web framework
 - **SQLite** (better-sqlite3) - Local database
 - **Sharp** - Image processing
-- **Ajv** - JSON schema validation
+- **Zod** - Runtime validation (shared schemas)
 
 **Frontend:**
 - **React 18** + **TypeScript** - UI framework

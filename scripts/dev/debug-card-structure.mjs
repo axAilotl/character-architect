@@ -8,15 +8,19 @@ import { readdirSync } from 'fs';
 import { join } from 'path';
 import { parseCard } from '@character-foundry/character-foundry/loader';
 
-const TEST_DIR = '/mnt/ai/test_cf_data/chub_v2';
+const testDir = process.argv[2];
+if (!testDir) {
+  console.error('Usage: node scripts/dev/debug-card-structure.mjs <dir-with-pngs>');
+  process.exit(1);
+}
 
 console.log('Debugging card data structures\n');
 console.log('=' .repeat(80));
 
-const files = readdirSync(TEST_DIR).filter(f => f.endsWith('.png'));
+const files = readdirSync(testDir).filter(f => f.endsWith('.png'));
 
 for (const filename of files) {
-  const filepath = join(TEST_DIR, filename);
+  const filepath = join(testDir, filename);
   console.log(`\n${filename}:`);
 
   try {

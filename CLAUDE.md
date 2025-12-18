@@ -172,3 +172,75 @@ Use these utilities instead of `as any` casts:
 - `apps/web/src/lib/card-type-guards.ts` - `getCardFields()`, `getExtensions()`, `isV3Card()`, etc.
 - `apps/web/src/lib/extension-types.ts` - `CardExtensions`, `getLorebookEntryExtensions()`
 - `apps/web/src/store/card-store.ts` - `updateCardFields()`, `updateExtensions()`, `updateCharacterBook()`
+
+## Module System
+
+Optional features are implemented as modules in `apps/web/src/modules/`. The module system handles:
+- Auto-discovery via Vite glob imports
+- Registration of tabs, settings panels, and other UI contributions
+- Deployment mode filtering (full vs light vs static)
+
+### Key Files
+
+- `apps/web/src/lib/modules.ts` - Module loader and initialization
+- `apps/web/src/lib/registry/` - UI registry for tabs, panels, etc.
+- `apps/web/src/lib/registry/types.ts` - `ModuleDefinition` type
+- `apps/web/src/config/deployment.ts` - Deployment mode config
+
+### Module Metadata
+
+Each module exports `MODULE_METADATA` of type `ModuleDefinition`:
+
+```typescript
+export const MODULE_METADATA: ModuleDefinition = {
+  id: 'my-module',           // kebab-case, must match folder name
+  name: 'My Module',         // Display name
+  description: 'What it does',
+  defaultEnabled: false,     // Whether enabled by default
+  badge: 'Beta',             // Optional badge text
+  color: 'purple',           // Toggle/badge color
+  order: 50,                 // Sort order in modules list
+  requiresServer: true,      // If true, hidden in light/static modes
+};
+```
+
+### Server-Only Modules (requiresServer)
+
+Modules that require backend functionality MUST set `requiresServer: true`. These are:
+- `comfyui` - Requires local ComfyUI server
+- `webimport` - Requires API server for processing
+- `charx-optimizer` - Uses server-side Sharp for image optimization
+- `sillytavern` - Requires API for SillyTavern integration
+- `federation` - Requires API for platform sync
+
+**NEVER hardcode module IDs for filtering.** Always use the `requiresServer` metadata property.
+
+### Deployment Modes
+
+- `full` - Self-hosted with API server. All modules available.
+- `light` - Cheap VPS, minimal server. Server-only modules hidden.
+- `static` - No server (Cloudflare Pages). Server-only modules hidden.
+
+Auto-detection: localhost/LAN → full, otherwise → light.
+
+### Adding a New Module
+
+1. Create folder: `apps/web/src/modules/{module-id}/index.ts`
+2. Export `MODULE_METADATA` with all required fields
+3. Export `register{PascalCaseId}Module()` function
+4. If module needs server backend, set `requiresServer: true`
+5. Register tabs/panels in the register function:
+
+```typescript
+export function registerMyModuleModule(): void {
+  registry.registerSettingsPanel({
+    id: 'my-module',
+    label: 'My Module',
+    component: MyModuleSettings,
+    row: 'modules',
+    color: 'purple',
+    order: 80,
+    condition: () => useSettingsStore.getState().features?.myModuleEnabled ?? false,
+  });
+}
+```

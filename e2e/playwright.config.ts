@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { createApiTestPaths } from './testkit/temp-paths';
+import { createApiTestPaths } from '../testkit/temp-paths';
 
 /**
  * Playwright Configuration for Character Architect E2E Tests
@@ -20,14 +20,14 @@ if (!runExtended) defaultProjectIgnores.push(/ui-elements\.spec\.ts$/);
 defaultProjectIgnores.push(/cross-platform\.spec\.ts$/);
 
 export default defineConfig({
-  testDir: './e2e',
+  testDir: '.',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers,
   reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
-    ['json', { outputFile: 'test-results/results.json' }],
+    ['html', { outputFolder: '../playwright-report' }],
+    ['json', { outputFile: '../test-results/results.json' }],
     ['list'],
   ],
 
@@ -42,7 +42,7 @@ export default defineConfig({
   },
 
   // Global setup/teardown
-  globalSetup: './e2e/global-setup.ts',
+  globalSetup: './global-setup.ts',
 
   // Test timeout
   timeout: 60000,

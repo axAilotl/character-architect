@@ -179,15 +179,10 @@ Tell me your preferences and describe the character you'd like to create!`;
       return;
     }
 
-    console.log('LLM Settings:', llmSettings);
-    console.log('Providers:', llmSettings.providers);
-    console.log('Active Provider ID:', llmSettings.activeProviderId);
-
     // Find active provider - try activeProviderId first, fallback to first provider
     let activeProvider = llmSettings.providers.find((p) => p.id === llmSettings.activeProviderId);
     if (!activeProvider && llmSettings.providers.length > 0) {
       activeProvider = llmSettings.providers[0];
-      console.log('Using first provider as fallback:', activeProvider);
     }
 
     if (!activeProvider) {

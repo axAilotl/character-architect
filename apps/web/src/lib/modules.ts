@@ -87,12 +87,6 @@ export function getDiscoveredModules(): Array<{
 }
 
 /**
- * Modules that should be hidden in light/static modes
- * These require server-side functionality that's not available in client-only deployments
- */
-const SERVER_ONLY_MODULES = ['comfyui', 'webimport', 'charx-optimizer'];
-
-/**
  * Register all module metadata from discovered modules
  * This runs eagerly at startup to populate the registry with module info
  */
@@ -102,9 +96,9 @@ function registerAllModuleMetadata(): void {
   for (const [path, exports] of Object.entries(moduleMetadata)) {
     const metadata = exports.MODULE_METADATA;
     if (metadata) {
-      // Skip server-only modules in light mode
-      if (isLightMode && SERVER_ONLY_MODULES.includes(metadata.id)) {
-        console.log(`[Modules] Skipping ${metadata.id} in light mode (server-only)`);
+      // Skip server-only modules in light/static mode (they require backend functionality)
+      if (isLightMode && metadata.requiresServer) {
+        console.log(`[Modules] Skipping ${metadata.id} in ${deploymentConfig.mode} mode (requiresServer: true)`);
         continue;
       }
       registry.registerModule(metadata);

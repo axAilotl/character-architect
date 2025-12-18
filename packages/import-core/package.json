@@ -12,12 +12,13 @@
   },
   "scripts": {
     "build": "tsc",
+    "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@character-foundry/character-foundry": "^0.1.7",
+    "@character-foundry/character-foundry": "0.4.2-dev.1765997746",
     "nanoid": "^5.0.4",
     "sharp": "^0.33.1"
   },

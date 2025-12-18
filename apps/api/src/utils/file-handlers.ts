@@ -7,6 +7,7 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import sharp from 'sharp';
 import { optimizeMedia } from './image-optimizer.js';
 
 // CHARX package
@@ -62,6 +63,16 @@ import { config } from '../config.js';
 import type { CharxData } from '@character-foundry/character-foundry/charx';
 import type { CCv2Data, CCv3Data } from '@character-foundry/character-foundry/schemas';
 import type { Card } from '../types/index.js';
+
+function sanitizeArchiveExt(ext: string): string {
+  const normalized = (ext || '').trim().toLowerCase().replace(/^\.+/, '');
+  const last = normalized.split('.').pop() || 'bin';
+
+  // Prevent ZIP path traversal via extension tricks like `png/../../evil`
+  if (/[\\/]/.test(last)) return 'bin';
+  if (!/^[a-z0-9]+$/.test(last)) return 'bin';
+  return last;
+}
 
 // Re-export types for consumers (with Buffer-based types where needed)
 export interface CharxExtractionOptions extends CharxPackageExtractionOptions {
@@ -281,7 +292,7 @@ export async function buildCharx(
 
     try {
       let buffer: Buffer = await fs.readFile(filePath);
-      let ext = asset.ext;
+      let ext = sanitizeArchiveExt(asset.ext);
 
       // Apply optimization if enabled
       if (options.optimization?.enabled) {
@@ -296,7 +307,7 @@ export async function buildCharx(
         }, ext);
 
         buffer = Buffer.from(optimized.buffer);
-        ext = optimized.ext;
+        ext = sanitizeArchiveExt(optimized.ext);
         totalSaved += optimized.originalSize - optimized.optimizedSize;
       }
 
@@ -403,7 +414,7 @@ export async function buildVoxtaPackage(
 
     try {
       let buffer: Buffer = await fs.readFile(filePath);
-      let ext = asset.ext;
+      let ext = sanitizeArchiveExt(asset.ext);
 
       // Apply optimization if enabled
       if (options.optimization?.enabled) {
@@ -418,7 +429,7 @@ export async function buildVoxtaPackage(
         }, ext);
 
         buffer = Buffer.from(optimized.buffer);
-        ext = optimized.ext;
+        ext = sanitizeArchiveExt(optimized.ext);
         totalSaved += optimized.originalSize - optimized.optimizedSize;
       }
 
@@ -492,14 +503,40 @@ export function validatePNGSize(
 }
 
 /**
+ * Detect image format from buffer magic bytes
+ */
+function detectImageFormat(buffer: Buffer): 'png' | 'jpeg' | 'webp' | 'gif' | 'unknown' {
+  if (buffer.length < 4) return 'unknown';
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return 'png';
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) return 'jpeg';
+  // WebP: RIFF....WEBP
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 && buffer.length >= 12) {
+    if (buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return 'webp';
+  }
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return 'gif';
+  return 'unknown';
+}
+
+/**
  * Create PNG with embedded card data
+ * Converts non-PNG images (WebP, JPEG, GIF) to PNG before embedding
  */
 export async function createCardPNG(
   imageBuffer: Buffer,
   card: Card
 ): Promise<Buffer> {
+  const format = detectImageFormat(imageBuffer);
+
+  let pngBuffer: Buffer;
+  if (format !== 'png') {
+    // Convert to PNG using Sharp
+    pngBuffer = await sharp(imageBuffer).png().toBuffer();
+  } else {
+    pngBuffer = imageBuffer;
+  }
+
   // embedIntoPNG expects card data directly, not the wrapper Card type
-  const result = embedIntoPNGBuffer(new Uint8Array(imageBuffer), card.data as CCv2Data | CCv3Data);
+  const result = embedIntoPNGBuffer(new Uint8Array(pngBuffer), card.data as CCv2Data | CCv3Data);
   return Buffer.from(result);
 }
 

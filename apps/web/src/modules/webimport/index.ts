@@ -20,6 +20,7 @@ export const MODULE_METADATA: ModuleDefinition = {
   badge: 'Import',
   color: 'teal',
   order: 40,
+  requiresServer: true,
 };
 
 // Lazy-load the settings component

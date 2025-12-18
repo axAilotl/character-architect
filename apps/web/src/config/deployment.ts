@@ -84,6 +84,7 @@ const FULL_CONFIG: DeploymentConfig = {
 
 /**
  * Light deployment - cheap VPS, minimal server
+ * Server-only modules (requiresServer: true) are disabled and hidden in this mode.
  */
 const LIGHT_CONFIG: DeploymentConfig = {
   mode: 'light',
@@ -103,16 +104,18 @@ const LIGHT_CONFIG: DeploymentConfig = {
   moduleDefaults: {
     blockEditor: true,
     wwwyzzerdd: true,
-    comfyui: false, // Disabled - no ComfyUI server
-    sillytavern: true,
-    webimport: false, // Disabled - requires server processing
-    charxOptimizer: false, // Disabled - requires server-side Sharp
-    federation: true, // Works client-side
+    // Server-only modules (requiresServer: true) - disabled in light mode
+    comfyui: false,
+    sillytavern: false,
+    webimport: false,
+    charxOptimizer: false,
+    federation: false,
   },
 };
 
 /**
  * Static deployment - no server, Cloudflare/GitHub Pages
+ * Server-only modules (requiresServer: true) are disabled and hidden in this mode.
  */
 const STATIC_CONFIG: DeploymentConfig = {
   mode: 'static',
@@ -132,11 +135,12 @@ const STATIC_CONFIG: DeploymentConfig = {
   moduleDefaults: {
     blockEditor: true,
     wwwyzzerdd: false, // Needs LLM which may not be configured
+    // Server-only modules (requiresServer: true) - disabled in static mode
     comfyui: false,
-    sillytavern: true,
-    webimport: false, // No server
-    charxOptimizer: false, // Disabled - requires server-side Sharp
-    federation: true, // Works client-side
+    sillytavern: false,
+    webimport: false,
+    charxOptimizer: false,
+    federation: false,
   },
 };
 

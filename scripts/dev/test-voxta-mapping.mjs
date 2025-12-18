@@ -1,7 +1,12 @@
 import { readFileSync } from 'fs';
 import { readVoxta, voxtaToCCv3 } from '@character-foundry/character-foundry/voxta';
 
-const file = '/home/vega/ai/character-foundry/fixtures/extended/voxta/minimal_character.voxpkg';
+const file = process.argv[2];
+if (!file) {
+  console.error('Usage: node scripts/dev/test-voxta-mapping.mjs <path/to/file.voxpkg>');
+  process.exit(1);
+}
+
 const buffer = readFileSync(file);
 const data = readVoxta(new Uint8Array(buffer));
 

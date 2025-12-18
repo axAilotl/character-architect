@@ -6,13 +6,13 @@
  * - CardsHub
  * - Character Archive
  *
- * This module is only available in full/light modes (not static).
+ * This module requires a server backend (requiresServer: true).
+ * It is only available in full deployment mode.
  */
 
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import { getModuleDefault } from '../../config/deployment';
 import type { ModuleDefinition } from '../../lib/registry/types';
 
 /**
@@ -26,6 +26,7 @@ export const MODULE_METADATA: ModuleDefinition = {
   badge: 'Sync',
   color: 'cyan',
   order: 60,
+  requiresServer: true,
 };
 
 // Lazy-load the settings component
@@ -37,6 +38,7 @@ const FederationSettings = lazy(() =>
 
 /**
  * Register the Federation module
+ * Note: In light/static mode, this module is NOT loaded at all (requiresServer: true)
  */
 export function registerFederationModule(): void {
   // Register settings panel
@@ -47,11 +49,7 @@ export function registerFederationModule(): void {
     row: 'modules',
     color: 'cyan',
     order: 80,
-    condition: () => {
-      const featureFlag = useSettingsStore.getState().features?.federationEnabled;
-      // If user has explicitly set the flag, use that; otherwise use deployment default
-      return featureFlag !== undefined ? featureFlag : getModuleDefault('federation');
-    },
+    condition: () => useSettingsStore.getState().features?.federationEnabled ?? false,
   });
 
   console.log('[federation] Module registered (settings panel)');
