@@ -1,9 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCardStore, extractCardData } from '../../../store/card-store';
 import { useSettingsStore } from '../../../store/settings-store';
-import { normalizeSpec, type CCv2Data, type CCv3Data, type Template, type Snippet, type CCFieldName, type FocusField } from '../../../lib/types';
+import {
+  normalizeSpec,
+  type CCv2Data,
+  type CCv3Data,
+  type Template,
+  type Snippet,
+  type CCFieldName,
+  type FocusField,
+} from '../../../lib/types';
 import type { CardExtensions } from '../../../lib/extension-types';
-import { getVisualDescription, getDepthPrompt, updateVoxtaExtension, updateDepthPrompt } from '../../../lib/extension-types';
+import {
+  getVisualDescription,
+  getDepthPrompt,
+  updateVoxtaExtension,
+  updateDepthPrompt,
+} from '../../../lib/extension-types';
 import { MilkdownProvider } from '@milkdown/react';
 import { Crepe } from '@milkdown/crepe';
 import '@milkdown/crepe/theme/common/style.css';
@@ -41,7 +54,13 @@ interface FieldDef {
   id: LocalFocusField;
   label: string;
   tag?: string;
-  settingKey?: 'personality' | 'appearance' | 'characterNote' | 'exampleDialogue' | 'systemPrompt' | 'postHistory';
+  settingKey?:
+    | 'personality'
+    | 'appearance'
+    | 'characterNote'
+    | 'exampleDialogue'
+    | 'systemPrompt'
+    | 'postHistory';
   alwaysShow?: boolean;
 }
 
@@ -50,10 +69,9 @@ const ALL_FIELDS: FieldDef[] = [
   { id: 'description', label: 'Description', alwaysShow: true },
   { id: 'scenario', label: 'Scenario', alwaysShow: true },
   { id: 'personality', label: 'Personality', settingKey: 'personality' },
-  { id: 'appearance', label: 'Appearance', tag: 'VOXTA', settingKey: 'appearance' },
-  { id: 'character_note', label: 'Character Note', tag: 'Extension', settingKey: 'characterNote' },
-  { id: 'first_mes', label: 'First Message', alwaysShow: true },
-  { id: 'alternate_greetings', label: 'Alt Greetings', alwaysShow: true },
+  { id: 'appearance', label: 'Appearance', tag: 'VOX', settingKey: 'appearance' },
+  { id: 'character_note', label: 'Character Note', tag: 'Ext', settingKey: 'characterNote' },
+  { id: 'first_mes', label: 'Greetings', alwaysShow: true },
   { id: 'mes_example', label: 'Example Dialogue', settingKey: 'exampleDialogue' },
   { id: 'system_prompt', label: 'System Prompt', settingKey: 'systemPrompt' },
   { id: 'post_history_instructions', label: 'Post History', settingKey: 'postHistory' },
@@ -82,11 +100,7 @@ function updateCrepeContent(crepe: Crepe, markdown: string) {
     const { from } = selection;
 
     let tr = state.tr;
-    tr = tr.replace(
-      0,
-      state.doc.content.size,
-      new Slice(doc.content, 0, 0)
-    );
+    tr = tr.replace(0, state.doc.content.size, new Slice(doc.content, 0, 0));
 
     const docSize = doc.content.size;
     const safeFrom = Math.min(from, docSize - 2);
@@ -135,14 +149,17 @@ function CrepeMarkdownEditor({ value, editorKey, onChange, onReady }: CrepeEdito
       })
       .use(listener);
 
-    crepe.create().then(() => {
-      crepeInstanceRef.current = crepe;
-      loadingRef.current = false;
-      onReady(crepe);
-    }).catch((error) => {
-      console.error('Failed to create Crepe editor:', error);
-      loadingRef.current = false;
-    });
+    crepe
+      .create()
+      .then(() => {
+        crepeInstanceRef.current = crepe;
+        loadingRef.current = false;
+        onReady(crepe);
+      })
+      .catch((error) => {
+        console.error('Failed to create Crepe editor:', error);
+        loadingRef.current = false;
+      });
 
     return () => {
       if (loadingRef.current) return;
@@ -180,7 +197,7 @@ function FocusedEditorInner() {
     appearance: '',
     character_note: '',
   });
-  const [alternateGreetingIndex, setAlternateGreetingIndex] = useState(0);
+  const [alternateGreetingIndex, setAlternateGreetingIndex] = useState(-1); // -1 = First Message, 0+ = alt greeting index
   const [editorKey, setEditorKey] = useState(0);
   const [showRawPanel, setShowRawPanel] = useState(false);
   const [editorFocus, setEditorFocus] = useState<FocusType>(null);
@@ -213,11 +230,23 @@ function FocusedEditorInner() {
     (field: LocalFocusField) => {
       if (!cardData) return '';
 
-      // Handle alternate_greetings specially - get the selected greeting
+      // Handle first_mes (Greetings) specially - can be first_mes or alternate_greetings based on index
+      if (field === 'first_mes') {
+        if (alternateGreetingIndex === -1) {
+          return cardData.first_mes || '';
+        }
+        const greetings = cardData.alternate_greetings;
+        if (Array.isArray(greetings) && greetings.length > alternateGreetingIndex) {
+          return greetings[alternateGreetingIndex] || '';
+        }
+        return '';
+      }
+
+      // Handle legacy alternate_greetings field access
       if (field === 'alternate_greetings') {
         const greetings = cardData.alternate_greetings;
         if (Array.isArray(greetings) && greetings.length > 0) {
-          return greetings[alternateGreetingIndex] || '';
+          return greetings[Math.max(0, alternateGreetingIndex)] || '';
         }
         return '';
       }
@@ -264,7 +293,8 @@ function FocusedEditorInner() {
   // Use programmatic update when switching fields instead of destroying editor
   useEffect(() => {
     // Update editor when field or alternate greeting index changes
-    const shouldUpdate = prevFieldRef.current !== selectedField || (selectedField as string) === 'alternate_greetings';
+    const shouldUpdate =
+      prevFieldRef.current !== selectedField || (selectedField as string) === 'alternate_greetings';
 
     if (!shouldUpdate && selectedField !== 'alternate_greetings') {
       return;
@@ -284,11 +314,7 @@ function FocusedEditorInner() {
   }, [selectedField, alternateGreetingIndex, drafts, getFieldValue]);
 
   if (!currentCard || !cardData) {
-    return (
-      <div className="p-6 text-center text-dark-muted">
-        Load a card to use Focused Mode.
-      </div>
-    );
+    return <div className="p-6 text-center text-dark-muted">Load a card to use Focused Mode.</div>;
   }
 
   const currentValue = drafts[selectedField] ?? '';
@@ -335,26 +361,38 @@ function FocusedEditorInner() {
   const applyChanges = () => {
     const value = drafts[selectedField] ?? '';
 
-    // Handle alternate_greetings specially
-    if (selectedField === 'alternate_greetings') {
-      const greetings = [...(cardData?.alternate_greetings || [])];
-
-      // Update the current greeting or add it if it doesn't exist
-      if (alternateGreetingIndex < greetings.length) {
-        greetings[alternateGreetingIndex] = value;
+    // Handle first_mes (Greetings) - can apply to first_mes or alternate_greetings based on index
+    if (selectedField === 'first_mes') {
+      if (alternateGreetingIndex === -1) {
+        // Editing First Message
+        if (isV3) {
+          updateCardData({
+            data: {
+              ...(currentCard.data as CCv3Data).data,
+              first_mes: value,
+            },
+          } as Partial<CCv3Data>);
+        } else {
+          updateCardData({ first_mes: value } as Partial<CCv2Data>);
+        }
       } else {
-        greetings.push(value);
-      }
-
-      if (isV3) {
-        updateCardData({
-          data: {
-            ...(currentCard.data as CCv3Data).data,
-            alternate_greetings: greetings,
-          },
-        } as Partial<CCv3Data>);
-      } else {
-        updateCardData({ alternate_greetings: greetings } as Partial<CCv2Data>);
+        // Editing an alternate greeting
+        const greetings = [...(cardData?.alternate_greetings || [])];
+        if (alternateGreetingIndex < greetings.length) {
+          greetings[alternateGreetingIndex] = value;
+        } else {
+          greetings.push(value);
+        }
+        if (isV3) {
+          updateCardData({
+            data: {
+              ...(currentCard.data as CCv3Data).data,
+              alternate_greetings: greetings,
+            },
+          } as Partial<CCv3Data>);
+        } else {
+          updateCardData({ alternate_greetings: greetings } as Partial<CCv2Data>);
+        }
       }
     } else if (selectedField === 'appearance') {
       // Handle appearance specially - stored in extensions.voxta.appearance or visual_description
@@ -373,11 +411,13 @@ function FocusedEditorInner() {
       const { updateExtensions } = useCardStore.getState();
       const extensions = (cardData?.extensions || {}) as CardExtensions;
       const currentDepth = getDepthPrompt(extensions);
-      updateExtensions(updateDepthPrompt(extensions, {
-        prompt: value,
-        depth: currentDepth?.depth ?? 4,
-        role: 'system',
-      }));
+      updateExtensions(
+        updateDepthPrompt(extensions, {
+          prompt: value,
+          depth: currentDepth?.depth ?? 4,
+          role: 'system',
+        })
+      );
     } else {
       if (isV3) {
         updateCardData({
@@ -423,6 +463,7 @@ function FocusedEditorInner() {
   };
 
   const handleDeleteAlternateGreeting = () => {
+    if (alternateGreetingIndex < 0) return; // Can't delete First Message
     if (!confirm('Delete this alternate greeting?')) return;
 
     const greetings = [...(cardData?.alternate_greetings || [])];
@@ -439,11 +480,11 @@ function FocusedEditorInner() {
       updateCardData({ alternate_greetings: greetings } as Partial<CCv2Data>);
     }
 
-    // Adjust selected index if needed
-    if (alternateGreetingIndex >= greetings.length && greetings.length > 0) {
+    // Go back to previous greeting or First Message
+    if (greetings.length === 0) {
+      setAlternateGreetingIndex(-1);
+    } else if (alternateGreetingIndex >= greetings.length) {
       setAlternateGreetingIndex(greetings.length - 1);
-    } else if (greetings.length === 0) {
-      setAlternateGreetingIndex(0);
     }
   };
 
@@ -550,8 +591,56 @@ function FocusedEditorInner() {
   // Sanitize HTML for preview
   const sanitizeHtml = (html: string) => {
     return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'a', 'img', 'ul', 'ol', 'li', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'hr', 'b', 'i', 's', 'sub', 'sup', 'details', 'summary'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'width', 'height', 'style', 'class', 'id', 'target', 'rel'],
+      ALLOWED_TAGS: [
+        'p',
+        'br',
+        'strong',
+        'em',
+        'u',
+        'a',
+        'img',
+        'ul',
+        'ol',
+        'li',
+        'code',
+        'pre',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'blockquote',
+        'table',
+        'thead',
+        'tbody',
+        'tr',
+        'th',
+        'td',
+        'div',
+        'span',
+        'hr',
+        'b',
+        'i',
+        's',
+        'sub',
+        'sup',
+        'details',
+        'summary',
+      ],
+      ALLOWED_ATTR: [
+        'href',
+        'src',
+        'alt',
+        'title',
+        'width',
+        'height',
+        'style',
+        'class',
+        'id',
+        'target',
+        'rel',
+      ],
     });
   };
 
@@ -677,7 +766,7 @@ function FocusedEditorInner() {
   return (
     <div className="h-full flex flex-col bg-dark-bg">
       {/* Field Selector Header */}
-      <div className="bg-dark-surface border-b border-dark-border px-6 py-3">
+      <div className="bg-dark-surface border-b border-dark-border px-4 py-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
             {focusableFields.map((field) => (
@@ -685,15 +774,12 @@ function FocusedEditorInner() {
                 key={field.id}
                 onClick={() => {
                   setSelectedField(field.id as LocalFocusField);
-                  if (field.id === 'alternate_greetings' && alternateGreetingIndex >= alternateGreetings.length) {
-                    setAlternateGreetingIndex(Math.max(0, alternateGreetings.length - 1));
-                  }
                 }}
                 className={`px-3 py-1.5 rounded transition-colors text-sm font-medium flex items-center gap-1 ${
                   selectedField === field.id
-                    ? field.tag === 'VOXTA'
+                    ? field.tag === 'VOX'
                       ? 'bg-orange-600 text-white border border-orange-400'
-                      : field.tag === 'Extension'
+                      : field.tag === 'Ext'
                         ? 'bg-green-600 text-white border border-green-400'
                         : field.id === 'creator_notes' && creatorNotes.htmlMode
                           ? 'bg-green-600 text-white border border-green-400'
@@ -703,12 +789,20 @@ function FocusedEditorInner() {
               >
                 {field.label}
                 {field.tag && (
-                  <span className={`text-[10px] px-1 py-0.5 rounded ${
-                    field.tag === 'VOXTA' ? 'bg-orange-800 text-orange-200' : 'bg-green-800 text-green-200'
-                  }`}>{field.tag}</span>
+                  <span
+                    className={`text-[10px] px-1 py-0.5 rounded ${
+                      field.tag === 'VOX'
+                        ? 'bg-orange-800 text-orange-200'
+                        : 'bg-green-800 text-green-200'
+                    }`}
+                  >
+                    {field.tag}
+                  </span>
                 )}
                 {field.id === 'creator_notes' && creatorNotes.htmlMode && !field.tag && (
-                  <span className="text-[10px] px-1 py-0.5 rounded bg-green-800 text-green-200">HTML</span>
+                  <span className="text-[10px] px-1 py-0.5 rounded bg-green-800 text-green-200">
+                    HTML
+                  </span>
                 )}
               </button>
             ))}
@@ -738,33 +832,30 @@ function FocusedEditorInner() {
         </div>
       </div>
 
-      {/* Alternate Greetings Controls */}
-      {selectedField === 'alternate_greetings' && (
-        <div className="bg-dark-surface border-b border-dark-border px-6 py-3">
+      {/* Greetings Controls - First Message + Alt Greetings dropdown */}
+      {selectedField === 'first_mes' && (
+        <div className="bg-dark-surface border-b border-dark-border px-4 py-2">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-dark-muted">Greeting:</span>
-            {hasAlternateGreetings ? (
-              <select
-                value={alternateGreetingIndex}
-                onChange={(e) => setAlternateGreetingIndex(parseInt(e.target.value, 10))}
-                className="px-3 py-1.5 bg-dark-bg border border-dark-border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                {alternateGreetings.map((_, idx) => (
-                  <option key={idx} value={idx}>
-                    Greeting {idx + 1}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-sm text-dark-muted">No alternate greetings yet</span>
-            )}
+            <span className="text-sm font-semibold text-dark-muted">Select:</span>
+            <select
+              value={alternateGreetingIndex}
+              onChange={(e) => setAlternateGreetingIndex(parseInt(e.target.value, 10))}
+              className="px-3 py-1.5 bg-dark-bg border border-dark-border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value={-1}>First Message</option>
+              {alternateGreetings.map((_, idx) => (
+                <option key={idx} value={idx}>
+                  Alt Greeting {idx + 1}
+                </option>
+              ))}
+            </select>
             <button
               onClick={handleAddAlternateGreeting}
               className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors"
             >
-              + Add
+              + Add Alt
             </button>
-            {hasAlternateGreetings && (
+            {alternateGreetingIndex >= 0 && hasAlternateGreetings && (
               <button
                 onClick={handleDeleteAlternateGreeting}
                 className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
@@ -817,11 +908,13 @@ function FocusedEditorInner() {
         <div className="text-xs text-dark-muted">
           {isHtmlMode ? (
             <>
-              <span className="font-semibold">HTML Mode:</span> Edit HTML source code on the left, see live preview on the right. HTML is sanitized for safety.
+              <span className="font-semibold">HTML Mode:</span> Edit HTML source code on the left,
+              see live preview on the right. HTML is sanitized for safety.
             </>
           ) : (
             <>
-              <span className="font-semibold">Tip:</span> WYSIWYG editor - Press Shift+Enter for line breaks, Enter for paragraph breaks. Use the ‹ button to toggle raw markdown view.
+              <span className="font-semibold">Tip:</span> WYSIWYG editor - Press Shift+Enter for
+              line breaks, Enter for paragraph breaks. Use the ‹ button to toggle raw markdown view.
             </>
           )}
         </div>
@@ -833,7 +926,9 @@ function FocusedEditorInner() {
         onClose={() => setShowTemplatePanel(false)}
         onApplyTemplate={handleApplyTemplate}
         onInsertSnippet={handleInsertSnippet}
-        currentField={selectedField === 'alternate_greetings' ? 'description' : selectedField as FocusField}
+        currentField={
+          selectedField === 'alternate_greetings' ? 'description' : (selectedField as FocusField)
+        }
       />
     </div>
   );

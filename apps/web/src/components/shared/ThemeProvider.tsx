@@ -5,6 +5,8 @@
 import { useEffect } from 'react';
 import { useSettingsStore, THEMES } from '../../store/settings-store';
 import { useCardStore } from '../../store/card-store';
+import { getDeploymentConfig } from '../../config/deployment';
+import { localDB } from '../../lib/db';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme } = useSettingsStore();
@@ -63,12 +65,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
 
-    if (theme.useCardAsBackground && currentCard) {
-      const cardImageUrl = `/api/cards/${currentCard.meta.id}/image`;
-      root.style.setProperty('--card-bg-image', `url(${cardImageUrl})`);
-    } else {
+    if (!theme.useCardAsBackground || !currentCard) {
       root.style.removeProperty('--card-bg-image');
+      return;
     }
+
+    const loadCardBackground = async () => {
+      const config = getDeploymentConfig();
+
+      if (config.mode === 'light' || config.mode === 'static') {
+        // Light/static mode: load from IndexedDB
+        const imageData = await localDB.getImage(currentCard.meta.id, 'icon');
+        if (imageData) {
+          root.style.setProperty('--card-bg-image', `url(${imageData})`);
+        } else {
+          root.style.removeProperty('--card-bg-image');
+        }
+      } else {
+        // Full mode: use API URL
+        const cardImageUrl = `/api/cards/${currentCard.meta.id}/image`;
+        root.style.setProperty('--card-bg-image', `url(${cardImageUrl})`);
+      }
+    };
+
+    loadCardBackground();
   }, [theme.useCardAsBackground, currentCard]);
 
   return <>{children}</>;

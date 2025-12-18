@@ -7,23 +7,30 @@ import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
 import { useNavigate } from 'react-router-dom';
-import { SillyTavernClient, shouldUseClientSidePush, type SillyTavernSettings } from '../../lib/sillytavern-client';
+import {
+  SillyTavernClient,
+  shouldUseClientSidePush,
+  type SillyTavernSettings,
+} from '../../lib/sillytavern-client';
 import { useFederationStore } from '../../modules/federation/lib/federation-store';
 
 interface HeaderProps {
   onBack: () => void;
 }
 
-
 export function Header({ onBack }: HeaderProps) {
   const navigate = useNavigate();
   const { currentCard, isSaving, createNewCard } = useCardStore();
   const tokenCounts = useTokenStore((state) => state.tokenCounts);
-  const sillytavernEnabled = useSettingsStore((state) => state.features?.sillytavernEnabled ?? false);
+  const sillytavernEnabled = useSettingsStore(
+    (state) => state.features?.sillytavernEnabled ?? false
+  );
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [showImportMenu, setShowImportMenu] = useState(false);
-  const [pushStatus, setPushStatus] = useState<{type: 'success' | 'error'; message: string} | null>(null);
+  const [pushStatus, setPushStatus] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [stSettings, setStSettings] = useState<SillyTavernSettings | null>(null);
   const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(null);
 
@@ -105,7 +112,6 @@ export function Header({ onBack }: HeaderProps) {
   const avatarUrl = getAvatarUrl();
 
   const handleImportFile = async () => {
-    setShowImportMenu(false);
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,.png,.charx,.voxpkg';
@@ -147,13 +153,13 @@ export function Header({ onBack }: HeaderProps) {
     try {
       await store.saveCard();
       // Small delay to ensure database write completes
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
       console.log('[pushToST] Save completed, proceeding with push');
     } catch (error: any) {
       console.error('[pushToST] FAILED to save before push:', error);
       setPushStatus({
         type: 'error',
-        message: `Failed to save edits: ${error.message}`
+        message: `Failed to save edits: ${error.message}`,
       });
       setTimeout(() => setPushStatus(null), 8000);
       return;
@@ -161,8 +167,9 @@ export function Header({ onBack }: HeaderProps) {
 
     // Check if federation is enabled and connected to SillyTavern
     const federationState = useFederationStore.getState();
-    const stFederationEnabled = federationState.settings?.platforms?.sillytavern?.enabled &&
-                                 federationState.settings?.platforms?.sillytavern?.connected;
+    const stFederationEnabled =
+      federationState.settings?.platforms?.sillytavern?.enabled &&
+      federationState.settings?.platforms?.sillytavern?.connected;
 
     if (stFederationEnabled) {
       // Use federation to push to SillyTavern
@@ -173,13 +180,13 @@ export function Header({ onBack }: HeaderProps) {
         if (result.success) {
           setPushStatus({
             type: 'success',
-            message: `Successfully synced ${getCharacterName()} to SillyTavern via federation!`
+            message: `Successfully synced ${getCharacterName()} to SillyTavern via federation!`,
           });
           setTimeout(() => setPushStatus(null), 5000);
         } else {
           setPushStatus({
             type: 'error',
-            message: result.error || 'Federation sync failed'
+            message: result.error || 'Federation sync failed',
           });
           setTimeout(() => setPushStatus(null), 8000);
         }
@@ -187,7 +194,7 @@ export function Header({ onBack }: HeaderProps) {
         console.error('[pushToST] Federation push failed:', error);
         setPushStatus({
           type: 'error',
-          message: error?.message || 'Federation sync failed'
+          message: error?.message || 'Federation sync failed',
         });
         setTimeout(() => setPushStatus(null), 8000);
       }
@@ -219,15 +226,75 @@ export function Header({ onBack }: HeaderProps) {
           } else {
             // Minimal valid PNG (1x1 gray pixel)
             imageBuffer = new Uint8Array([
-              0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-              0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
-              0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-              0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
-              0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, // IDAT chunk
-              0x54, 0x08, 0xD7, 0x63, 0x60, 0x60, 0x60, 0x00,
-              0x00, 0x00, 0x04, 0x00, 0x01, 0x5C, 0xCD, 0xFF,
-              0xA2, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, // IEND chunk
-              0x44, 0xAE, 0x42, 0x60, 0x82
+              0x89,
+              0x50,
+              0x4e,
+              0x47,
+              0x0d,
+              0x0a,
+              0x1a,
+              0x0a, // PNG signature
+              0x00,
+              0x00,
+              0x00,
+              0x0d,
+              0x49,
+              0x48,
+              0x44,
+              0x52, // IHDR chunk
+              0x00,
+              0x00,
+              0x00,
+              0x01,
+              0x00,
+              0x00,
+              0x00,
+              0x01,
+              0x08,
+              0x02,
+              0x00,
+              0x00,
+              0x00,
+              0x90,
+              0x77,
+              0x53,
+              0xde,
+              0x00,
+              0x00,
+              0x00,
+              0x0c,
+              0x49,
+              0x44,
+              0x41, // IDAT chunk
+              0x54,
+              0x08,
+              0xd7,
+              0x63,
+              0x60,
+              0x60,
+              0x60,
+              0x00,
+              0x00,
+              0x00,
+              0x04,
+              0x00,
+              0x01,
+              0x5c,
+              0xcd,
+              0xff,
+              0xa2,
+              0x00,
+              0x00,
+              0x00,
+              0x00,
+              0x49,
+              0x45,
+              0x4e, // IEND chunk
+              0x44,
+              0xae,
+              0x42,
+              0x60,
+              0x82,
             ]);
           }
         } else {
@@ -247,15 +314,75 @@ export function Header({ onBack }: HeaderProps) {
             } else {
               // Minimal valid PNG (1x1 gray pixel)
               imageBuffer = new Uint8Array([
-                0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-                0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
-                0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-                0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
-                0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, // IDAT chunk
-                0x54, 0x08, 0xD7, 0x63, 0x60, 0x60, 0x60, 0x00,
-                0x00, 0x00, 0x04, 0x00, 0x01, 0x5C, 0xCD, 0xFF,
-                0xA2, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, // IEND chunk
-                0x44, 0xAE, 0x42, 0x60, 0x82
+                0x89,
+                0x50,
+                0x4e,
+                0x47,
+                0x0d,
+                0x0a,
+                0x1a,
+                0x0a, // PNG signature
+                0x00,
+                0x00,
+                0x00,
+                0x0d,
+                0x49,
+                0x48,
+                0x44,
+                0x52, // IHDR chunk
+                0x00,
+                0x00,
+                0x00,
+                0x01,
+                0x00,
+                0x00,
+                0x00,
+                0x01,
+                0x08,
+                0x02,
+                0x00,
+                0x00,
+                0x00,
+                0x90,
+                0x77,
+                0x53,
+                0xde,
+                0x00,
+                0x00,
+                0x00,
+                0x0c,
+                0x49,
+                0x44,
+                0x41, // IDAT chunk
+                0x54,
+                0x08,
+                0xd7,
+                0x63,
+                0x60,
+                0x60,
+                0x60,
+                0x00,
+                0x00,
+                0x00,
+                0x04,
+                0x00,
+                0x01,
+                0x5c,
+                0xcd,
+                0xff,
+                0xa2,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x49,
+                0x45,
+                0x4e, // IEND chunk
+                0x44,
+                0xae,
+                0x42,
+                0x60,
+                0x82,
               ]);
             }
           }
@@ -272,13 +399,13 @@ export function Header({ onBack }: HeaderProps) {
 
           setPushStatus({
             type: 'success',
-            message: `Successfully pushed ${getCharacterName()} to SillyTavern!`
+            message: `Successfully pushed ${getCharacterName()} to SillyTavern!`,
           });
           setTimeout(() => setPushStatus(null), 5000);
         } else {
           setPushStatus({
             type: 'error',
-            message: result.error || 'Failed to push to SillyTavern'
+            message: result.error || 'Failed to push to SillyTavern',
           });
           setTimeout(() => setPushStatus(null), 8000);
         }
@@ -286,7 +413,7 @@ export function Header({ onBack }: HeaderProps) {
         console.error('[pushToST] Client-side push failed:', error);
         setPushStatus({
           type: 'error',
-          message: error?.message || 'Failed to push to SillyTavern'
+          message: error?.message || 'Failed to push to SillyTavern',
         });
         setTimeout(() => setPushStatus(null), 8000);
       }
@@ -296,7 +423,7 @@ export function Header({ onBack }: HeaderProps) {
         // Light mode requires SillyTavern settings for client-side push
         setPushStatus({
           type: 'error',
-          message: 'SillyTavern push requires configuring SillyTavern settings first'
+          message: 'SillyTavern push requires configuring SillyTavern settings first',
         });
         setTimeout(() => setPushStatus(null), 8000);
         return;
@@ -312,20 +439,20 @@ export function Header({ onBack }: HeaderProps) {
 
           setPushStatus({
             type: 'success',
-            message: `Successfully pushed ${getCharacterName()} to SillyTavern!`
+            message: `Successfully pushed ${getCharacterName()} to SillyTavern!`,
           });
           setTimeout(() => setPushStatus(null), 5000);
         } else {
           setPushStatus({
             type: 'error',
-            message: result.error || result.data?.error || 'Failed to push to SillyTavern'
+            message: result.error || result.data?.error || 'Failed to push to SillyTavern',
           });
           setTimeout(() => setPushStatus(null), 8000);
         }
       } catch (error: any) {
         setPushStatus({
           type: 'error',
-          message: error?.message || 'Failed to push to SillyTavern'
+          message: error?.message || 'Failed to push to SillyTavern',
         });
         setTimeout(() => setPushStatus(null), 8000);
       }
@@ -341,49 +468,105 @@ export function Header({ onBack }: HeaderProps) {
   };
 
   return (
-    <header className="bg-dark-surface border-b border-dark-border px-4 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <button onClick={onBack} className="btn-secondary" title="Back to Cards">
-          ← Back
+    <header className="bg-dark-surface border-b border-dark-border px-4 py-2 flex items-center justify-between h-[72px]">
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="btn-secondary p-2" title="Back to Cards">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+            />
+          </svg>
         </button>
 
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Character Architect" className="w-6 h-6" />
-          <h1 className="text-lg font-semibold text-dark-muted">{getCardTypeLabel()}</h1>
-        </div>
-
-        {avatarUrl && (
+        {avatarUrl ? (
           <img
             src={avatarUrl}
             alt={getCharacterName()}
-            className="w-24 h-24 rounded-full object-cover border-2 border-dark-border bg-slate-700"
+            className="w-12 h-12 rounded object-cover border border-dark-border bg-slate-700"
             onError={(e) => {
-              // Hide on error - card might not have an image
               (e.target as HTMLImageElement).style.display = 'none';
             }}
           />
+        ) : (
+          <div className="w-12 h-12 rounded bg-slate-700 border border-dark-border flex items-center justify-center text-dark-muted text-xs">
+            No img
+          </div>
         )}
 
         {currentCard && (
-          <span className="text-2xl font-bold">
-            {getCharacterName()} {isSaving && <span className="text-sm text-dark-muted">(saving...)</span>}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-lg font-bold leading-tight">
+              {getCharacterName()}
+              {isSaving && <span className="text-xs text-dark-muted ml-2">(saving...)</span>}
+            </span>
+            <span className="text-sm text-dark-muted">{getCardTypeLabel()}</span>
+          </div>
         )}
       </div>
 
       <div className="flex items-center gap-2">
         {tokenCounts && (
           <>
-            <div className="chip chip-token" title="Permanent tokens: Name + Description + Personality + Scenario">
-              Permanent: {getPermanentTokens()} tokens
+            <div
+              className="chip chip-token flex items-center gap-1"
+              title="Permanent tokens: Name + Description + Personality + Scenario"
+            >
+              Perm: {getPermanentTokens()}
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <text
+                  x="12"
+                  y="16"
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="currentColor"
+                  fontWeight="bold"
+                  stroke="none"
+                >
+                  T
+                </text>
+              </svg>
             </div>
-            <div className="chip chip-token">
-              Total: {tokenCounts.total} tokens
+            <div className="chip chip-token flex items-center gap-1">
+              Total: {tokenCounts.total}
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <text
+                  x="12"
+                  y="16"
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="currentColor"
+                  fontWeight="bold"
+                  stroke="none"
+                >
+                  T
+                </text>
+              </svg>
             </div>
           </>
         )}
 
-        <button onClick={() => setShowSettings(true)} className="btn-secondary" title="LLM Settings">
+        <button
+          onClick={() => setShowSettings(true)}
+          className="btn-secondary"
+          title="LLM Settings"
+        >
           ⚙️
         </button>
 
@@ -391,46 +574,35 @@ export function Header({ onBack }: HeaderProps) {
           New
         </button>
 
-        <div className="relative">
-          <button
-            onClick={() => setShowImportMenu(!showImportMenu)}
-            className="btn-secondary"
-          >
-            Import ▾
-          </button>
-          {showImportMenu && (
-            <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setShowImportMenu(false)}
-              />
-              <div className="absolute right-0 mt-1 bg-dark-surface border border-dark-border rounded shadow-lg z-50 min-w-[150px]">
-                <button
-                  onClick={handleImportFile}
-                  className="block w-full px-4 py-2 text-left hover:bg-slate-700 rounded"
-                  title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
-                >
-                  From File
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        <label
+          htmlFor="header-import-file"
+          className="btn-primary cursor-pointer"
+          title="Import Character Card or Lorebook (JSON, PNG, CHARX, or VOXPKG)"
+        >
+          Import
+          <input
+            id="header-import-file"
+            name="header-import-file"
+            type="file"
+            accept=".json,.png,.charx,.voxpkg"
+            multiple
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                handleImportFile();
+              }
+            }}
+            className="hidden"
+          />
+        </label>
 
         {currentCard && (
           <div className="relative">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="btn-secondary"
-            >
+            <button onClick={() => setShowExportMenu(!showExportMenu)} className="btn-secondary">
               Export ▾
             </button>
             {showExportMenu && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowExportMenu(false)}
-                />
+                <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
                 <div className="absolute right-0 mt-1 bg-dark-surface border border-dark-border rounded shadow-lg z-50 min-w-[120px]">
                   <button
                     onClick={() => handleExport('json')}
@@ -478,9 +650,7 @@ export function Header({ onBack }: HeaderProps) {
       {pushStatus && (
         <div
           className={`fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
-            pushStatus.type === 'success'
-              ? 'bg-green-600 text-white'
-              : 'bg-red-600 text-white'
+            pushStatus.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
           }`}
         >
           {pushStatus.message}

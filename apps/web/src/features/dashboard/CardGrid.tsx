@@ -1,16 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
 import { importCardClientSide, importVoxtaPackageClientSide } from '../../lib/client-import';
 import { exportCard as exportCardClientSide } from '../../lib/client-export';
-import type { Card, CollectionData } from '../../lib/types';
-import type { CCv3Data } from '../../lib/types';
+import type { Card, CCv3Data } from '../../lib/types';
 import { SettingsModal } from '../../components/shared/SettingsModal';
 import { useFederationStore } from '../../modules/federation/lib/federation-store';
 import type { CardSyncState } from '../../modules/federation/lib/types';
-import { getExtensions, isCollectionData } from '../../lib/card-type-guards';
+import { getExtensions } from '../../lib/card-type-guards';
+import { CardItem, CardSkeleton } from './CardItem';
+import { registry } from '@character-foundry/character-foundry/tokenizers';
 
 /**
  * Generate a UUID that works in non-secure contexts (HTTP)
@@ -20,10 +21,40 @@ function generateUUID(): string {
     return crypto.randomUUID();
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function computeTotalTokens(card: Card): number {
+  const tokenizer = registry.get('gpt-4');
+  const data = extractCardData(card);
+
+  let total = 0;
+
+  if (data.name) total += tokenizer.count(data.name);
+  if (data.description) total += tokenizer.count(data.description);
+  if (data.personality) total += tokenizer.count(data.personality);
+  if (data.scenario) total += tokenizer.count(data.scenario);
+  if (data.first_mes) total += tokenizer.count(data.first_mes);
+  if (data.mes_example) total += tokenizer.count(data.mes_example);
+  if (data.system_prompt) total += tokenizer.count(data.system_prompt);
+  if (data.post_history_instructions) total += tokenizer.count(data.post_history_instructions);
+
+  if (data.alternate_greetings) {
+    for (const greeting of data.alternate_greetings) {
+      if (greeting) total += tokenizer.count(greeting);
+    }
+  }
+
+  if (data.character_book?.entries) {
+    for (const entry of data.character_book.entries) {
+      if (entry.content) total += tokenizer.count(entry.content);
+    }
+  }
+
+  return total;
 }
 
 interface CardGridProps {
@@ -41,22 +72,53 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [cachedImages, setCachedImages] = useState<Map<string, string>>(new Map());
+  const [tokenCounts, setTokenCounts] = useState<Map<string, number>>(new Map());
   const [sortBy, setSortBy] = useState<SortOption>('edited');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [cardsPerPage, setCardsPerPage] = useState(20);
-  const { importCard, createNewCard, createNewLorebook } = useCardStore();
+  const { importCard, createNewCard } = useCardStore();
 
   // Federation sync states (only for full mode)
-  const { syncStates, initialize: initFederation, initialized: federationInitialized, pollPlatformSyncState, settings: federationSettings } = useFederationStore();
+  const {
+    syncStates,
+    initialize: initFederation,
+    initialized: federationInitialized,
+    pollPlatformSyncState,
+    settings: federationSettings,
+  } = useFederationStore();
   const [cardSyncMap, setCardSyncMap] = useState<Map<string, CardSyncState>>(new Map());
 
   const [totalCards, setTotalCards] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    loadCards();
-  }, [currentPage, cardsPerPage, searchQuery]);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    loadCards(debouncedSearch);
+  }, [currentPage, cardsPerPage, debouncedSearch]);
+
+  useEffect(() => {
+    const counts = new Map<string, number>();
+    for (const card of cards) {
+      counts.set(card.meta.id, computeTotalTokens(card));
+    }
+    setTokenCounts(counts);
+  }, [cards]);
 
   // Initialize federation and track sync states (only for full mode)
   useEffect(() => {
@@ -106,20 +168,18 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     setCardSyncMap(map);
   }, [syncStates]);
 
-  const loadCards = async () => {
+  const loadCards = async (query: string = '') => {
     setLoading(true);
     try {
       const config = getDeploymentConfig();
       console.log('[CardGrid] Loading cards, mode:', config.mode);
 
-      // Client-side mode: load from IndexedDB
       if (config.mode === 'light' || config.mode === 'static') {
         const localCards = await localDB.listCards();
         console.log('[CardGrid] Found', localCards.length, 'cards in IndexedDB');
         setCards(localCards);
         setTotalCards(localCards.length);
 
-        // Load cached images for each card
         const images = new Map<string, string>();
         for (const card of localCards) {
           const imageData = await localDB.getImage(card.meta.id, 'thumbnail');
@@ -130,8 +190,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
         console.log('[CardGrid] Loaded', images.size, 'cached images');
         setCachedImages(images);
       } else {
-        // Server mode: load from API
-        const response = await api.listCards(searchQuery, currentPage, cardsPerPage);
+        const response = await api.listCards(query, currentPage, cardsPerPage);
         if (response.data) {
           // Safety check: ensure items is an array
           setCards(Array.isArray(response.data.items) ? response.data.items : []);
@@ -160,7 +219,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
         // Client-side mode: delete from IndexedDB
         await localDB.deleteCard(cardId);
         setCards(cards.filter((c) => c.meta.id !== cardId));
-        setSelectedCards(prev => {
+        setSelectedCards((prev) => {
           const next = new Set(prev);
           next.delete(cardId);
           return next;
@@ -173,7 +232,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           alert('Failed to delete card: ' + response.error);
         } else {
           setCards(cards.filter((c) => c.meta.id !== cardId));
-          setSelectedCards(prev => {
+          setSelectedCards((prev) => {
             const next = new Set(prev);
             next.delete(cardId);
             return next;
@@ -188,7 +247,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
   const toggleSelectCard = (cardId: string, e?: { stopPropagation?: () => void }) => {
     e?.stopPropagation?.();
-    setSelectedCards(prev => {
+    setSelectedCards((prev) => {
       const next = new Set(prev);
       if (next.has(cardId)) {
         next.delete(cardId);
@@ -201,19 +260,19 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
   const toggleSelectAll = () => {
     const filteredCards = getFilteredCards();
-    const filteredIds = new Set(filteredCards.map(c => c.meta.id));
-    const allFilteredSelected = filteredCards.every(c => selectedCards.has(c.meta.id));
+    const filteredIds = new Set(filteredCards.map((c) => c.meta.id));
+    const allFilteredSelected = filteredCards.every((c) => selectedCards.has(c.meta.id));
 
     if (allFilteredSelected) {
       // Deselect all filtered cards
-      setSelectedCards(prev => {
+      setSelectedCards((prev) => {
         const next = new Set(prev);
-        filteredIds.forEach(id => next.delete(id));
+        filteredIds.forEach((id) => next.delete(id));
         return next;
       });
     } else {
       // Select all filtered cards
-      setSelectedCards(prev => new Set([...prev, ...filteredIds]));
+      setSelectedCards((prev) => new Set([...prev, ...filteredIds]));
     }
   };
 
@@ -227,11 +286,13 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     try {
       if (config.mode === 'light' || config.mode === 'static') {
         // Client-side mode: delete from IndexedDB
-        const deletePromises = Array.from(selectedCards).map(cardId => localDB.deleteCard(cardId));
+        const deletePromises = Array.from(selectedCards).map((cardId) =>
+          localDB.deleteCard(cardId)
+        );
         await Promise.all(deletePromises);
       } else {
         // Server mode: delete via API
-        const deletePromises = Array.from(selectedCards).map(cardId => api.deleteCard(cardId));
+        const deletePromises = Array.from(selectedCards).map((cardId) => api.deleteCard(cardId));
         const results = await Promise.allSettled(deletePromises);
 
         const failedDeletes = results
@@ -240,12 +301,14 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
         if (failedDeletes.length > 0) {
           console.error('Some deletes failed:', failedDeletes);
-          alert(`${selectedCards.size - failedDeletes.length} cards deleted, ${failedDeletes.length} failed`);
+          alert(
+            `${selectedCards.size - failedDeletes.length} cards deleted, ${failedDeletes.length} failed`
+          );
         }
       }
 
       // Reload cards, clear selection, and exit selection mode
-      await loadCards();
+      await loadCards(debouncedSearch);
       setSelectedCards(new Set());
       setSelectionMode(false);
     } catch (error) {
@@ -259,27 +322,32 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     setSelectedCards(new Set()); // Clear selection when toggling mode
   };
 
-  const handleExport = async (cardId: string, format: 'json' | 'png', e: React.MouseEvent) => {
+  type ExportFormat = 'json' | 'png' | 'charx' | 'voxta';
+
+  const handleExport = async (cardId: string, format: ExportFormat, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       const config = getDeploymentConfig();
 
       if (config.mode === 'light' || config.mode === 'static') {
-        // Client-side mode: export from IndexedDB
-        const card = cards.find(c => c.meta.id === cardId);
+        const card = cards.find((c) => c.meta.id === cardId);
         if (!card) {
           console.error('Card not found');
           return;
         }
-        await exportCardClientSide(card, format);
+        if (format === 'json' || format === 'png') {
+          await exportCardClientSide(card, format);
+        } else {
+          alert(`${format.toUpperCase()} export requires server mode`);
+        }
       } else {
-        // Server mode: export via API
         const response = await fetch(`/api/cards/${cardId}/export?format=${format}`);
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `card.${format}`;
+        const ext = format === 'voxta' ? 'voxpkg' : format;
+        a.download = `card.${ext}`;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -322,15 +390,27 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
               }
               // Save assets (including original-package for collections)
-              console.log(`[CardGrid] Card ${result.card.meta.name} has ${result.assets?.length || 0} assets to save`);
+              console.log(
+                `[CardGrid] Card ${result.card.meta.name} has ${result.assets?.length || 0} assets to save`
+              );
               if (result.assets && result.assets.length > 0) {
                 for (const asset of result.assets) {
-                  console.log(`[CardGrid] Saving asset: ${asset.name}.${asset.ext} (${asset.type}) for card ${result.card.meta.id}`);
+                  console.log(
+                    `[CardGrid] Saving asset: ${asset.name}.${asset.ext} (${asset.type}) for card ${result.card.meta.id}`
+                  );
                   await localDB.saveAsset({
                     id: generateUUID(),
                     cardId: result.card.meta.id,
                     name: asset.name,
-                    type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                    type: asset.type as
+                      | 'icon'
+                      | 'background'
+                      | 'emotion'
+                      | 'sound'
+                      | 'workflow'
+                      | 'lorebook'
+                      | 'custom'
+                      | 'package-original',
                     ext: asset.ext,
                     mimetype: asset.mimetype,
                     size: asset.size,
@@ -358,7 +438,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           id = await importCard(file);
         }
 
-        await loadCards();
+        await loadCards(debouncedSearch);
         if (id) {
           onCardClick(id);
         }
@@ -366,7 +446,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
         return;
       }
 
-      // Multiple file import
       if (config.mode === 'light' || config.mode === 'static') {
         // Client-side mode: import each file individually
         let successCount = 0;
@@ -387,7 +466,11 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                   await localDB.saveImage(result.card.meta.id, 'icon', result.fullImageDataUrl);
                 }
                 if (result.thumbnailDataUrl) {
-                  await localDB.saveImage(result.card.meta.id, 'thumbnail', result.thumbnailDataUrl);
+                  await localDB.saveImage(
+                    result.card.meta.id,
+                    'thumbnail',
+                    result.thumbnailDataUrl
+                  );
                 }
                 // Save assets (including original-package for collections)
                 if (result.assets && result.assets.length > 0) {
@@ -396,7 +479,15 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                       id: generateUUID(),
                       cardId: result.card.meta.id,
                       name: asset.name,
-                      type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                      type: asset.type as
+                        | 'icon'
+                        | 'background'
+                        | 'emotion'
+                        | 'sound'
+                        | 'workflow'
+                        | 'lorebook'
+                        | 'custom'
+                        | 'package-original',
                       ext: asset.ext,
                       mimetype: asset.mimetype,
                       size: asset.size,
@@ -430,7 +521,15 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                   id: generateUUID(),
                   cardId: result.card.meta.id,
                   name: asset.name,
-                  type: asset.type as 'icon' | 'background' | 'emotion' | 'sound' | 'workflow' | 'lorebook' | 'custom' | 'package-original',
+                  type: asset.type as
+                    | 'icon'
+                    | 'background'
+                    | 'emotion'
+                    | 'sound'
+                    | 'workflow'
+                    | 'lorebook'
+                    | 'custom'
+                    | 'package-original',
                   ext: asset.ext,
                   mimetype: asset.mimetype,
                   size: asset.size,
@@ -462,12 +561,12 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             console.error(`${failure.filename}: ${failure.error}`);
           }
           console.groupEnd();
-          const failedNames = failures.map(f => f.filename).join(', ');
+          const failedNames = failures.map((f) => f.filename).join(', ');
           message += `\n\nFailed files: ${failedNames}\n\nCheck browser console for error details.`;
         }
 
         alert(message);
-        await loadCards();
+        await loadCards(debouncedSearch);
         e.target.value = '';
         return;
       }
@@ -511,7 +610,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
       alert(message);
 
       // Reload the cards list
-      await loadCards();
+      await loadCards(debouncedSearch);
       e.target.value = '';
     } catch (error) {
       console.error('Failed to import cards:', error);
@@ -528,7 +627,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
       const newCard = useCardStore.getState().currentCard;
       if (newCard?.meta.id) {
         // Reload cards to show the new card in the grid
-        await loadCards();
+        await loadCards(debouncedSearch);
         // Navigate to edit view
         onCardClick(newCard.meta.id);
       } else {
@@ -541,27 +640,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     }
   };
 
-  const handleNewLorebook = async () => {
-    try {
-      // Create and save the lorebook to get a real ID
-      await createNewLorebook();
-
-      const newCard = useCardStore.getState().currentCard;
-      if (newCard?.meta.id) {
-        // Reload cards to show the new lorebook in the grid
-        await loadCards();
-        // Navigate to edit view
-        onCardClick(newCard.meta.id);
-      } else {
-        console.error('New lorebook was not created properly');
-        alert('Failed to create new lorebook');
-      }
-    } catch (error) {
-      console.error('Failed to create new lorebook:', error);
-      alert('Failed to create new lorebook');
-    }
-  };
-
   const getCardName = (card: Card) => {
     const data = extractCardData(card);
     return data.name || 'Untitled Card';
@@ -570,53 +648,12 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const getCardImageSrc = (cardId: string) => {
     const config = getDeploymentConfig();
     if (config.mode === 'light' || config.mode === 'static') {
-      // Use cached image from IndexedDB
       return cachedImages.get(cardId) || null;
     }
-    // Use server API
     return `/api/cards/${cardId}/thumbnail?size=400`;
   };
 
-  const getCreator = (card: Card) => {
-    const data = extractCardData(card);
-    return data.creator || null;
-  };
-
-  const getCreatorNotes = (card: Card) => {
-    const data = extractCardData(card);
-    const notes = data.creator_notes || '';
-    const lines = notes.split('\n').slice(0, 2).join('\n');
-    return lines.length > 150 ? lines.slice(0, 150) + '...' : lines;
-  };
-
-  const getTags = (card: Card) => {
-    const data = extractCardData(card);
-    return data.tags || [];
-  };
-
-  // Feature checks
-  const hasAlternateGreetings = (card: Card) => {
-    const data = extractCardData(card);
-    return data.alternate_greetings && data.alternate_greetings.length > 0;
-  };
-
-  const hasLorebook = (card: Card) => {
-    const data = extractCardData(card);
-    return data.character_book && data.character_book.entries && data.character_book.entries.length > 0;
-  };
-
-  const getLorebookEntryCount = (card: Card) => {
-    const data = extractCardData(card);
-    return data.character_book?.entries?.length || 0;
-  };
-
-  const getAlternateGreetingCount = (card: Card) => {
-    const data = extractCardData(card);
-    return data.alternate_greetings?.length || 0;
-  };
-
   const hasAssets = (card: Card) => {
-    // Check meta.assetCount (from database) first, then fall back to data.assets for V3
     if (card.meta.assetCount !== undefined && card.meta.assetCount > 0) {
       return true;
     }
@@ -626,62 +663,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     return (data.assets?.length ?? 0) > 0;
   };
 
-  const getAssetCount = (card: Card) => {
-    // Check meta.assetCount (from database) first, then fall back to data.assets for V3
-    if (card.meta.assetCount !== undefined && card.meta.assetCount > 0) {
-      return card.meta.assetCount;
-    }
-    const isV3 = card.meta.spec === 'v3';
-    if (!isV3) return 0;
-    const data = extractCardData(card) as CCv3Data['data'];
-    return data.assets?.length ?? 0;
-  };
-
-  // Check if card is a member of a collection
-  const isCollectionItem = (cardId: string): boolean => {
-    return cards.some(c => {
-      if (c.meta.spec !== 'collection') return false;
-      if (!isCollectionData(c.data)) return false;
-      const data = c.data as CollectionData;
-      return data.members?.some((m) => m.cardId === cardId);
-    });
-  };
-
-  // Check if card is synced to SillyTavern
-  const isSyncedToST = (cardId: string): boolean => {
-    const syncState = cardSyncMap.get(cardId);
-    return !!syncState?.platformIds.sillytavern;
-  };
-
-  // Check if card is synced to Character Archive
-  const isSyncedToAR = (cardId: string): boolean => {
-    const syncState = cardSyncMap.get(cardId);
-    return !!syncState?.platformIds.archive;
-  };
-
-  // Check if card is synced to CardsHub
-  const isSyncedToHub = (cardId: string): boolean => {
-    const syncState = cardSyncMap.get(cardId);
-    return !!syncState?.platformIds.hub;
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-
   const getCardType = (card: Card): 'voxta' | 'charx' | 'v3' | 'v2' => {
-    // Check for Voxta first (has voxta tag or voxta extension)
     if (card.meta.tags?.includes('voxta')) {
       return 'voxta';
     }
@@ -689,14 +671,14 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     if (extensions.voxta) {
       return 'voxta';
     }
-
-    // Check for CharX (has charx tag or has assets without being voxta)
     if (card.meta.tags?.includes('charx') || hasAssets(card)) {
       return 'charx';
     }
-
-    // Otherwise, return spec version
     return card.meta.spec === 'v3' ? 'v3' : 'v2';
+  };
+
+  const handleImageError = (cardId: string) => {
+    setImageErrors((prev) => new Set(prev).add(cardId));
   };
 
   const getFilteredCards = () => {
@@ -705,7 +687,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(card => {
+      filtered = filtered.filter((card) => {
         const name = getCardName(card).toLowerCase();
         return name.includes(query);
       });
@@ -713,7 +695,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
     // Apply type filter
     if (filterBy !== 'all') {
-      filtered = filtered.filter(card => {
+      filtered = filtered.filter((card) => {
         if (filterBy === 'collection') return card.meta.spec === 'collection';
         if (filterBy === 'lorebook') return card.meta.spec === 'lorebook';
         const cardType = getCardType(card);
@@ -733,10 +715,14 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     const sorted = [...(filtered || [])]; // Safety fallback
     switch (sortBy) {
       case 'newest':
-        sorted.sort((a, b) => new Date(b.meta.createdAt).getTime() - new Date(a.meta.createdAt).getTime());
+        sorted.sort(
+          (a, b) => new Date(b.meta.createdAt).getTime() - new Date(a.meta.createdAt).getTime()
+        );
         break;
       case 'oldest':
-        sorted.sort((a, b) => new Date(a.meta.createdAt).getTime() - new Date(b.meta.createdAt).getTime());
+        sorted.sort(
+          (a, b) => new Date(a.meta.createdAt).getTime() - new Date(b.meta.createdAt).getTime()
+        );
         break;
       case 'name':
         sorted.sort((a, b) => {
@@ -747,7 +733,9 @@ export function CardGrid({ onCardClick }: CardGridProps) {
         break;
       case 'edited':
       default:
-        sorted.sort((a, b) => new Date(b.meta.updatedAt).getTime() - new Date(a.meta.updatedAt).getTime());
+        sorted.sort(
+          (a, b) => new Date(b.meta.updatedAt).getTime() - new Date(a.meta.updatedAt).getTime()
+        );
     }
     return sorted;
   };
@@ -770,7 +758,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   // Calculate total pages
   const config = getDeploymentConfig();
   const isClientMode = config.mode === 'light' || config.mode === 'static';
-  
+
   let totalPages = 0;
   let totalFilteredCards = 0;
 
@@ -790,8 +778,23 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-dark-muted">Loading cards...</p>
+      <div className="h-full flex flex-col bg-dark-bg">
+        <div className="bg-dark-surface border-b border-dark-border px-4 py-2 h-[72px] flex items-center">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Character Architect" className="w-12 h-12" />
+            <div>
+              <h1 className="text-lg font-bold">Character Architect</h1>
+              <p className="text-xs text-dark-muted">Loading cards...</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -800,15 +803,14 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     <div className="h-full flex flex-col bg-dark-bg">
       {/* Header */}
       <div className="bg-dark-surface border-b border-dark-border">
-        {/* Main Row */}
-        <div className="p-4 flex items-center justify-between">
+        <div className="px-4 py-2 h-[72px] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Character Architect" className="w-24 h-24" />
+            <img src="/logo.png" alt="Character Architect" className="w-12 h-12" />
             <div>
-              <h1 className="text-2xl font-bold">Character Architect</h1>
-              <p className="text-sm text-dark-muted">
+              <h1 className="text-lg font-bold">Character Architect</h1>
+              <p className="text-xs text-dark-muted">
                 {totalCards} {totalCards === 1 ? 'card' : 'cards'}
-                {searchQuery && ` (${totalFilteredCards} matching search)`}
+                {searchQuery && ` (${totalFilteredCards} matching)`}
               </p>
             </div>
           </div>
@@ -822,8 +824,18 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 placeholder="Search by name..."
                 className="w-48 px-3 py-2 pl-8 bg-dark-bg border border-dark-border rounded text-sm text-dark-text placeholder:text-dark-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-muted"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
               {searchQuery && (
                 <button
@@ -844,8 +856,8 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             </button>
             <label
               htmlFor="import-card-file"
-              className="btn-secondary inline-flex items-center cursor-pointer"
-              title="Import from local file (JSON, PNG, CHARX, or VOXPKG)"
+              className="btn-primary inline-flex items-center gap-1 cursor-pointer"
+              title="Import Character Card or Lorebook (JSON, PNG, CHARX, or VOXPKG)"
             >
               Import
               <input
@@ -856,21 +868,17 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 multiple
                 onChange={handleImportFile}
                 className="hidden"
-                title="Import JSON, PNG, CHARX, or VOXPKG files (select multiple)"
               />
             </label>
-            <button onClick={handleNewCard} className="btn-primary">
+            <button onClick={handleNewCard} className="btn-secondary">
               New Card
-            </button>
-            <button onClick={handleNewLorebook} className="btn-secondary">
-              Add Lorebook
             </button>
           </div>
         </div>
 
         {/* Selection Row - only show when cards exist */}
         {cards.length > 0 && (
-          <div className="px-4 pb-3 flex items-center gap-3 border-t border-dark-border/50 pt-3">
+          <div className="px-4 flex items-center gap-3 border-t border-dark-border/50 h-[84px]">
             <button
               onClick={toggleSelectionMode}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
@@ -939,17 +947,19 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 <label className="flex items-center gap-2 text-sm text-dark-muted cursor-pointer hover:text-dark-text">
                   <input
                     type="checkbox"
-                    checked={getFilteredCards().length > 0 && getFilteredCards().every(c => selectedCards.has(c.meta.id))}
+                    checked={
+                      getFilteredCards().length > 0 &&
+                      getFilteredCards().every((c) => selectedCards.has(c.meta.id))
+                    }
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded border-dark-border"
                   />
-                  Select All ({getFilteredCards().length}{filterBy !== 'all' ? ` ${filterBy}` : ''})
+                  Select All ({getFilteredCards().length}
+                  {filterBy !== 'all' ? ` ${filterBy}` : ''})
                 </label>
                 {selectedCards.size > 0 && (
                   <>
-                    <span className="text-sm text-dark-muted">
-                      {selectedCards.size} selected
-                    </span>
+                    <span className="text-sm text-dark-muted">{selectedCards.size} selected</span>
                     <button
                       onClick={handleBulkDelete}
                       className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded text-sm font-medium transition-colors"
@@ -984,7 +994,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                   : 'No cards match the current filter.'}
               </p>
               <button
-                onClick={() => { setFilterBy('all'); setSearchQuery(''); }}
+                onClick={() => {
+                  setFilterBy('all');
+                  setSearchQuery('');
+                }}
                 className="mt-4 btn-secondary"
               >
                 Show All Cards
@@ -993,259 +1006,67 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           </div>
         ) : (
           <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {getPaginatedCards().map((card) => (
-              <div
-                key={card.meta.id}
-                onClick={() => {
-                  if (selectionMode) {
-                    toggleSelectCard(card.meta.id);
-                  } else {
-                    onCardClick(card.meta.id);
-                  }
-                }}
-                className={`bg-dark-surface border rounded-lg overflow-hidden hover:border-blue-500 transition-colors cursor-pointer flex flex-col ${
-                  selectedCards.has(card.meta.id) ? 'border-blue-500 ring-2 ring-blue-500/50' : 'border-dark-border'
-                }`}
-              >
-                {/* Image Preview */}
-                <div className={`w-full aspect-[2/3] bg-dark-bg relative overflow-hidden ${
-                  imageErrors.has(card.meta.id) ? 'flex items-center justify-center' : ''
-                }`}>
-                  {/* Selection Checkbox - only show in selection mode */}
-                  {selectionMode && (
-                    <div
-                      className="absolute top-2 left-2 z-10"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedCards.has(card.meta.id)}
-                        onChange={() => toggleSelectCard(card.meta.id)}
-                        className="w-5 h-5 rounded border-2 border-white bg-dark-bg/80 backdrop-blur cursor-pointer"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                  )}
-                  {imageErrors.has(card.meta.id) || !getCardImageSrc(card.meta.id) ? (
-                    <div className="text-dark-muted text-sm">No Image</div>
-                  ) : (
-                    <img
-                      src={getCardImageSrc(card.meta.id)!}
-                      alt={getCardName(card)}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      onError={() => {
-                        setImageErrors(prev => new Set(prev).add(card.meta.id));
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Card Info */}
-                <div className="p-4 flex-1 flex flex-col">
-                  {/* Name and Format Badge */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-lg font-semibold truncate flex-1">
-                      {getCardName(card)}
-                    </h3>
-                    <div className="flex gap-1 flex-shrink-0">
-                      {/* Federation Sync Badges (only in full mode) */}
-                      {getDeploymentConfig().mode === 'full' && isSyncedToST(card.meta.id) && (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-600/20 text-orange-300" title="Synced to SillyTavern">
-                          ST
-                        </span>
-                      )}
-                      {getDeploymentConfig().mode === 'full' && isSyncedToAR(card.meta.id) && (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-pink-600/20 text-pink-300" title="Synced to Character Archive">
-                          AR
-                        </span>
-                      )}
-                      {getDeploymentConfig().mode === 'full' && isSyncedToHub(card.meta.id) && (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-violet-600/20 text-violet-300" title="Synced to CardsHub">
-                          HUB
-                        </span>
-                      )}
-                      {/* Collection Item Badge */}
-                      {isCollectionItem(card.meta.id) && (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-purple-600/20 text-purple-300" title="Member of a Collection">
-                          CI
-                        </span>
-                      )}
-                      {/* Voxta Badge */}
-                      {card.meta.tags?.includes('voxta') && (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-600/20 text-indigo-300" title="Imported from Voxta Package">
-                          VOXTA
-                        </span>
-                      )}
-                      {/* CharX Badge */}
-                      {(card.meta.tags?.includes('charx') || (hasAssets(card) && !card.meta.tags?.includes('voxta'))) && (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-cyan-600/20 text-cyan-300" title="Imported from CHARX">
-                          CHARX
-                        </span>
-                      )}
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          card.meta.spec === 'collection'
-                            ? 'bg-purple-600/20 text-purple-300'
-                            : card.meta.spec === 'v3'
-                            ? 'bg-emerald-600/20 text-emerald-300'
-                            : 'bg-amber-600/20 text-amber-300'
-                        }`}
-                        title={card.meta.spec === 'collection' ? 'Voxta Collection' : `Character Card ${card.meta.spec.toUpperCase()} Format`}
-                      >
-                        {card.meta.spec === 'collection' ? 'COLLECTION' : card.meta.spec.toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Creator */}
-                  {getCreator(card) && (
-                    <p className="text-sm text-dark-muted mb-2">
-                      by {getCreator(card)}
-                    </p>
-                  )}
-
-                  {/* Feature Badges */}
-                  {(hasAlternateGreetings(card) || hasLorebook(card) || hasAssets(card)) && (
-                    <div className="flex gap-2 mb-2">
-                      {hasAssets(card) && (
-                        <span
-                          className="px-2 py-0.5 bg-cyan-600/20 text-cyan-300 rounded text-xs flex items-center gap-1"
-                          title={`CHARX format with ${getAssetCount(card)} asset(s)`}
-                        >
-                          📦 {getAssetCount(card)}
-                        </span>
-                      )}
-                      {hasAlternateGreetings(card) && (
-                        <span
-                          className="px-2 py-0.5 bg-purple-600/20 text-purple-300 rounded text-xs flex items-center gap-1"
-                          title={`${getAlternateGreetingCount(card)} alternate greeting(s)`}
-                        >
-                          💬 {getAlternateGreetingCount(card)}
-                        </span>
-                      )}
-                      {hasLorebook(card) && (
-                        <span
-                          className="px-2 py-0.5 bg-green-600/20 text-green-300 rounded text-xs flex items-center gap-1"
-                          title={`${getLorebookEntryCount(card)} lorebook entry/entries`}
-                        >
-                          📚 {getLorebookEntryCount(card)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  {getTags(card).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {getTags(card).slice(0, 3).map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-0.5 bg-blue-600/20 text-blue-300 rounded text-xs"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {getTags(card).length > 3 && (
-                        <span className="px-2 py-0.5 bg-dark-bg text-dark-muted rounded text-xs">
-                          +{getTags(card).length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Creator Notes Preview */}
-                  {getCreatorNotes(card) && (
-                    <p className="text-sm text-dark-muted mb-3 line-clamp-2 min-h-[2.5rem]">
-                      {getCreatorNotes(card)}
-                    </p>
-                  )}
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between mt-auto pt-3 border-t border-dark-border">
-                    <span className="text-xs text-dark-muted">
-                      {formatDate(card.meta.updatedAt)}
-                    </span>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(`/cards/${card.meta.id}`, '_blank');
-                        }}
-                        className="px-2 py-1 bg-dark-bg hover:bg-dark-border rounded text-xs transition-colors"
-                        title="Open in new tab"
-                      >
-                        ↗
-                      </button>
-                      <button
-                        onClick={(e) => handleExport(card.meta.id, 'json', e)}
-                        className="px-2 py-1 bg-dark-bg hover:bg-dark-border rounded text-xs transition-colors"
-                        title="Export JSON"
-                      >
-                        JSON
-                      </button>
-                      <button
-                        onClick={(e) => handleExport(card.meta.id, 'png', e)}
-                        className="px-2 py-1 bg-dark-bg hover:bg-dark-border rounded text-xs transition-colors"
-                        title="Export PNG"
-                      >
-                        PNG
-                      </button>
-                      <button
-                        onClick={(e) => handleDelete(card.meta.id, e)}
-                        className="px-2 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded text-xs transition-colors"
-                        title="Delete"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6 pb-4">
-              <button
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 bg-dark-surface border border-dark-border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-dark-border transition-colors"
-                title="First page"
-              >
-                ««
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 bg-dark-surface border border-dark-border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-dark-border transition-colors"
-                title="Previous page"
-              >
-                «
-              </button>
-              <span className="px-4 py-1.5 text-sm text-dark-muted">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 bg-dark-surface border border-dark-border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-dark-border transition-colors"
-                title="Next page"
-              >
-                »
-              </button>
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 bg-dark-surface border border-dark-border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-dark-border transition-colors"
-                title="Last page"
-              >
-                »»
-              </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {getPaginatedCards().map((card) => (
+                <CardItem
+                  key={card.meta.id}
+                  card={card}
+                  cards={cards}
+                  cardSyncMap={cardSyncMap}
+                  selectionMode={selectionMode}
+                  isSelected={selectedCards.has(card.meta.id)}
+                  imageSrc={getCardImageSrc(card.meta.id)}
+                  hasImageError={imageErrors.has(card.meta.id)}
+                  tokenCount={tokenCounts.get(card.meta.id)}
+                  onCardClick={onCardClick}
+                  onToggleSelect={toggleSelectCard}
+                  onExport={handleExport}
+                  onDelete={handleDelete}
+                  onImageError={handleImageError}
+                />
+              ))}
             </div>
-          )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6 pb-4">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 bg-dark-surface border border-dark-border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-dark-border transition-colors"
+                  title="First page"
+                >
+                  ««
+                </button>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 bg-dark-surface border border-dark-border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-dark-border transition-colors"
+                  title="Previous page"
+                >
+                  «
+                </button>
+                <span className="px-4 py-1.5 text-sm text-dark-muted">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 bg-dark-surface border border-dark-border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-dark-border transition-colors"
+                  title="Next page"
+                >
+                  »
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 bg-dark-surface border border-dark-border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-dark-border transition-colors"
+                  title="Last page"
+                >
+                  »»
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

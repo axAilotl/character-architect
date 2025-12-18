@@ -29,7 +29,7 @@ export function registerCoreSettingsPanels() {
     id: 'editor',
     label: 'Editor',
     component: EditorSettingsPanel,
-    order: 20,
+    order: 25,
     color: 'blue',
   });
 
@@ -37,7 +37,7 @@ export function registerCoreSettingsPanels() {
     id: 'themes',
     label: 'Themes',
     component: ThemeSettingsPanel,
-    order: 30,
+    order: 20,
     color: 'blue',
   });
 

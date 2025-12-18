@@ -57,7 +57,7 @@ export function registerComfyuiModule(): void {
     label: 'ComfyUI',
     component: ComfyUITab,
     color: 'green',
-    order: 40, // After wwwyzzerdd (30)
+    order: 80, // After wwwyzzerdd (70)
     contexts: ['card'],
     condition: isComfyUIAvailable,
   });

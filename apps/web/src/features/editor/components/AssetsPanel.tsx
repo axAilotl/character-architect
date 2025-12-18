@@ -102,7 +102,9 @@ function formatFileSize(bytes: number): string {
 
 export function AssetsPanel() {
   const currentCard = useCardStore((state) => state.currentCard);
-  const linkedImageArchivalEnabled = useSettingsStore((state) => state.features?.linkedImageArchivalEnabled ?? false);
+  const linkedImageArchivalEnabled = useSettingsStore(
+    (state) => state.features?.linkedImageArchivalEnabled ?? false
+  );
   const [assets, setAssets] = useState<CardAssetWithDetails[]>([]);
   const [assetGraph, setAssetGraph] = useState<AssetGraph | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -116,6 +118,10 @@ export function AssetsPanel() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; name: string } | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Bulk selection state
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
@@ -146,9 +152,33 @@ export function AssetsPanel() {
   // Validation errors display
   const [showValidationErrors, setShowValidationErrors] = useState(false);
 
-  // Sort assets
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
+
   const sortedAssets = useMemo(() => {
-    const sorted = [...assets].sort((a, b) => {
+    const query = debouncedSearch.toLowerCase().trim();
+    const filtered = query
+      ? assets.filter(
+          (a) =>
+            a.name.toLowerCase().includes(query) ||
+            a.type.toLowerCase().includes(query) ||
+            a.ext.toLowerCase().includes(query) ||
+            a.tags?.some((t) => t.toLowerCase().includes(query))
+        )
+      : assets;
+
+    const sorted = [...filtered].sort((a, b) => {
       let aVal: string | number;
       let bVal: string | number;
 
@@ -180,7 +210,7 @@ export function AssetsPanel() {
     });
 
     return sorted;
-  }, [assets, sortField, sortOrder]);
+  }, [assets, sortField, sortOrder, searchQuery]);
 
   const config = getDeploymentConfig();
   const isLightMode = config.mode === 'light' || config.mode === 'static';
@@ -197,19 +227,27 @@ export function AssetsPanel() {
         setAssets(cardAssets);
 
         // Build a simple asset graph for client-side
-        const icons = storedAssets.filter(a => a.type === 'icon');
-        const backgrounds = storedAssets.filter(a => a.type === 'background');
-        const mainIcon = icons.find(a => a.isMain) || icons[0];
-        const mainBg = backgrounds.find(a => a.isMain) || backgrounds[0];
+        const icons = storedAssets.filter((a) => a.type === 'icon');
+        const backgrounds = storedAssets.filter((a) => a.type === 'background');
+        const mainIcon = icons.find((a) => a.isMain) || icons[0];
+        const mainBg = backgrounds.find((a) => a.isMain) || backgrounds[0];
 
         setAssetGraph({
           nodes: [],
           summary: {
             totalAssets: storedAssets.length,
-            actors: [...new Set(storedAssets.filter(a => a.actorIndex !== undefined).map(a => a.actorIndex!))],
-            mainPortrait: mainIcon ? { id: mainIcon.id, name: mainIcon.name, url: mainIcon.data } : null,
+            actors: [
+              ...new Set(
+                storedAssets.filter((a) => a.actorIndex !== undefined).map((a) => a.actorIndex!)
+              ),
+            ],
+            mainPortrait: mainIcon
+              ? { id: mainIcon.id, name: mainIcon.name, url: mainIcon.data }
+              : null,
             mainBackground: mainBg ? { id: mainBg.id, name: mainBg.name, url: mainBg.data } : null,
-            animatedCount: storedAssets.filter(a => a.mimetype.includes('gif') || a.mimetype.includes('webp')).length,
+            animatedCount: storedAssets.filter(
+              (a) => a.mimetype.includes('gif') || a.mimetype.includes('webp')
+            ).length,
           },
           validation: { valid: true, errors: [] },
         });
@@ -263,13 +301,22 @@ export function AssetsPanel() {
     setSelectedAsset(null);
   }, [viewMode]);
 
+  useEffect(() => {
+    if (!lightboxImage) return;
+    const closeLightboxOnEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxImage(null);
+    };
+    document.addEventListener('keydown', closeLightboxOnEscape);
+    return () => document.removeEventListener('keydown', closeLightboxOnEscape);
+  }, [lightboxImage]);
+
   const handleArchiveLinkedImages = async () => {
     if (!currentCard) return;
 
     const confirmed = confirm(
       'This will archive all external images from first message and alternate greetings as local assets.\n\n' +
-      'A snapshot backup will be created automatically before any changes.\n\n' +
-      'Continue?'
+        'A snapshot backup will be created automatically before any changes.\n\n' +
+        'Continue?'
     );
 
     if (!confirmed) return;
@@ -283,7 +330,9 @@ export function AssetsPanel() {
       const result = await response.json();
 
       if (result.success) {
-        alert(`Successfully archived ${result.archived} images.\n${result.skipped > 0 ? `${result.skipped} failed.` : ''}`);
+        alert(
+          `Successfully archived ${result.archived} images.\n${result.skipped > 0 ? `${result.skipped} failed.` : ''}`
+        );
         await loadAssets();
         await loadArchiveStatus();
         await useCardStore.getState().loadCard(currentCard.meta.id);
@@ -303,8 +352,8 @@ export function AssetsPanel() {
 
     const confirmed = confirm(
       'This will revert all archived images back to their original URLs.\n\n' +
-      'A snapshot backup will be created automatically before any changes.\n\n' +
-      'Continue?'
+        'A snapshot backup will be created automatically before any changes.\n\n' +
+        'Continue?'
     );
 
     if (!confirmed) return;
@@ -343,11 +392,13 @@ export function AssetsPanel() {
 
         // Check file size limit (50MB)
         if (file.size > MAX_ASSET_SIZE) {
-          alert(`File "${file.name}" exceeds the 50MB size limit (${formatFileSize(file.size)}). Skipping.`);
+          alert(
+            `File "${file.name}" exceeds the 50MB size limit (${formatFileSize(file.size)}). Skipping.`
+          );
           continue;
         }
 
-        const name = files.length > 1 ? file.name : (uploadName || file.name);
+        const name = files.length > 1 ? file.name : uploadName || file.name;
 
         if (isLightMode) {
           // Client-side: save to IndexedDB
@@ -427,7 +478,7 @@ export function AssetsPanel() {
       if (selectedAsset === assetId) {
         setSelectedAsset(null);
       }
-      setSelectedAssets(prev => {
+      setSelectedAssets((prev) => {
         const next = new Set(prev);
         next.delete(assetId);
         return next;
@@ -451,7 +502,7 @@ export function AssetsPanel() {
           await localDB.deleteAsset(assetId);
         }
       } else {
-        const deletePromises = Array.from(selectedAssets).map(assetId =>
+        const deletePromises = Array.from(selectedAssets).map((assetId) =>
           api.deleteAsset(currentCard.meta.id, assetId)
         );
         await Promise.allSettled(deletePromises);
@@ -477,7 +528,7 @@ export function AssetsPanel() {
           await localDB.updateAsset(assetId, { type: bulkEditType as StoredAsset['type'] });
         }
       } else {
-        const updatePromises = Array.from(selectedAssets).map(assetId =>
+        const updatePromises = Array.from(selectedAssets).map((assetId) =>
           api.updateAsset(currentCard.meta.id, assetId, { type: bulkEditType })
         );
         await Promise.allSettled(updatePromises);
@@ -566,12 +617,12 @@ export function AssetsPanel() {
     if (selectedAssets.size === sortedAssets.length) {
       setSelectedAssets(new Set());
     } else {
-      setSelectedAssets(new Set(sortedAssets.map(a => a.id)));
+      setSelectedAssets(new Set(sortedAssets.map((a) => a.id)));
     }
   };
 
   const toggleAssetSelection = (assetId: string) => {
-    setSelectedAssets(prev => {
+    setSelectedAssets((prev) => {
       const next = new Set(prev);
       if (next.has(assetId)) {
         next.delete(assetId);
@@ -582,7 +633,7 @@ export function AssetsPanel() {
     });
   };
 
-  const selectedAssetData = assets.find(a => a.id === selectedAsset);
+  const selectedAssetData = assets.find((a) => a.id === selectedAsset);
 
   if (!currentCard) {
     return (
@@ -618,38 +669,103 @@ export function AssetsPanel() {
           }}
         />
       );
-    } else if (asset.asset.mimetype.startsWith('video/')) {
+    } else if (
+      asset.asset.mimetype.startsWith('video/') ||
+      ['webm', 'mp4', 'mov', 'avi', 'mkv'].includes(asset.ext.toLowerCase())
+    ) {
       return (
-        <div className={`${sizeClasses[size]} flex items-center justify-center bg-purple-900/20 rounded`}>
-          <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div
+          className={`${sizeClasses[size]} flex items-center justify-center bg-purple-900/20 rounded`}
+        >
+          <svg
+            className="w-6 h-6 text-purple-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         </div>
       );
-    } else if (asset.asset.mimetype.startsWith('audio/')) {
+    } else if (
+      asset.asset.mimetype.startsWith('audio/') ||
+      ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'].includes(asset.ext.toLowerCase())
+    ) {
       return (
-        <div className={`${sizeClasses[size]} flex items-center justify-center bg-green-900/20 rounded`}>
-          <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        <div
+          className={`${sizeClasses[size]} flex items-center justify-center bg-green-900/20 rounded`}
+        >
+          <svg
+            className="w-6 h-6 text-green-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+            />
           </svg>
         </div>
       );
     } else if (asset.asset.mimetype === 'application/json' || asset.ext === 'json') {
-      const bgColor = asset.type === 'lorebook' ? 'bg-amber-900/20' : asset.type === 'workflow' ? 'bg-cyan-900/20' : 'bg-slate-900/20';
-      const iconColor = asset.type === 'lorebook' ? 'text-amber-400' : asset.type === 'workflow' ? 'text-cyan-400' : 'text-slate-400';
+      const bgColor =
+        asset.type === 'lorebook'
+          ? 'bg-amber-900/20'
+          : asset.type === 'workflow'
+            ? 'bg-cyan-900/20'
+            : 'bg-slate-900/20';
+      const iconColor =
+        asset.type === 'lorebook'
+          ? 'text-amber-400'
+          : asset.type === 'workflow'
+            ? 'text-cyan-400'
+            : 'text-slate-400';
       return (
         <div className={`${sizeClasses[size]} flex items-center justify-center ${bgColor} rounded`}>
-          <svg className={`w-6 h-6 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className={`w-6 h-6 ${iconColor}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
         </div>
       );
     } else {
       return (
         <div className={`${sizeClasses[size]} flex items-center justify-center bg-dark-bg rounded`}>
-          <svg className="w-6 h-6 text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="w-6 h-6 text-dark-muted"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
         </div>
       );
@@ -659,16 +775,22 @@ export function AssetsPanel() {
   // Get type badge color
   const getTypeBadgeColor = (type: string) => {
     switch (type) {
-      case 'icon': return 'bg-blue-900/30 text-blue-400';
-      case 'background': return 'bg-purple-900/30 text-purple-400';
-      case 'emotion': return 'bg-pink-900/30 text-pink-400';
-      case 'sound': return 'bg-green-900/30 text-green-400';
-      case 'workflow': return 'bg-cyan-900/30 text-cyan-400';
-      case 'lorebook': return 'bg-amber-900/30 text-amber-400';
-      default: return 'bg-slate-900/30 text-slate-400';
+      case 'icon':
+        return 'bg-blue-900/30 text-blue-400';
+      case 'background':
+        return 'bg-purple-900/30 text-purple-400';
+      case 'emotion':
+        return 'bg-pink-900/30 text-pink-400';
+      case 'sound':
+        return 'bg-green-900/30 text-green-400';
+      case 'workflow':
+        return 'bg-cyan-900/30 text-cyan-400';
+      case 'lorebook':
+        return 'bg-amber-900/30 text-amber-400';
+      default:
+        return 'bg-slate-900/30 text-slate-400';
     }
   };
-
 
   // For collection cards, show the CollectionsView instead of regular assets
   if (currentCard?.meta.spec === 'collection') {
@@ -694,7 +816,12 @@ export function AssetsPanel() {
                 title="List view"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 </svg>
               </button>
               <button
@@ -703,7 +830,12 @@ export function AssetsPanel() {
                 title="Grid view"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                  />
                 </svg>
               </button>
             </div>
@@ -713,18 +845,36 @@ export function AssetsPanel() {
           {viewMode === 'grid' && selectedAsset && selectedAssetData && (
             <div className="mb-4 p-3 bg-dark-bg rounded-lg">
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
+                <div
+                  className="flex-shrink-0 cursor-pointer"
+                  onClick={() => {
+                    if (selectedAssetData.asset.mimetype.startsWith('image/')) {
+                      setLightboxImage({
+                        src: selectedAssetData.asset.url,
+                        name: selectedAssetData.name,
+                      });
+                    }
+                  }}
+                  title={
+                    selectedAssetData.asset.mimetype.startsWith('image/')
+                      ? 'Click to view full size'
+                      : undefined
+                  }
+                >
                   {renderAssetThumbnail(selectedAssetData, 'md')}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{selectedAssetData.name}</div>
                   <div className="text-xs text-dark-muted mt-1">
-                    <span className={`px-1.5 py-0.5 rounded ${getTypeBadgeColor(selectedAssetData.type)}`}>
+                    <span
+                      className={`px-1.5 py-0.5 rounded ${getTypeBadgeColor(selectedAssetData.type)}`}
+                    >
                       {selectedAssetData.type}
                     </span>
                   </div>
                   <div className="text-xs text-dark-muted mt-1">
-                    {selectedAssetData.ext.toUpperCase()} • {(selectedAssetData.asset.size / 1024).toFixed(1)} KB
+                    {selectedAssetData.ext.toUpperCase()} •{' '}
+                    {(selectedAssetData.asset.size / 1024).toFixed(1)} KB
                   </div>
                   {selectedAssetData.asset.width && selectedAssetData.asset.height && (
                     <div className="text-xs text-dark-muted">
@@ -763,7 +913,12 @@ export function AssetsPanel() {
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
                     </svg>
                   </button>
                   {showValidationErrors && (
@@ -789,7 +944,12 @@ export function AssetsPanel() {
             <div className="mb-4 p-3 bg-red-900/10 border border-red-900/30 rounded space-y-2">
               <div className="text-xs font-semibold text-red-400 flex items-center gap-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
                 </svg>
                 Linked Image Archival
               </div>
@@ -797,11 +957,15 @@ export function AssetsPanel() {
                 <div className="text-xs space-y-1">
                   <div className="flex justify-between text-dark-muted">
                     <span>External images:</span>
-                    <span className="font-medium text-dark-text">{archiveStatus.externalImages}</span>
+                    <span className="font-medium text-dark-text">
+                      {archiveStatus.externalImages}
+                    </span>
                   </div>
                   <div className="flex justify-between text-dark-muted">
                     <span>Archived images:</span>
-                    <span className="font-medium text-dark-text">{archiveStatus.archivedImages}</span>
+                    <span className="font-medium text-dark-text">
+                      {archiveStatus.archivedImages}
+                    </span>
                   </div>
                 </div>
               )}
@@ -810,13 +974,28 @@ export function AssetsPanel() {
                   onClick={handleArchiveLinkedImages}
                   disabled={isArchiving || !archiveStatus?.canArchive}
                   className="flex-1 px-2 py-1.5 text-xs bg-red-600 hover:bg-red-700 disabled:bg-red-900/30 disabled:text-red-400/50 text-white rounded transition-colors flex items-center justify-center gap-1"
-                  title={!archiveStatus?.canArchive ? 'No external images to archive' : 'Convert linked images to local assets'}
+                  title={
+                    !archiveStatus?.canArchive
+                      ? 'No external images to archive'
+                      : 'Convert linked images to local assets'
+                  }
                 >
                   {isArchiving ? (
                     <>
                       <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
                       </svg>
                       Archiving...
                     </>
@@ -828,13 +1007,28 @@ export function AssetsPanel() {
                   onClick={handleRevertArchivedImages}
                   disabled={isReverting || !archiveStatus?.canRevert}
                   className="flex-1 px-2 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 disabled:bg-amber-900/30 disabled:text-amber-400/50 text-white rounded transition-colors flex items-center justify-center gap-1"
-                  title={!archiveStatus?.canRevert ? 'No archived images to revert' : 'Revert archived images to original URLs'}
+                  title={
+                    !archiveStatus?.canRevert
+                      ? 'No archived images to revert'
+                      : 'Revert archived images to original URLs'
+                  }
                 >
                   {isReverting ? (
                     <>
                       <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
                       </svg>
                       Reverting...
                     </>
@@ -851,10 +1045,70 @@ export function AssetsPanel() {
             className="btn-primary w-full flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Upload Asset
           </button>
+
+          <div className="relative mt-3">
+            <svg
+              className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-dark-muted"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search assets..."
+              className="input-field w-full text-sm pl-9"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 mt-3">
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as SortField)}
+              className="input-field text-sm py-1.5 flex-1"
+            >
+              <option value="name">Name</option>
+              <option value="type">Type</option>
+              <option value="ext">Format</option>
+              <option value="createdAt">Date</option>
+            </select>
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="p-1.5 rounded hover:bg-dark-hover border border-dark-border"
+              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              <svg
+                className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 15l7-7 7 7"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Upload Form */}
@@ -867,8 +1121,10 @@ export function AssetsPanel() {
                 onChange={(e) => setUploadType(e.target.value)}
                 className="input-field w-full text-sm"
               >
-                {ASSET_TYPES.map(type => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
+                {ASSET_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -899,9 +1155,14 @@ export function AssetsPanel() {
 
             <div
               className={`border-2 border-dashed rounded p-4 text-center cursor-pointer transition-colors ${
-                dragOver ? 'border-blue-500 bg-blue-500/10' : 'border-dark-border hover:border-blue-500'
+                dragOver
+                  ? 'border-blue-500 bg-blue-500/10'
+                  : 'border-dark-border hover:border-blue-500'
               }`}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
@@ -920,12 +1181,8 @@ export function AssetsPanel() {
                 <p className="text-sm text-blue-400">Uploading...</p>
               ) : (
                 <>
-                  <p className="text-sm text-dark-muted">
-                    Drop file or click to browse
-                  </p>
-                  <p className="text-xs text-dark-muted mt-1">
-                    Max file size: 50MB
-                  </p>
+                  <p className="text-sm text-dark-muted">Drop file or click to browse</p>
+                  <p className="text-xs text-dark-muted mt-1">Max file size: 50MB</p>
                 </>
               )}
             </div>
@@ -936,13 +1193,9 @@ export function AssetsPanel() {
         {viewMode === 'list' && (
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="p-4 text-center text-dark-muted">
-                Loading assets...
-              </div>
+              <div className="p-4 text-center text-dark-muted">Loading assets...</div>
             ) : assets.length === 0 ? (
-              <div className="p-4 text-center text-dark-muted">
-                No assets yet. Upload some!
-              </div>
+              <div className="p-4 text-center text-dark-muted">No assets yet. Upload some!</div>
             ) : (
               <div className="divide-y divide-dark-border">
                 {sortedAssets.map((asset) => (
@@ -960,12 +1213,19 @@ export function AssetsPanel() {
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{asset.name}</div>
                         <div className="text-xs text-dark-muted mt-1 flex flex-wrap gap-1">
-                          <span className={`px-1.5 py-0.5 rounded ${getTypeBadgeColor(asset.type)}`}>{asset.type}</span>
-                          {asset.tags?.map(tag => {
+                          <span
+                            className={`px-1.5 py-0.5 rounded ${getTypeBadgeColor(asset.type)}`}
+                          >
+                            {asset.type}
+                          </span>
+                          {asset.tags?.map((tag) => {
                             let bgColor = 'bg-blue-900/30 text-blue-400';
-                            if (tag.startsWith('emotion:')) bgColor = 'bg-purple-900/30 text-purple-400';
-                            if (tag.startsWith('state:')) bgColor = 'bg-orange-900/30 text-orange-400';
-                            if (tag.startsWith('variant:')) bgColor = 'bg-green-900/30 text-green-400';
+                            if (tag.startsWith('emotion:'))
+                              bgColor = 'bg-purple-900/30 text-purple-400';
+                            if (tag.startsWith('state:'))
+                              bgColor = 'bg-orange-900/30 text-orange-400';
+                            if (tag.startsWith('variant:'))
+                              bgColor = 'bg-green-900/30 text-green-400';
 
                             return (
                               <span key={tag} className={`px-1.5 py-0.5 rounded ${bgColor}`}>
@@ -984,9 +1244,7 @@ export function AssetsPanel() {
         )}
 
         {/* Grid view fills remaining space */}
-        {viewMode === 'grid' && (
-          <div className="flex-1" />
-        )}
+        {viewMode === 'grid' && <div className="flex-1" />}
       </div>
 
       {/* Main Content Area */}
@@ -1014,17 +1272,47 @@ export function AssetsPanel() {
                     className="p-1.5 rounded hover:bg-dark-hover"
                     title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
                   >
-                    <svg className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    <svg
+                      className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 15l7-7 7 7"
+                      />
                     </svg>
                   </button>
                 </div>
-                <div className="flex-1" />
+                <div className="flex-1 max-w-xs">
+                  <div className="relative">
+                    <svg
+                      className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-dark-muted"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search assets..."
+                      className="input-field w-full text-sm py-1 pl-9"
+                    />
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={toggleSelectAll}
-                    className="btn-secondary text-sm px-3 py-1.5"
-                  >
+                  <button onClick={toggleSelectAll} className="btn-secondary text-sm px-3 py-1.5">
                     {selectedAssets.size === sortedAssets.length ? 'Deselect All' : 'Select All'}
                   </button>
                   {selectedAssets.size > 0 && (
@@ -1044,8 +1332,10 @@ export function AssetsPanel() {
                       className="input-field text-sm py-1"
                     >
                       <option value="">Select type...</option>
-                      {ASSET_TYPES.map(type => (
-                        <option key={type.value} value={type.value}>{type.label}</option>
+                      {ASSET_TYPES.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
                       ))}
                     </select>
                     <button
@@ -1061,7 +1351,12 @@ export function AssetsPanel() {
                     className="btn-danger text-sm px-3 py-1.5 flex items-center gap-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
                     </svg>
                     Delete Selected
                   </button>
@@ -1099,8 +1394,33 @@ export function AssetsPanel() {
                       </div>
 
                       {/* Thumbnail */}
-                      <div className="aspect-square bg-dark-bg flex items-center justify-center">
+                      <div
+                        className="aspect-square bg-dark-bg flex items-center justify-center relative"
+                        onClick={(e) => {
+                          if (asset.asset.mimetype.startsWith('image/')) {
+                            e.stopPropagation();
+                            setLightboxImage({ src: asset.asset.url, name: asset.name });
+                          }
+                        }}
+                      >
                         {renderAssetThumbnail(asset, 'lg')}
+                        {asset.asset.mimetype.startsWith('image/') && (
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <svg
+                              className="w-8 h-8 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                              />
+                            </svg>
+                          </div>
+                        )}
                       </div>
 
                       {/* Info */}
@@ -1109,12 +1429,12 @@ export function AssetsPanel() {
                           {asset.name}
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${getTypeBadgeColor(asset.type)}`}>
+                          <span
+                            className={`text-xs px-1.5 py-0.5 rounded ${getTypeBadgeColor(asset.type)}`}
+                          >
                             {asset.type}
                           </span>
-                          <span className="text-xs text-dark-muted">
-                            {asset.ext.toUpperCase()}
-                          </span>
+                          <span className="text-xs text-dark-muted">{asset.ext.toUpperCase()}</span>
                         </div>
                       </div>
                     </div>
@@ -1151,8 +1471,18 @@ export function AssetsPanel() {
                                   if (e.key === 'Escape') setEditingName(false);
                                 }}
                               />
-                              <button onClick={handleSaveName} className="btn-primary text-xs px-2 py-1">Save</button>
-                              <button onClick={() => setEditingName(false)} className="btn-secondary text-xs px-2 py-1">Cancel</button>
+                              <button
+                                onClick={handleSaveName}
+                                className="btn-primary text-xs px-2 py-1"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingName(false)}
+                                className="btn-secondary text-xs px-2 py-1"
+                              >
+                                Cancel
+                              </button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
@@ -1165,8 +1495,18 @@ export function AssetsPanel() {
                                 className="text-blue-400 hover:text-blue-300"
                                 title="Edit name"
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                <svg
+                                  className="w-3.5 h-3.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                  />
                                 </svg>
                               </button>
                             </div>
@@ -1184,12 +1524,24 @@ export function AssetsPanel() {
                                 className="input-field flex-1 text-sm py-1"
                                 autoFocus
                               >
-                                {ASSET_TYPES.map(type => (
-                                  <option key={type.value} value={type.value}>{type.label}</option>
+                                {ASSET_TYPES.map((type) => (
+                                  <option key={type.value} value={type.value}>
+                                    {type.label}
+                                  </option>
                                 ))}
                               </select>
-                              <button onClick={handleSaveType} className="btn-primary text-xs px-2 py-1">Save</button>
-                              <button onClick={() => setEditingType(false)} className="btn-secondary text-xs px-2 py-1">Cancel</button>
+                              <button
+                                onClick={handleSaveType}
+                                className="btn-primary text-xs px-2 py-1"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingType(false)}
+                                className="btn-secondary text-xs px-2 py-1"
+                              >
+                                Cancel
+                              </button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
@@ -1202,8 +1554,18 @@ export function AssetsPanel() {
                                 className="text-blue-400 hover:text-blue-300"
                                 title="Edit type"
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                <svg
+                                  className="w-3.5 h-3.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                  />
                                 </svg>
                               </button>
                             </div>
@@ -1215,17 +1577,23 @@ export function AssetsPanel() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-dark-muted">Size:</span>
-                          <span className="font-medium">{(selectedAssetData.asset.size / 1024).toFixed(2)} KB</span>
+                          <span className="font-medium">
+                            {(selectedAssetData.asset.size / 1024).toFixed(2)} KB
+                          </span>
                         </div>
                         {selectedAssetData.asset.width && selectedAssetData.asset.height && (
                           <div className="flex justify-between">
                             <span className="text-dark-muted">Dimensions:</span>
-                            <span className="font-medium">{selectedAssetData.asset.width} × {selectedAssetData.asset.height}</span>
+                            <span className="font-medium">
+                              {selectedAssetData.asset.width} × {selectedAssetData.asset.height}
+                            </span>
                           </div>
                         )}
                         <div className="flex justify-between">
                           <span className="text-dark-muted">Main:</span>
-                          <span className="font-medium">{selectedAssetData.isMain ? 'Yes' : 'No'}</span>
+                          <span className="font-medium">
+                            {selectedAssetData.isMain ? 'Yes' : 'No'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1234,11 +1602,14 @@ export function AssetsPanel() {
                     <div>
                       <h3 className="text-sm font-semibold mb-3">Tags</h3>
                       <div className="flex flex-wrap gap-2">
-                        {selectedAssetData.tags?.map(tag => {
+                        {selectedAssetData.tags?.map((tag) => {
                           let bgColor = 'bg-blue-900/30 text-blue-400';
-                          if (tag.startsWith('emotion:')) bgColor = 'bg-purple-900/30 text-purple-400';
-                          if (tag.startsWith('state:')) bgColor = 'bg-orange-900/30 text-orange-400';
-                          if (tag.startsWith('variant:')) bgColor = 'bg-green-900/30 text-green-400';
+                          if (tag.startsWith('emotion:'))
+                            bgColor = 'bg-purple-900/30 text-purple-400';
+                          if (tag.startsWith('state:'))
+                            bgColor = 'bg-orange-900/30 text-orange-400';
+                          if (tag.startsWith('variant:'))
+                            bgColor = 'bg-green-900/30 text-green-400';
 
                           return (
                             <span key={tag} className={`px-3 py-1.5 rounded-lg text-sm ${bgColor}`}>
@@ -1261,8 +1632,18 @@ export function AssetsPanel() {
                             onClick={() => handleSetPortraitOverride(selectedAssetData.id)}
                             className="btn-secondary w-full justify-start"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
                             </svg>
                             Set as Main Portrait
                           </button>
@@ -1273,8 +1654,18 @@ export function AssetsPanel() {
                             onClick={() => handleSetMainBackground(selectedAssetData.id)}
                             className="btn-secondary w-full justify-start"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
                             </svg>
                             Set as Main Background
                           </button>
@@ -1287,8 +1678,18 @@ export function AssetsPanel() {
                           onClick={() => handleDeleteAsset(selectedAssetData.id)}
                           className="btn-danger w-full justify-start"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
                           </svg>
                           Delete Asset
                         </button>
@@ -1302,20 +1703,20 @@ export function AssetsPanel() {
                     <div className="bg-dark-bg rounded-lg p-4 flex-1 flex items-center justify-center min-h-[300px]">
                       {selectedAssetData.asset.mimetype.startsWith('image/') ? (
                         <img
-                          src={isLightMode ? selectedAssetData.asset.url : `/api/assets/${selectedAssetData.asset.id}/thumbnail?size=512`}
+                          src={
+                            isLightMode
+                              ? selectedAssetData.asset.url
+                              : `/api/assets/${selectedAssetData.asset.id}/thumbnail?size=512`
+                          }
                           alt={selectedAssetData.name}
                           className="max-w-full max-h-[500px] rounded cursor-pointer object-contain"
                           loading="lazy"
                           title="Click to view full size"
                           onClick={() => {
-                            if (isLightMode) {
-                              const win = window.open();
-                              if (win) {
-                                win.document.write(`<img src="${selectedAssetData.asset.url}" style="max-width:100%;max-height:100vh;" />`);
-                              }
-                            } else {
-                              window.open(selectedAssetData.asset.url, '_blank');
-                            }
+                            setLightboxImage({
+                              src: selectedAssetData.asset.url,
+                              name: selectedAssetData.name,
+                            });
                           }}
                           onError={(e) => {
                             if (!isLightMode) {
@@ -1323,29 +1724,53 @@ export function AssetsPanel() {
                             }
                           }}
                         />
-                      ) : selectedAssetData.asset.mimetype.startsWith('video/') ? (
+                      ) : selectedAssetData.asset.mimetype.startsWith('video/') ||
+                        ['webm', 'mp4', 'mov', 'avi', 'mkv'].includes(
+                          selectedAssetData.ext.toLowerCase()
+                        ) ? (
                         <video
                           src={selectedAssetData.asset.url}
                           controls
                           className="max-w-full max-h-[500px] rounded"
                           preload="metadata"
-                        />
-                      ) : selectedAssetData.asset.mimetype.startsWith('audio/') ? (
+                        >
+                          <source
+                            src={selectedAssetData.asset.url}
+                            type={
+                              selectedAssetData.asset.mimetype || `video/${selectedAssetData.ext}`
+                            }
+                          />
+                        </video>
+                      ) : selectedAssetData.asset.mimetype.startsWith('audio/') ||
+                        ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'].includes(
+                          selectedAssetData.ext.toLowerCase()
+                        ) ? (
                         <audio
                           src={selectedAssetData.asset.url}
                           controls
                           className="w-full"
                           preload="metadata"
-                        />
+                        >
+                          <source
+                            src={selectedAssetData.asset.url}
+                            type={
+                              selectedAssetData.asset.mimetype || `audio/${selectedAssetData.ext}`
+                            }
+                          />
+                        </audio>
                       ) : (
                         <div className="text-center p-8">
                           <p className="text-dark-muted">No preview available</p>
-                          <p className="text-sm text-dark-muted mt-2">{selectedAssetData.asset.mimetype}</p>
+                          <p className="text-sm text-dark-muted mt-2">
+                            {selectedAssetData.asset.mimetype}
+                          </p>
                         </div>
                       )}
                     </div>
                     {selectedAssetData.asset.mimetype.startsWith('image/') && (
-                      <p className="text-xs text-dark-muted text-center mt-2">Click image to view full size</p>
+                      <p className="text-xs text-dark-muted text-center mt-2">
+                        Click image to view full size
+                      </p>
                     )}
                   </div>
                 </div>
@@ -1358,6 +1783,41 @@ export function AssetsPanel() {
           </div>
         )}
       </div>
+
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightboxImage(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setLightboxImage(null)}
+          tabIndex={0}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2"
+            onClick={() => setLightboxImage(null)}
+            aria-label="Close lightbox"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+          <div
+            className="max-w-full max-h-full flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImage.src}
+              alt={lightboxImage.name}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+            <p className="text-white/80 text-sm mt-3">{lightboxImage.name}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

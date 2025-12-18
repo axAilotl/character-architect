@@ -60,7 +60,7 @@ export function registerWwwyzzerddModule(): void {
     label: 'wwwyzzerdd',
     component: WwwyzzerddTab,
     color: 'purple',
-    order: 30, // After Edit (0), Assets (10), Focused (20)
+    order: 70, // After Preview (60)
     contexts: ['card'],
     condition: isWwwyzzerddAvailable,
   });
