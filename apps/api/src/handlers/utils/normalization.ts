@@ -103,6 +103,65 @@ export function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
         }
       }
 
+      const TIMESTAMP_THRESHOLD = 10000000000; // 10-digit = seconds, 13-digit = milliseconds
+      const normalizeTimestamp = (field: 'creation_date' | 'modification_date') => {
+        const value = dataObj[field];
+
+        if (typeof value === 'number') {
+          if (!Number.isFinite(value)) {
+            delete dataObj[field];
+            return;
+          }
+
+          // CharacterTavern exports milliseconds
+          if (value > TIMESTAMP_THRESHOLD) {
+            dataObj[field] = Math.floor(value / 1000);
+          }
+          return;
+        }
+
+        if (typeof value === 'string') {
+          const raw = value.trim();
+          if (!raw) {
+            delete dataObj[field];
+            return;
+          }
+
+          // Numeric string timestamps (seconds or milliseconds)
+          if (/^\\d+$/.test(raw)) {
+            const num = Number.parseInt(raw, 10);
+            if (!Number.isFinite(num)) {
+              delete dataObj[field];
+              return;
+            }
+            dataObj[field] = num > TIMESTAMP_THRESHOLD ? Math.floor(num / 1000) : num;
+            return;
+          }
+
+          // ISO date strings
+          const ms = Date.parse(raw);
+          if (Number.isNaN(ms)) {
+            delete dataObj[field];
+            return;
+          }
+          dataObj[field] = Math.floor(ms / 1000);
+          return;
+        }
+
+        // Unsupported type for schema (must be number); drop to preserve compatibility.
+        if (value !== undefined) {
+          delete dataObj[field];
+        }
+      };
+
+      // Optional string fields that are commonly null in the wild
+      const optionalStrings = ['creator_notes', 'system_prompt', 'post_history_instructions', 'nickname'];
+      for (const field of optionalStrings) {
+        if (dataObj[field] === null) {
+          delete dataObj[field];
+        }
+      }
+
       const requiredStrings = [
         'name',
         'description',
@@ -117,34 +176,69 @@ export function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
       for (const field of requiredStrings) {
         if (!(field in dataObj) || dataObj[field] === null || dataObj[field] === undefined) {
           dataObj[field] = '';
+        } else if (typeof dataObj[field] !== 'string') {
+          // Coerce invalid types to keep schema validation lenient.
+          dataObj[field] = '';
         }
       }
 
-      if (!Array.isArray(dataObj.tags)) {
+      // Arrays must be arrays of strings for schema validation.
+      if (Array.isArray(dataObj.tags)) {
+        dataObj.tags = dataObj.tags.filter((t) => typeof t === 'string');
+      } else {
         dataObj.tags = [];
       }
-      if (!Array.isArray(dataObj.group_only_greetings)) {
+      if (Array.isArray(dataObj.group_only_greetings)) {
+        dataObj.group_only_greetings = dataObj.group_only_greetings.filter((t) => typeof t === 'string');
+      } else {
         dataObj.group_only_greetings = [];
       }
       if (!('alternate_greetings' in dataObj) || !Array.isArray(dataObj.alternate_greetings)) {
         dataObj.alternate_greetings = [];
+      } else {
+        dataObj.alternate_greetings = dataObj.alternate_greetings.filter((t) => typeof t === 'string');
       }
 
-      // Fix CharacterTavern timestamp format (milliseconds -> seconds)
-      // CCv3 spec requires Unix timestamp in seconds, but CharacterTavern exports milliseconds
-      const TIMESTAMP_THRESHOLD = 10000000000; // 10-digit = seconds, 13-digit = milliseconds
-      if (
-        typeof dataObj.creation_date === 'number' &&
-        dataObj.creation_date > TIMESTAMP_THRESHOLD
-      ) {
-        dataObj.creation_date = Math.floor(dataObj.creation_date / 1000);
+      // `source` should be an array of strings when present.
+      if (typeof dataObj.source === 'string') {
+        dataObj.source = [dataObj.source];
+      } else if (Array.isArray(dataObj.source)) {
+        dataObj.source = dataObj.source.filter((s) => typeof s === 'string');
+      } else if (dataObj.source !== undefined) {
+        delete dataObj.source;
       }
-      if (
-        typeof dataObj.modification_date === 'number' &&
-        dataObj.modification_date > TIMESTAMP_THRESHOLD
-      ) {
-        dataObj.modification_date = Math.floor(dataObj.modification_date / 1000);
+
+      // `assets` should be an array of typed descriptors. Drop invalid entries/types.
+      const allowedAssetTypes = new Set([
+        'icon',
+        'background',
+        'emotion',
+        'user_icon',
+        'sound',
+        'video',
+        'custom',
+        'x-risu-asset',
+      ]);
+      if (Array.isArray(dataObj.assets)) {
+        dataObj.assets = dataObj.assets.filter((a) => {
+          if (!a || typeof a !== 'object') return false;
+          const asset = a as Record<string, unknown>;
+          const type = asset.type;
+          return (
+            typeof type === 'string' &&
+            allowedAssetTypes.has(type) &&
+            typeof asset.uri === 'string' &&
+            typeof asset.name === 'string' &&
+            typeof asset.ext === 'string'
+          );
+        });
+        if ((dataObj.assets as unknown[]).length === 0) delete dataObj.assets;
+      } else if (dataObj.assets !== undefined) {
+        delete dataObj.assets;
       }
+
+      normalizeTimestamp('creation_date');
+      normalizeTimestamp('modification_date');
     }
   } else if ('character_book' in obj && obj.character_book === null) {
     delete obj.character_book;
@@ -181,6 +275,40 @@ export function normalizeLorebookEntries(dataObj: Record<string, unknown>): void
   }
 
   const characterBook = dataObj.character_book as Record<string, unknown>;
+
+  // Coerce common metadata fields to schema-compatible types.
+  const coerceInt = (value: unknown): number | undefined => {
+    if (typeof value === 'number') return Number.isFinite(value) ? Math.trunc(value) : undefined;
+    if (typeof value === 'string') {
+      const raw = value.trim();
+      if (!raw) return undefined;
+      if (/^\\d+$/.test(raw)) return Number.parseInt(raw, 10);
+      const num = Number(raw);
+      return Number.isFinite(num) ? Math.trunc(num) : undefined;
+    }
+    return undefined;
+  };
+
+  const scanDepth = coerceInt(characterBook.scan_depth);
+  if (scanDepth !== undefined) characterBook.scan_depth = scanDepth;
+  else if (characterBook.scan_depth !== undefined) delete characterBook.scan_depth;
+
+  const tokenBudget = coerceInt(characterBook.token_budget);
+  if (tokenBudget !== undefined) characterBook.token_budget = tokenBudget;
+  else if (characterBook.token_budget !== undefined) delete characterBook.token_budget;
+
+  if (typeof characterBook.recursive_scanning === 'string') {
+    const raw = characterBook.recursive_scanning.trim().toLowerCase();
+    if (raw === 'true') characterBook.recursive_scanning = true;
+    else if (raw === 'false') characterBook.recursive_scanning = false;
+    else delete characterBook.recursive_scanning;
+  } else if (
+    characterBook.recursive_scanning !== undefined &&
+    typeof characterBook.recursive_scanning !== 'boolean'
+  ) {
+    delete characterBook.recursive_scanning;
+  }
+
   if (!Array.isArray(characterBook.entries)) {
     return;
   }

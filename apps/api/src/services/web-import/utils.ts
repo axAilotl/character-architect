@@ -394,13 +394,57 @@ export function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
       if (!('character_version' in dataObj) || !dataObj.character_version) dataObj.character_version = '1.0';
       if (!('tags' in dataObj) || !Array.isArray(dataObj.tags)) dataObj.tags = [];
 
-      // Fix timestamp format (CharacterTavern uses milliseconds)
-      if (typeof dataObj.creation_date === 'number' && dataObj.creation_date > TIMESTAMP_THRESHOLD) {
-        dataObj.creation_date = Math.floor(dataObj.creation_date / 1000);
-      }
-      if (typeof dataObj.modification_date === 'number' && dataObj.modification_date > TIMESTAMP_THRESHOLD) {
-        dataObj.modification_date = Math.floor(dataObj.modification_date / 1000);
-      }
+      const normalizeTimestamp = (field: 'creation_date' | 'modification_date') => {
+        const value = dataObj[field];
+
+        if (typeof value === 'number') {
+          if (!Number.isFinite(value)) {
+            delete dataObj[field];
+            return;
+          }
+          // Fix timestamp format (CharacterTavern uses milliseconds)
+          if (value > TIMESTAMP_THRESHOLD) {
+            dataObj[field] = Math.floor(value / 1000);
+          }
+          return;
+        }
+
+        if (typeof value === 'string') {
+          const raw = value.trim();
+          if (!raw) {
+            delete dataObj[field];
+            return;
+          }
+
+          // Numeric string timestamps (seconds or milliseconds)
+          if (/^\\d+$/.test(raw)) {
+            const num = Number.parseInt(raw, 10);
+            if (!Number.isFinite(num)) {
+              delete dataObj[field];
+              return;
+            }
+            dataObj[field] = num > TIMESTAMP_THRESHOLD ? Math.floor(num / 1000) : num;
+            return;
+          }
+
+          // ISO date strings
+          const ms = Date.parse(raw);
+          if (Number.isNaN(ms)) {
+            delete dataObj[field];
+            return;
+          }
+          dataObj[field] = Math.floor(ms / 1000);
+          return;
+        }
+
+        // Unsupported type for schema (must be number); drop to preserve compatibility.
+        if (value !== undefined) {
+          delete dataObj[field];
+        }
+      };
+
+      normalizeTimestamp('creation_date');
+      normalizeTimestamp('modification_date');
     }
   }
 
