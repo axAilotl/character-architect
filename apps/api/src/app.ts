@@ -109,7 +109,9 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(templateRoutes, apiPrefix);
   await fastify.register(wwwyzzerddRoutes, apiPrefix);
   await fastify.register(comfyuiRoutes, apiPrefix);
-  await fastify.register(webImportRoutes, apiPrefix);
+  if (config.webImport.enabled) {
+    await fastify.register(webImportRoutes, apiPrefix);
+  }
   await fastify.register(imageArchivalRoutes, apiPrefix);
   await fastify.register(charxOptimizerRoutes, apiPrefix);
   await fastify.register(backupRoutes, apiPrefix);
