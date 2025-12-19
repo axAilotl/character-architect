@@ -8,6 +8,7 @@ import { exportCard as exportCardClientSide } from '../../lib/client-export';
 import type { Card, CCv3Data } from '../../lib/types';
 import { SettingsModal } from '../../components/shared/SettingsModal';
 import { useSettingsStore } from '../../store/settings-store';
+import { useTokenStore } from '../../store/token-store';
 import type { CardSyncState } from '../../modules/federation/lib/types';
 import { getExtensions } from '../../lib/card-type-guards';
 import { CardItem, CardSkeleton } from './CardItem';
@@ -27,8 +28,8 @@ function generateUUID(): string {
   });
 }
 
-function computeTotalTokens(card: Card): number {
-  const tokenizer = registry.get('gpt-4');
+function computeTotalTokens(card: Card, tokenizerId: string): number {
+  const tokenizer = registry.get(tokenizerId);
   const data = extractCardData(card);
 
   let total = 0;
@@ -78,6 +79,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [cardsPerPage, setCardsPerPage] = useState(20);
+  const tokenizerModel = useTokenStore((state) => state.tokenizerModel);
   const { importCard, createNewCard } = useCardStore();
 
   const federationEnabled = useSettingsStore(
@@ -110,10 +112,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   useEffect(() => {
     const counts = new Map<string, number>();
     for (const card of cards) {
-      counts.set(card.meta.id, computeTotalTokens(card));
+      counts.set(card.meta.id, computeTotalTokens(card, tokenizerModel));
     }
     setTokenCounts(counts);
-  }, [cards]);
+  }, [cards, tokenizerModel]);
 
   // Federation is an optional module: do not load it (or run any init) unless explicitly enabled.
   useEffect(() => {
