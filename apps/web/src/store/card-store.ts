@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { generateId } from '@card-architect/import-core';
 import type { Card, CCv2Data, CCv3Data, CardMeta } from '../lib/types';
 import type { CharacterBook, CCv2Wrapped } from '@character-foundry/character-foundry/schemas';
 import { api } from '../lib/api';
@@ -173,7 +174,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       if (config.mode === 'light' || config.mode === 'static') {
         const versionNumber = await localDB.getNextVersionNumber(currentCard.meta.id);
         const version = {
-          id: crypto.randomUUID(),
+          id: generateId(),
           cardId: currentCard.meta.id,
           versionNumber,
           message,
@@ -211,7 +212,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       if (config.mode === 'light' || config.mode === 'static') {
         const cardToSave = currentCard.meta.id
           ? currentCard
-          : { ...currentCard, meta: { ...currentCard.meta, id: crypto.randomUUID() } };
+          : { ...currentCard, meta: { ...currentCard.meta, id: generateId() } };
 
         await localDB.saveCard(cardToSave);
 
@@ -398,7 +399,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
         if (result.assets && result.assets.length > 0) {
           console.log(`[importCard] Saving ${result.assets.length} extracted assets`);
           for (const asset of result.assets) {
-            const assetId = crypto.randomUUID();
+            const assetId = generateId();
             // Map string type to valid StoredAsset type
             const validTypes = ['icon', 'background', 'emotion', 'sound', 'workflow', 'lorebook', 'custom'] as const;
             const assetType = validTypes.includes(asset.type as any) ? asset.type as typeof validTypes[number] : 'custom';
@@ -475,7 +476,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
           if (result.assets && result.assets.length > 0) {
             console.log(`[importVoxtaPackage] Saving ${result.assets.length} assets for ${result.card.meta.name}`);
             for (const asset of result.assets) {
-              const assetId = crypto.randomUUID();
+              const assetId = generateId();
               const validTypes = ['icon', 'background', 'emotion', 'sound', 'workflow', 'lorebook', 'custom'] as const;
               const assetType = validTypes.includes(asset.type as any) ? asset.type as typeof validTypes[number] : 'custom';
               await localDB.saveAsset({
@@ -559,7 +560,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
         if (result.assets && result.assets.length > 0) {
           console.log(`[importCardFromURL] Saving ${result.assets.length} assets`);
           for (const asset of result.assets) {
-            const assetId = crypto.randomUUID();
+            const assetId = generateId();
             const validTypes = ['icon', 'background', 'emotion', 'sound', 'workflow', 'lorebook', 'custom'] as const;
             const assetType = validTypes.includes(asset.type as any) ? asset.type as typeof validTypes[number] : 'custom';
             await localDB.saveAsset({

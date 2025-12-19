@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { generateId } from '@card-architect/import-core';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
@@ -13,20 +14,6 @@ import type { CardSyncState } from '../../modules/federation/lib/types';
 import { getExtensions } from '../../lib/card-type-guards';
 import { CardItem, CardSkeleton } from './CardItem';
 import { registry } from '@character-foundry/character-foundry/tokenizers';
-
-/**
- * Generate a UUID that works in non-secure contexts (HTTP)
- */
-function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
 
 function computeTotalTokens(card: Card, tokenizerId: string): number {
   const tokenizer = registry.get(tokenizerId);
@@ -416,7 +403,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                     `[CardGrid] Saving asset: ${asset.name}.${asset.ext} (${asset.type}) for card ${result.card.meta.id}`
                   );
                   await localDB.saveAsset({
-                    id: generateUUID(),
+                    id: generateId(),
                     cardId: result.card.meta.id,
                     name: asset.name,
                     type: asset.type as
@@ -493,7 +480,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 if (result.assets && result.assets.length > 0) {
                   for (const asset of result.assets) {
                     await localDB.saveAsset({
-                      id: generateUUID(),
+                      id: generateId(),
                       cardId: result.card.meta.id,
                       name: asset.name,
                       type: asset.type as
@@ -535,7 +522,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             if (result.assets && result.assets.length > 0) {
               for (const asset of result.assets) {
                 await localDB.saveAsset({
-                  id: generateUUID(),
+                  id: generateId(),
                   cardId: result.card.meta.id,
                   name: asset.name,
                   type: asset.type as

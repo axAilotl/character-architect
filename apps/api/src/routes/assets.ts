@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { join } from 'path';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 import { config } from '../config.js';
 import type { AssetTransformOptions, AssetTag } from '../types/index.js';
 import { detectAnimatedAsset } from '../utils/asset-utils.js';
@@ -59,7 +59,7 @@ export async function assetRoutes(fastify: FastifyInstance) {
     }
 
     // Save to disk
-    const id = nanoid();
+    const id = generateId();
     const ext = data.filename.split('.').pop()?.toLowerCase() || data.mimetype.split('/')[1] || 'bin';
     const filename = `${id}.${ext}`;
     const filepath = join(config.storagePath, filename);
@@ -170,7 +170,7 @@ export async function assetRoutes(fastify: FastifyInstance) {
     const metadata = await sharp(buffer).metadata();
 
     // Save transformed image
-    const newId = nanoid();
+    const newId = generateId();
     const ext = options.format || asset.mimetype.split('/')[1];
     const filename = `${newId}.${ext}`;
     const newFilepath = join(config.storagePath, filename);
@@ -298,7 +298,7 @@ export async function assetRoutes(fastify: FastifyInstance) {
     }
 
     // Save to card's storage directory
-    const assetId = nanoid();
+    const assetId = generateId();
     const filename = `${assetId}.${ext}`;
     const cardStorageDir = join(config.storagePath, request.params.id);
 

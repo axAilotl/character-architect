@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AutoForm } from '@character-foundry/character-foundry/app-framework';
+import { generateId } from '@card-architect/import-core';
 import { useSettingsStore } from '../../../store/settings-store';
 import { api } from '../../../lib/api';
 import { getDeploymentConfig } from '../../../config/deployment';
@@ -84,7 +85,7 @@ export function PresetsSettingsPanel() {
 
         const nowTs = new Date().toISOString();
         const newPreset: UserPreset = {
-          id: editingPreset.id || crypto.randomUUID(),
+          id: editingPreset.id || generateId(),
           name: editingPreset.name,
           description: editingPreset.description || '',
           instruction: editingPreset.instruction,
@@ -237,7 +238,7 @@ export function PresetsSettingsPanel() {
           if (userPresets.some(p => p.id === preset.id)) continue;
           userPresets.push({
             ...preset,
-            id: preset.id || crypto.randomUUID(),
+            id: preset.id || generateId(),
             isBuiltIn: false,
           });
           imported++;
@@ -421,7 +422,7 @@ export function PresetsSettingsPanel() {
                                 const userPresets: UserPreset[] = stored ? JSON.parse(stored) : [];
                                 const copyNow = new Date().toISOString();
                                 const newPreset: UserPreset = {
-                                  id: crypto.randomUUID(),
+                                  id: generateId(),
                                   name: `${preset.name} (Copy)`,
                                   description: preset.description || '',
                                   instruction: preset.instruction,

@@ -5,6 +5,7 @@
  * and add local editor adapter for Character Architect.
  */
 
+import { generateId } from '@card-architect/import-core';
 import type { CCv3Data } from '../../../lib/types';
 import type { PlatformId, PlatformAdapter, AdapterCard, AdapterAsset } from './types';
 import { localDB } from '../../../lib/db';
@@ -192,7 +193,7 @@ export class LocalEditorAdapter implements PlatformAdapter {
   }
 
   async saveCard(card: CCv3Data, localId?: string): Promise<string> {
-    const id = localId || crypto.randomUUID();
+    const id = localId || generateId();
 
     if (this.isLightMode()) {
       // Light mode: save to IndexedDB

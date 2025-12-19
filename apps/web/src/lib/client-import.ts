@@ -9,23 +9,8 @@ import { isPNG } from '@character-foundry/character-foundry/png';
 import { parseCard as parseCardLoader, getContainerFormat, type ExtractedAsset as LoaderAsset } from '@character-foundry/character-foundry/loader';
 import { readVoxta as extractVoxtaPackage, voxtaToCCv3 } from '@character-foundry/character-foundry/voxta';
 import { parseLorebook, detectLorebookFormat } from '@character-foundry/character-foundry/lorebook';
+import { generateId } from '@card-architect/import-core';
 import type { Card, CCv2Data, CCv3Data, CollectionData, CollectionMember } from './types';
-
-/**
- * Generate a UUID that works in non-secure contexts (HTTP)
- * Falls back to a random string if crypto.randomUUID is not available
- */
-function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  // Fallback for non-secure contexts
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
 
 // Asset extracted from CHARX/Voxta for storing in IndexedDB
 export interface ExtractedAsset {
@@ -195,7 +180,7 @@ function createCard(
   spec: 'v2' | 'v3',
   options?: { packageId?: string }
 ): Card {
-  const id = generateUUID();
+  const id = generateId();
   const now = new Date().toISOString();
 
   // Extract name from data
@@ -231,7 +216,7 @@ function createLorebookCard(
   book: import('@character-foundry/lorebook').ParsedLorebook['book'],
   fileName: string
 ): Card {
-  const id = generateUUID();
+  const id = generateId();
   const now = new Date().toISOString();
   const name = book.name || fileName.replace(/\.[^/.]+$/, '') || 'Imported Lorebook';
 
@@ -370,7 +355,7 @@ function createCollectionCard(
   },
   members: CollectionMember[]
 ): Card {
-  const id = generateUUID();
+  const id = generateId();
   const now = new Date().toISOString();
 
   const collectionData: CollectionData = {

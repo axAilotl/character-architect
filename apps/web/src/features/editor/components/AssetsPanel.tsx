@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { generateId } from '@card-architect/import-core';
 import { useCardStore } from '../../../store/card-store';
 import { useSettingsStore } from '../../../store/settings-store';
 import { getDeploymentConfig } from '../../../config/deployment';
@@ -407,7 +408,7 @@ export function AssetsPanel() {
           const dimensions = await getImageDimensions(dataUrl);
 
           const asset: StoredAsset = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             cardId: currentCard.meta.id,
             name: name.replace(/\.[^/.]+$/, ''), // Remove extension from name
             type: uploadType as StoredAsset['type'],

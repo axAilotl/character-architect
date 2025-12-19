@@ -7,8 +7,8 @@
  */
 
 import type { StorageAdapter, AssetData, AssetLink, CardData } from '@card-architect/import-core';
+import { generateId } from '@card-architect/import-core';
 import type { LocalDB } from '../lib/db.js';
-import { nanoid } from 'nanoid';
 
 /**
  * Convert Buffer or Uint8Array to base64 data URL
@@ -40,7 +40,7 @@ export class ClientStorageAdapter implements StorageAdapter {
   // ============================================================================
 
   async createCard(data: CardData): Promise<{ cardId: string }> {
-    const cardId = nanoid();
+    const cardId = generateId();
     const now = new Date().toISOString();
 
     // Format as Card for IndexedDB (includes meta.id and timestamps)
@@ -99,7 +99,7 @@ export class ClientStorageAdapter implements StorageAdapter {
   // ============================================================================
 
   async createAsset(assetData: AssetData): Promise<{ assetId: string; url: string }> {
-    const assetId = nanoid();
+    const assetId = generateId();
 
     // Convert buffer to data URL
     const dataUrl = bufferToDataURL(assetData.buffer, assetData.mimetype);
@@ -155,7 +155,7 @@ export class ClientStorageAdapter implements StorageAdapter {
     assetData: AssetData,
     link: AssetLink
   ): Promise<string> {
-    const assetId = nanoid();
+    const assetId = generateId();
     const now = new Date().toISOString();
     const dataUrl = bufferToDataURL(assetData.buffer, assetData.mimetype);
 

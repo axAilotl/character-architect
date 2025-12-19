@@ -7,6 +7,7 @@
  */
 
 import { extractFromPNG, isPNG } from '@character-foundry/character-foundry/png';
+import { generateId } from '@card-architect/import-core';
 import type { Card, CCv2Data, CCv3Data } from './types';
 import { localDB } from './db';
 
@@ -117,7 +118,7 @@ function createCard(
   data: CCv2Data | CCv3Data,
   spec: 'v2' | 'v3'
 ): Card {
-  const id = crypto.randomUUID();
+  const id = generateId();
   const now = new Date().toISOString();
 
   // Extract name from data

@@ -7,7 +7,7 @@
 import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 
 import type {
   WebImportSettings,
@@ -298,7 +298,7 @@ export async function saveAssetToStorage(
   storagePath: string,
   subdir?: string
 ): Promise<string> {
-  const assetId = nanoid();
+  const assetId = generateId();
   const filename = `${assetId}.${ext}`;
   const cardDir = subdir
     ? join(storagePath, cardId, subdir)

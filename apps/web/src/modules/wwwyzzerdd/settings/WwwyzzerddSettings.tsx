@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { AutoForm } from '@character-foundry/character-foundry/app-framework';
+import { generateId } from '@card-architect/import-core';
 import { useSettingsStore } from '../../../store/settings-store';
 import { getDeploymentConfig } from '../../../config/deployment';
 import {
@@ -77,7 +78,7 @@ export function WwwyzzerddSettings() {
       // Save to localStorage in light mode
       try {
         const newPromptSet: WwwyzzerddPromptSet = {
-          id: editingPromptSet.id || crypto.randomUUID(),
+          id: editingPromptSet.id || generateId(),
           name: editingPromptSet.name,
           description: editingPromptSet.description,
           characterPrompt: editingPromptSet.characterPrompt,
@@ -165,7 +166,7 @@ export function WwwyzzerddSettings() {
       if (!original) return;
       const copy: WwwyzzerddPromptSet = {
         ...original,
-        id: crypto.randomUUID(),
+        id: generateId(),
         name: `${original.name} (Copy)`,
         isDefault: false,
       };
@@ -241,7 +242,7 @@ export function WwwyzzerddSettings() {
         const existing = promptSets.filter(p => p.isDefault);
         const newSets = imported.map((p: WwwyzzerddPromptSet) => ({
           ...p,
-          id: crypto.randomUUID(), // Give new IDs to avoid conflicts
+          id: generateId(), // Give new IDs to avoid conflicts
           isDefault: false,
         }));
         const updated = [...existing, ...newSets];

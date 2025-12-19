@@ -6,6 +6,7 @@
  * Used in 'light' and 'static' deployment modes.
  */
 
+import { generateId } from '@card-architect/import-core';
 import type { Card, Template, Snippet } from '../../lib/types';
 import { localDB, type StoredAsset, type StoredVersion } from '../../lib/db';
 import { defaultTemplates, defaultSnippets } from '../../lib/default-templates';
@@ -77,7 +78,7 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
           ...card,
           meta: {
             ...card.meta,
-            id: crypto.randomUUID(),
+            id: generateId(),
           },
         };
 
@@ -126,7 +127,7 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
 
     const now = new Date().toISOString();
     const asset: StoredAsset = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       cardId,
       name,
       type,
@@ -189,7 +190,7 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
     const now = new Date().toISOString();
     const newTemplate: Template = {
       ...template,
-      id: crypto.randomUUID(),
+      id: generateId(),
       createdAt: now,
       updatedAt: now,
     };
@@ -256,7 +257,7 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
     const now = new Date().toISOString();
     const newSnippet: Snippet = {
       ...snippet,
-      id: crypto.randomUUID(),
+      id: generateId(),
       createdAt: now,
       updatedAt: now,
     };
@@ -317,7 +318,7 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
   async createVersion(cardId: string, data: Card['data'], message?: string): Promise<Version> {
     const versionNumber = await localDB.getNextVersionNumber(cardId);
     const version: StoredVersion = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       cardId,
       versionNumber,
       message,

@@ -10,7 +10,7 @@
 
 import type { StorageAdapter, AssetData, AssetLink, CardData } from '@card-architect/import-core';
 import type { CardRepository, AssetRepository, CardAssetRepository } from '../db/repository.js';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 import { join } from 'path';
 import { writeFile } from 'fs/promises';
 
@@ -73,7 +73,7 @@ export class ServerStorageAdapter implements StorageAdapter {
 
   async createAsset(assetData: AssetData): Promise<{ assetId: string; url: string }> {
     // 1. Generate filename and save to filesystem
-    const fileId = nanoid();
+    const fileId = generateId();
     const ext = assetData.filename.split('.').pop() || 'bin';
     const storageFilename = `${fileId}.${ext}`;
     const storagePath = join(this.storagePath, storageFilename);

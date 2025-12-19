@@ -10,7 +10,7 @@
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 import { promises as fs } from 'fs';
 import { basename, dirname } from 'path';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 import { CardRepository, AssetRepository, CardAssetRepository } from '../db/repository.js';
 import { PresetRepository } from '../db/preset-repository.js';
 import { getSchemaVersion } from '../db/migrations.js';
@@ -476,8 +476,8 @@ export class BackupService {
 
       for (const [index, clientAsset] of cardAssets.entries()) {
         const ext = (clientAsset.ext || 'bin').replace(/^\./, '').toLowerCase() || 'bin';
-        const assetId = nanoid();
-        const cardAssetId = nanoid();
+        const assetId = generateId();
+        const cardAssetId = generateId();
 
         const filenameOnDisk = `${assetId}.${ext}`;
         const assetUrl = `/storage/${cardId}/${filenameOnDisk}`;

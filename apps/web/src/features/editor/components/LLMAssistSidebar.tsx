@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { generateId } from '@card-architect/import-core';
 import { useLLMStore } from '../../../store/llm-store';
 import { api } from '../../../lib/api';
 import { getDeploymentConfig } from '../../../config/deployment';
@@ -361,7 +362,7 @@ Respond with ONLY the revised text. Do not include explanations or markdown form
       // Save to localStorage in light mode
       const saveNow = new Date().toISOString();
       const newPreset: UserPreset = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         name: name.trim(),
         instruction: instruction.trim(),
         category: 'custom',
