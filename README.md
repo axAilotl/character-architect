@@ -12,7 +12,7 @@
 - **Voxta Support** - Import/Export `.voxpkg` files with full asset and metadata preservation
   - Multi-character packages imported as Collections with linked character cards
   - Single-character export or full collection re-export
-- **Real-time Token Counting** - Per-field and global token estimates using Hugging Face tokenizers
+- **Real-time Token Counting** - Per-field and global token estimates using Character Foundry tokenizers (`@character-foundry/character-foundry/tokenizers`)
 - **Lorebook Editor** - Complete CCv3 character book with all fields (keywords, secondary, priority, selective AND/NOT, probability, constant, insertion order/position)
 - **Standalone Lorebooks** - Create, import, and manage lorebooks independently from character cards
   - Import from SillyTavern, Agnai, RisuAI, and Wyvern formats
@@ -260,7 +260,6 @@ Character Architect is a monorepo with:
 - `@character-foundry/character-foundry/image-utils` - Image URL extraction + SSRF policy helpers (subpath export)
 - `fflate` - Fast compression (ZIP/GZIP)
 - `zod` - Runtime schema validation
-- `gpt-tokenizer` - Token counting for LLMs
 
 ### Tech Stack
 
@@ -281,6 +280,8 @@ Character Architect is a monorepo with:
 ### Module System
 
 Optional features are loaded as modules with auto-discovery using Vite's `import.meta.glob`:
+- **Module metadata** is eagerly loaded (safe, no side effects).
+- **Module runtime code** is lazy-loaded only when enabled.
 
 ```
 /apps/web/src/modules/
@@ -294,9 +295,11 @@ Optional features are loaded as modules with auto-discovery using Vite's `import
 ```
 
 **Adding a new module:**
-1. Create `modules/{your-module}/index.ts`
-2. Export `register{YourModule}Module()` function
-3. That's it - auto-discovered on next build/refresh
+1. Create `modules/{your-module}/metadata.ts` exporting `MODULE_METADATA` (no side effects).
+2. Create `modules/{your-module}/index.ts` exporting `register{YourModule}Module()` and re-export `MODULE_METADATA`.
+3. Keep any initialization inside the register function (module code should not run unless enabled).
+
+See `docs/MODULES.md` for full authoring details.
 
 Feature flags are derived from folder names: `comfyui` → `comfyuiEnabled`
 
@@ -398,6 +401,10 @@ STORAGE_PATH=./storage
 # MAX_PNG_SIZE_MB=300
 # ZIP_MAX_UNCOMPRESSED_SIZE_MB=500
 # ZIP_MAX_FILE_SIZE_MB=50
+
+# Optional server routes for modules
+# FEDERATION_ENABLED=false
+# WEB_IMPORT_ENABLED=false
 ```
 
 ## API Reference
@@ -410,6 +417,7 @@ POST   /api/cards                     # Create card
 PATCH  /api/cards/:id                 # Update card
 DELETE /api/cards/:id                 # Delete card
 GET    /api/cards/:id/export?format=  # Export (json|png|charx|voxta)
+POST   /api/unified-import            # Unified import (png|json|charx|voxpkg)
 ```
 
 ### Versions
