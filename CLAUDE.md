@@ -56,21 +56,21 @@ npm install
   - `/normalizer` - V2 ↔ V3 conversion
   - `/core` - Binary utilities, base64, ZIP, data URLs
 
-**Local Unpublished Package:**
-- `@character-foundry/image-utils` - SSRF protection and image URL extraction (file: reference from parent monorepo)
+**Bundled Subpath Export:**
+- `@character-foundry/character-foundry/image-utils` - SSRF protection and image URL extraction helpers
 
 ### Canonical Implementations
 
 **Image URL Extraction** - Use `extractRemoteImageUrls()` from image-utils:
 ```typescript
-import { extractRemoteImageUrls } from '@character-foundry/image-utils';
+import { extractRemoteImageUrls } from '@character-foundry/character-foundry/image-utils';
 const images = extractRemoteImageUrls(greeting);
 // Detects: markdown, HTML img, CSS url(), plain URLs
 ```
 
 **SSRF Protection** - Use `isURLSafe()` from image-utils:
 ```typescript
-import { isURLSafe } from '@character-foundry/image-utils';
+import { isURLSafe } from '@character-foundry/character-foundry/image-utils';
 const check = isURLSafe(url, policy);
 if (!check.safe) console.error(check.reason);
 ```
@@ -112,6 +112,12 @@ CCv3Data is wrapped: `{ spec: 'chara_card_v3', spec_version: '3.0', data: { ... 
 - `PATCH /api/cards/:id` - Update card
 - `DELETE /api/cards/:id` - Delete card
 - `GET /api/cards/:id/export?format=json|png|charx|voxta` - Export
+- `POST /api/unified-import` - Unified import (png|json|charx|voxpkg)
+
+### Route Feature Flags (API)
+
+- `FEDERATION_ENABLED=true` - Enables federation routes under `/api/federation/*` (default: off)
+- `WEB_IMPORT_ENABLED=false` - Disables web import routes under `/api/web-import/*` (default: on)
 
 ## Database
 
@@ -225,11 +231,12 @@ Auto-detection: localhost/LAN → full, otherwise → light.
 
 ### Adding a New Module
 
-1. Create folder: `apps/web/src/modules/{module-id}/index.ts`
-2. Export `MODULE_METADATA` with all required fields
-3. Export `register{PascalCaseId}Module()` function
+1. Create folder: `apps/web/src/modules/{module-id}/`
+2. Add `metadata.ts` exporting `MODULE_METADATA` (no side effects)
+3. Add `index.ts` exporting `register{PascalCaseId}Module()` and re-exporting `MODULE_METADATA`
 4. If module needs server backend, set `requiresServer: true`
-5. Register tabs/panels in the register function:
+5. Keep any initialization inside the register function (module code must not run unless enabled)
+6. Register tabs/panels in the register function:
 
 ```typescript
 export function registerMyModuleModule(): void {
