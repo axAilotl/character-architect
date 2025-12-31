@@ -75,11 +75,20 @@ export const llmInvokeSchema = z.object({
 
 // LLM assist context
 const llmAssistContextSchema = z.object({
-  field: z.string(),
+  fieldName: z.string(),
   currentValue: z.string(),
-  spec: z.enum(['v2', 'v3']).optional(),
+  selection: z.string().optional(),
+  spec: z.enum(['v2', 'v3', 'collection', 'lorebook']).optional(),
   cardName: z.string().optional(),
   cardData: z.record(z.unknown()).optional(),
+  ragSnippets: z.array(z.object({
+    id: z.string(),
+    sourceId: z.string(),
+    sourceTitle: z.string().optional(),
+    content: z.string(),
+    score: z.number(),
+    tokenCount: z.number().optional(),
+  })).optional(),
 });
 
 // LLM assist request

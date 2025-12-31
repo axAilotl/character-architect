@@ -487,11 +487,10 @@ export interface RagContextSnippet {
  * Field context for LLM operations
  */
 export interface FieldContext {
-  field: string;
-  fieldName?: string;
+  fieldName: string;
   currentValue: string;
   selection?: string;
-  spec?: 'v2' | 'v3';
+  spec?: 'v2' | 'v3' | 'collection' | 'lorebook';
   cardName?: string;
   cardData?: Record<string, unknown>;
   otherFields?: Record<string, string>;
