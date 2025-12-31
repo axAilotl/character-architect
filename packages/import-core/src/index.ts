@@ -3,6 +3,9 @@
  * Shared import logic for Character Architect
  */
 
+// Export ID utility
+export { generateId } from './utils/id.js';
+
 // Export types
 export * from './types/index.js';
 

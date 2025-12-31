@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { generateId } from '@card-architect/import-core';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
@@ -7,28 +8,15 @@ import { importCardClientSide, importVoxtaPackageClientSide } from '../../lib/cl
 import { exportCard as exportCardClientSide } from '../../lib/client-export';
 import type { Card, CCv3Data } from '../../lib/types';
 import { SettingsModal } from '../../components/shared/SettingsModal';
-import { useFederationStore } from '../../modules/federation/lib/federation-store';
+import { useSettingsStore } from '../../store/settings-store';
+import { useTokenStore } from '../../store/token-store';
 import type { CardSyncState } from '../../modules/federation/lib/types';
 import { getExtensions } from '../../lib/card-type-guards';
 import { CardItem, CardSkeleton } from './CardItem';
 import { registry } from '@character-foundry/character-foundry/tokenizers';
 
-/**
- * Generate a UUID that works in non-secure contexts (HTTP)
- */
-function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-function computeTotalTokens(card: Card): number {
-  const tokenizer = registry.get('gpt-4');
+function computeTotalTokens(card: Card, tokenizerId: string): number {
+  const tokenizer = registry.get(tokenizerId);
   const data = extractCardData(card);
 
   let total = 0;
@@ -78,16 +66,12 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [cardsPerPage, setCardsPerPage] = useState(20);
+  const tokenizerModel = useTokenStore((state) => state.tokenizerModel);
   const { importCard, createNewCard } = useCardStore();
 
-  // Federation sync states (only for full mode)
-  const {
-    syncStates,
-    initialize: initFederation,
-    initialized: federationInitialized,
-    pollPlatformSyncState,
-    settings: federationSettings,
-  } = useFederationStore();
+  const federationEnabled = useSettingsStore(
+    (state) => state.features?.federationEnabled ?? false
+  );
   const [cardSyncMap, setCardSyncMap] = useState<Map<string, CardSyncState>>(new Map());
 
   const [totalCards, setTotalCards] = useState(0);
@@ -115,58 +99,78 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   useEffect(() => {
     const counts = new Map<string, number>();
     for (const card of cards) {
-      counts.set(card.meta.id, computeTotalTokens(card));
+      counts.set(card.meta.id, computeTotalTokens(card, tokenizerModel));
     }
     setTokenCounts(counts);
-  }, [cards]);
+  }, [cards, tokenizerModel]);
 
-  // Initialize federation and track sync states (only for full mode)
+  // Federation is an optional module: do not load it (or run any init) unless explicitly enabled.
   useEffect(() => {
     const config = getDeploymentConfig();
-    if (config.mode === 'full' && !federationInitialized) {
-      initFederation();
+    if (config.mode !== 'full' || !federationEnabled) {
+      setCardSyncMap(new Map());
+      return;
     }
-  }, [federationInitialized, initFederation]);
 
-  // Poll connected platforms to get actual sync state
-  useEffect(() => {
-    const config = getDeploymentConfig();
-    if (config.mode !== 'full' || !federationInitialized) return;
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
 
-    // Poll each connected platform
-    const pollPlatforms = async () => {
-      const platforms = federationSettings?.platforms || {};
-
-      // Poll SillyTavern if connected
-      if (platforms.sillytavern?.enabled && platforms.sillytavern?.connected) {
-        await pollPlatformSyncState('sillytavern');
+    const buildSyncMap = (syncStates: CardSyncState[]) => {
+      const map = new Map<string, CardSyncState>();
+      for (const state of syncStates) {
+        if (state.localId) map.set(state.localId, state);
       }
+      return map;
+    };
 
-      // Poll Character Archive if connected
-      if (platforms.archive?.enabled && platforms.archive?.connected) {
-        await pollPlatformSyncState('archive');
-      }
+    const loadFederation = async () => {
+      try {
+        const { useFederationStore } = await import('../../modules/federation/lib/federation-store');
+        const state = useFederationStore.getState();
 
-      // Poll CardsHub if connected
-      if (platforms.hub?.enabled && platforms.hub?.connected) {
-        await pollPlatformSyncState('hub');
+        if (!state.initialized) {
+          await state.initialize();
+        }
+
+        if (cancelled) return;
+
+        // Initial sync state map
+        setCardSyncMap(buildSyncMap(useFederationStore.getState().syncStates));
+
+        // Subscribe for updates without using the federation hook (keeps the module unloaded when disabled)
+        unsubscribe = useFederationStore.subscribe((next, prev) => {
+          if (cancelled) return;
+          if (next.syncStates !== prev.syncStates) {
+            setCardSyncMap(buildSyncMap(next.syncStates));
+          }
+        });
+
+        // Poll connected platforms once to refresh actual state
+        const refreshed = useFederationStore.getState();
+        const platforms = refreshed.settings?.platforms || {};
+
+        if (platforms.sillytavern?.enabled && platforms.sillytavern?.connected) {
+          await refreshed.pollPlatformSyncState('sillytavern');
+        }
+        if (platforms.archive?.enabled && platforms.archive?.connected) {
+          await refreshed.pollPlatformSyncState('archive');
+        }
+        if (platforms.hub?.enabled && platforms.hub?.connected) {
+          await refreshed.pollPlatformSyncState('hub');
+        }
+      } catch (err) {
+        console.error('[CardGrid] Failed to load federation module:', err);
+        setCardSyncMap(new Map());
       }
     };
 
-    pollPlatforms();
-  }, [federationInitialized, federationSettings, pollPlatformSyncState]);
+    void loadFederation();
 
-  // Build a map of cardId -> syncState for quick lookup
-  useEffect(() => {
-    const map = new Map<string, CardSyncState>();
-    for (const state of syncStates) {
-      // Map by localId (our local card ID)
-      if (state.localId) {
-        map.set(state.localId, state);
-      }
-    }
-    setCardSyncMap(map);
-  }, [syncStates]);
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [federationEnabled]);
 
   const loadCards = async (query: string = '') => {
     setLoading(true);
@@ -399,7 +403,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                     `[CardGrid] Saving asset: ${asset.name}.${asset.ext} (${asset.type}) for card ${result.card.meta.id}`
                   );
                   await localDB.saveAsset({
-                    id: generateUUID(),
+                    id: generateId(),
                     cardId: result.card.meta.id,
                     name: asset.name,
                     type: asset.type as
@@ -476,7 +480,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 if (result.assets && result.assets.length > 0) {
                   for (const asset of result.assets) {
                     await localDB.saveAsset({
-                      id: generateUUID(),
+                      id: generateId(),
                       cardId: result.card.meta.id,
                       name: asset.name,
                       type: asset.type as
@@ -518,7 +522,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             if (result.assets && result.assets.length > 0) {
               for (const asset of result.assets) {
                 await localDB.saveAsset({
-                  id: generateUUID(),
+                  id: generateId(),
                   cardId: result.card.meta.id,
                   name: asset.name,
                   type: asset.type as

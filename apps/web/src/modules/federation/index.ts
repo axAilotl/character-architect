@@ -13,21 +13,7 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import type { ModuleDefinition } from '../../lib/registry/types';
-
-/**
- * Module metadata for auto-discovery
- */
-export const MODULE_METADATA: ModuleDefinition = {
-  id: 'federation',
-  name: 'Federation',
-  description: 'Sync character cards across SillyTavern, CardsHub, and Character Archive.',
-  defaultEnabled: false,
-  badge: 'Sync',
-  color: 'cyan',
-  order: 60,
-  requiresServer: true,
-};
+export { MODULE_METADATA } from './metadata';
 
 // Lazy-load the settings component
 const FederationSettings = lazy(() =>
@@ -63,6 +49,4 @@ export function unregisterFederationModule(): void {
   console.log('[federation] Module unregistered');
 }
 
-// Re-export the store for use in other components
-export { useFederationStore } from './lib/federation-store';
 export type { PlatformId, CardSyncState, SyncResult } from './lib/types';

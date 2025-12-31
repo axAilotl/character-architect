@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 import type { Card, CardMeta, CardUpdate, CardVersion, Spec, CardAsset, CardAssetWithDetails, Asset } from '../types/index.js';
 
 export class CardRepository {
@@ -60,7 +60,7 @@ export class CardRepository {
    * Create a new card
    */
   create(card: Omit<Card, 'meta'> & { meta: Omit<CardMeta, 'id' | 'createdAt' | 'updatedAt'> }, originalImage?: Buffer): Card {
-    const id = nanoid();
+    const id = generateId();
     const now = new Date().toISOString();
 
     const meta: CardMeta = {
@@ -180,7 +180,7 @@ export class CardRepository {
     const { count } = countStmt.get(cardId) as { count: number };
 
     const version: CardVersion = {
-      id: nanoid(),
+      id: generateId(),
       cardId,
       version: count + 1,
       data: card.data,
@@ -310,7 +310,7 @@ export class AssetRepository {
   constructor(private db: Database.Database) {}
 
   create(asset: Omit<Asset, 'id' | 'createdAt'>): Asset {
-    const id = nanoid();
+    const id = generateId();
     const now = new Date().toISOString();
 
     const stmt = this.db.prepare(`
@@ -369,7 +369,7 @@ export class CardAssetRepository {
    * Create a card asset association
    */
   create(cardAsset: Omit<CardAsset, 'id' | 'createdAt' | 'updatedAt'>): CardAsset {
-    const id = nanoid();
+    const id = generateId();
     const now = new Date().toISOString();
 
     const stmt = this.db.prepare(`

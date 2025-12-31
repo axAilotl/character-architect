@@ -3,7 +3,6 @@
  */
 
 import { useState, Suspense } from 'react';
-import { TemplateSnippetPanel } from '../../features/editor/components/TemplateSnippetPanel';
 import { useSettingsPanels, useModules } from '../../lib/registry/hooks';
 import { registry } from '../../lib/registry';
 import type { SettingsPanelDefinition, ModuleDefinition } from '../../lib/registry/types';
@@ -146,16 +145,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <panel.component />
                 </Suspense>
               )
-          )}
-
-          {/* Special Case: Templates (Legacy, not yet a registered panel) */}
-          {activeTab === 'templates' && (
-            <TemplateSnippetPanel
-              isOpen={true}
-              onClose={() => {}}
-              manageMode={true}
-              embedded={true}
-            />
           )}
         </div>
 

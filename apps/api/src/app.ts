@@ -10,9 +10,6 @@ import { tokenizeRoutes } from './routes/tokenize.js';
 import { importExportRoutes } from './routes/import-export.js';
 import unifiedImportRoutes from './routes/unified-import.js';
 import { assetRoutes } from './routes/assets.js';
-import { promptSimulatorRoutes } from './routes/prompt-simulator.js';
-import { redundancyRoutes } from './routes/redundancy.js';
-import { loreTriggerRoutes } from './routes/lore-trigger.js';
 import { llmRoutes } from './routes/llm.js';
 import { ragRoutes } from './routes/rag.js';
 import { presetRoutes } from './routes/presets.js';
@@ -107,15 +104,14 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(llmRoutes, apiPrefix);
   await fastify.register(ragRoutes, apiPrefix);
   await fastify.register(presetRoutes, apiPrefix);
-  await fastify.register(promptSimulatorRoutes, apiPrefix);
-  await fastify.register(redundancyRoutes, apiPrefix);
-  await fastify.register(loreTriggerRoutes, apiPrefix);
   await fastify.register(sillyTavernRoutes, apiPrefix);
   await fastify.register(settingsRoutes, apiPrefix);
   await fastify.register(templateRoutes, apiPrefix);
   await fastify.register(wwwyzzerddRoutes, apiPrefix);
   await fastify.register(comfyuiRoutes, apiPrefix);
-  await fastify.register(webImportRoutes, apiPrefix);
+  if (config.webImport.enabled) {
+    await fastify.register(webImportRoutes, apiPrefix);
+  }
   await fastify.register(imageArchivalRoutes, apiPrefix);
   await fastify.register(charxOptimizerRoutes, apiPrefix);
   await fastify.register(backupRoutes, apiPrefix);
@@ -125,7 +121,9 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(userImagesRoutes);
 
   // Federation routes (no prefix - routes define their own /api/federation paths)
-  await fastify.register(federationRoutes);
+  if (config.security.federation.enabled) {
+    await fastify.register(federationRoutes);
+  }
 
   // Add hook to close database when server closes
   fastify.addHook('onClose', async () => {

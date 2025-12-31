@@ -14,7 +14,7 @@ import {
 import type { VoxtaScenario } from '@character-foundry/character-foundry/voxta';
 import type { AssetTag, AssetType } from '../types/index.js';
 import { detectAnimatedAsset } from '../utils/asset-utils.js';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 import { join } from 'path';
 import { writeFile, readFile } from 'fs/promises';
 import { config } from '../config.js';
@@ -296,7 +296,7 @@ export class VoxtaImportService {
    * Store the original .voxpkg bytes as an asset for future delta export
    */
   private async storeOriginalPackage(cardId: string, packageBytes: Buffer): Promise<void> {
-    const fileId = nanoid();
+    const fileId = generateId();
     const storageFilename = `${fileId}.voxpkg`;
     const storagePath = join(config.storagePath, storageFilename);
 
@@ -426,7 +426,7 @@ export class VoxtaImportService {
       }
 
       // Save file to storage
-      const fileId = nanoid();
+      const fileId = generateId();
       const storageFilename = `${fileId}.${ext}`;
       const storagePath = join(config.storagePath, storageFilename);
       

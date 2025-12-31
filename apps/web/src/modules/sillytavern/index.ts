@@ -8,21 +8,7 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import type { ModuleDefinition } from '../../lib/registry/types';
-
-/**
- * Module metadata for auto-discovery
- */
-export const MODULE_METADATA: ModuleDefinition = {
-  id: 'sillytavern',
-  name: 'SillyTavern',
-  description: 'Push character cards directly to SillyTavern via API.',
-  defaultEnabled: false,
-  badge: 'Push',
-  color: 'pink',
-  order: 50,
-  requiresServer: true,
-};
+export { MODULE_METADATA } from './metadata';
 
 // Lazy-load the settings component
 const SillyTavernSettings = lazy(() =>

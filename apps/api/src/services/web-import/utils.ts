@@ -7,7 +7,7 @@
 import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 
 import type {
   WebImportSettings,
@@ -20,7 +20,6 @@ import type {
 import {
   DEFAULT_CHUB_VOICE_UUIDS,
   APP_USER_AGENT,
-  TIMESTAMP_THRESHOLD,
 } from './constants.js';
 import { validateURL } from '../../utils/ssrf-protection.js';
 
@@ -299,7 +298,7 @@ export async function saveAssetToStorage(
   storagePath: string,
   subdir?: string
 ): Promise<string> {
-  const assetId = nanoid();
+  const assetId = generateId();
   const filename = `${assetId}.${ext}`;
   const cardDir = subdir
     ? join(storagePath, cardId, subdir)
@@ -317,96 +316,4 @@ export async function saveAssetToStorage(
 // Card Data Normalization
 // ============================================================================
 
-/**
- * Normalize card data for import
- * Handles platform-specific quirks and ensures spec compliance
- *
- * @param cardData - Raw card data from site
- * @param spec - Target spec version
- */
-export function normalizeCardData(cardData: unknown, spec: 'v2' | 'v3'): void {
-  if (!cardData || typeof cardData !== 'object') return;
-
-  const obj = cardData as Record<string, unknown>;
-
-  // Handle hybrid v2 formats (Wyvern duplicates fields at root and in data)
-  const cardFields = [
-    'name', 'description', 'personality', 'scenario', 'first_mes', 'mes_example',
-    'creator_notes', 'system_prompt', 'post_history_instructions', 'alternate_greetings',
-    'character_book', 'tags', 'creator', 'character_version', 'extensions',
-  ];
-
-  if (spec === 'v2' && 'spec' in obj) {
-    // Remove root duplicates if data object exists
-    if ('data' in obj && typeof obj.data === 'object' && obj.data && 'name' in obj) {
-      for (const field of cardFields) {
-        if (field in obj) delete obj[field];
-      }
-    }
-    // Wrap root fields into data object if missing
-    else if ('name' in obj && !('data' in obj)) {
-      const dataObj: Record<string, unknown> = {};
-      for (const field of cardFields) {
-        if (field in obj) {
-          dataObj[field] = obj[field];
-          delete obj[field];
-        }
-      }
-      obj.data = dataObj;
-    }
-  }
-
-  // Fix spec values
-  if (spec === 'v2' && 'spec' in obj && obj.spec !== 'chara_card_v2') {
-    obj.spec = 'chara_card_v2';
-    if (!obj.spec_version) obj.spec_version = '2.0';
-  }
-
-  if (spec === 'v3' && 'spec' in obj && obj.spec !== 'chara_card_v3') {
-    obj.spec = 'chara_card_v3';
-    if (!obj.spec_version || !String(obj.spec_version).startsWith('3')) {
-      obj.spec_version = '3.0';
-    }
-  }
-
-  // Sanitize data object
-  if ('data' in obj && obj.data && typeof obj.data === 'object') {
-    const dataObj = obj.data as Record<string, unknown>;
-
-    // Remove null character_book
-    if (dataObj.character_book === null) delete dataObj.character_book;
-
-    // Sanitize creator - must be string (Wyvern returns user objects)
-    if (dataObj.creator && typeof dataObj.creator === 'object') {
-      const creatorObj = dataObj.creator as Record<string, unknown>;
-      dataObj.creator = creatorObj.displayName || creatorObj.name || creatorObj.uid || '';
-    }
-
-    // Sanitize tags - must be array of strings
-    if (dataObj.tags && Array.isArray(dataObj.tags)) {
-      dataObj.tags = dataObj.tags.filter((t: unknown) => typeof t === 'string');
-    }
-
-    // Add missing V3 required fields
-    if (spec === 'v3') {
-      if (!('group_only_greetings' in dataObj)) dataObj.group_only_greetings = [];
-      if (!('creator' in dataObj) || !dataObj.creator) dataObj.creator = '';
-      if (!('character_version' in dataObj) || !dataObj.character_version) dataObj.character_version = '1.0';
-      if (!('tags' in dataObj) || !Array.isArray(dataObj.tags)) dataObj.tags = [];
-
-      // Fix timestamp format (CharacterTavern uses milliseconds)
-      if (typeof dataObj.creation_date === 'number' && dataObj.creation_date > TIMESTAMP_THRESHOLD) {
-        dataObj.creation_date = Math.floor(dataObj.creation_date / 1000);
-      }
-      if (typeof dataObj.modification_date === 'number' && dataObj.modification_date > TIMESTAMP_THRESHOLD) {
-        dataObj.modification_date = Math.floor(dataObj.modification_date / 1000);
-      }
-    }
-  }
-
-  // Sanitize top-level creator for non-wrapped formats
-  if ('creator' in obj && typeof obj.creator === 'object' && obj.creator !== null) {
-    const creatorObj = obj.creator as Record<string, unknown>;
-    obj.creator = creatorObj.displayName || creatorObj.name || creatorObj.uid || '';
-  }
-}
+export { normalizeCardData } from '../../handlers/utils/normalization.js';

@@ -106,10 +106,10 @@ describe('UnifiedImportService', () => {
       const cardData = createCardCall?.args[0];
 
       expect(cardData.meta.name).toBe('V2 Character');
-      // Note: PNG loader normalizes V2 to V3 format
-      expect(cardData.meta.spec).toBe('v3');
-      // Data is normalized to V3 structure
-      expect(cardData.data.spec).toBe('chara_card_v3');
+      // Note: PNG loader preserves V2 format
+      expect(cardData.meta.spec).toBe('v2');
+      // Data keeps V2 structure
+      expect(cardData.data.spec).toBe('chara_card_v2');
     });
 
     it('should parse PNG V3 card correctly', async () => {
@@ -378,9 +378,9 @@ describe('UnifiedImportService', () => {
       // Verify stored data
       const storedCard = mockStorage.cards.get(cardIds[0]);
       expect(storedCard?.meta.name).toBe('Integration V2');
-      // PNG loader normalizes V2 to V3
-      expect(storedCard?.meta.spec).toBe('v3');
-      expect(storedCard?.data.spec).toBe('chara_card_v3');
+      // PNG loader preserves V2 format
+      expect(storedCard?.meta.spec).toBe('v2');
+      expect(storedCard?.data.spec).toBe('chara_card_v2');
     });
 
     it('should handle complete import flow for V3 card', async () => {
@@ -430,8 +430,8 @@ describe('UnifiedImportService', () => {
       const stored3 = mockStorage.cards.get(ids3[0]);
 
       expect(stored1?.meta.name).toBe('Card 1');
-      // PNG loader normalizes to V3
-      expect(stored1?.meta.spec).toBe('v3');
+      // PNG loader preserves V2 format
+      expect(stored1?.meta.spec).toBe('v2');
 
       expect(stored2?.meta.name).toBe('Card 2');
       expect(stored2?.meta.spec).toBe('v3');

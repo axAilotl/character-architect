@@ -14,6 +14,10 @@ export const config = {
   webPort: parseInt(process.env.WEB_PORT || '5173', 10),
   databasePath: process.env.DATABASE_PATH || join(__dirname, '../data/cards.db'),
   storagePath: process.env.STORAGE_PATH || join(__dirname, '../storage'),
+  webImport: {
+    // Enable server-side web import routes (default true; set to false for light/static deployments).
+    enabled: process.env.WEB_IMPORT_ENABLED !== 'false',
+  },
   limits: {
     maxCardSizeMB: parseInt(process.env.MAX_CARD_SIZE_MB || '300', 10),
     maxPngSizeMB: parseInt(process.env.MAX_PNG_SIZE_MB || '300', 10),
@@ -57,6 +61,8 @@ export const config = {
 
     // Federation Security (Federation 0.2.0)
     federation: {
+      // Federation routes are disabled by default; enable explicitly when self-hosting federation.
+      enabled: process.env.FEDERATION_ENABLED === 'true',
       // Enable strict HTTP signature verification (requires signed headers)
       strictMode: process.env.FEDERATION_STRICT_MODE === 'true',
       // Use SHA-256 instead of djb2 for hashing (recommended for cross-system federation)

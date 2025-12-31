@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository, AssetRepository, CardAssetRepository } from '../db/repository.js';
 import { config } from '../config.js';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 import sharp from 'sharp';
 import { join, basename, extname, resolve } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
@@ -281,7 +281,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
       SELECT ?, ?, COALESCE(MAX(version), 0) + 1, ?, ?, ?
       FROM versions WHERE card_id = ?
     `);
-    const snapshotId = nanoid();
+    const snapshotId = generateId();
     snapshotStmt.run(
       snapshotId,
       card.meta.id,
@@ -330,7 +330,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
         }
 
         // Generate unique filename
-        const assetId = nanoid();
+        const assetId = generateId();
         const filename = `${assetId}.${ext}`;
         const assetPath = join(cardStorageDir, filename);
 
@@ -492,7 +492,7 @@ export async function imageArchivalRoutes(fastify: FastifyInstance) {
       SELECT ?, ?, COALESCE(MAX(version), 0) + 1, ?, ?, ?
       FROM versions WHERE card_id = ?
     `);
-    const snapshotId = nanoid();
+    const snapshotId = generateId();
     snapshotStmt.run(
       snapshotId,
       card.meta.id,

@@ -49,13 +49,36 @@ export function parseJSON(file: Buffer | Uint8Array): ParsedData {
 
   if ((json as any).spec === 'chara_card_v2') {
     const card = json as any;
+    const v2Data =
+      card.data && typeof card.data === 'object'
+        ? (card.data as Record<string, unknown>)
+        : (card as Record<string, unknown>);
+
+    const name =
+      (typeof v2Data.name === 'string' ? v2Data.name : undefined) ??
+      (typeof card.name === 'string' ? card.name : undefined) ??
+      'Unknown Character';
+
+    const tags = (
+      Array.isArray(v2Data.tags) ? v2Data.tags : Array.isArray(card.tags) ? card.tags : []
+    ) as string[];
+
+    const creator =
+      (typeof v2Data.creator === 'string' ? v2Data.creator : undefined) ??
+      (typeof card.creator === 'string' ? card.creator : undefined);
+
+    const characterVersion =
+      (typeof v2Data.character_version === 'string' ? v2Data.character_version : undefined) ??
+      (typeof card.character_version === 'string' ? card.character_version : undefined);
+
     const character: ParsedCharacter = {
       card: {
         meta: {
-          name: card.name || 'Unknown Character',
+          name,
           spec: 'v2',
-          tags: card.tags || [],
-          creator: card.creator
+          tags,
+          creator,
+          characterVersion
         },
         data: card
       },

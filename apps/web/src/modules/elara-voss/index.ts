@@ -1,18 +1,7 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import type { ModuleDefinition } from '../../lib/registry/types';
-
-export const MODULE_METADATA: ModuleDefinition = {
-  id: 'elara-voss',
-  name: 'ELARA VOSS',
-  description: 'Name replacement tool for character cards.',
-  defaultEnabled: false,
-  badge: 'Tool',
-  color: 'purple',
-  order: 10,
-  requiresServer: true,
-};
+export { MODULE_METADATA } from './metadata';
 
 const ElaraVossPanel = lazy(() =>
   import('../../features/editor/components/ElaraVossPanel').then((m) => ({

@@ -5,7 +5,7 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { nanoid } from 'nanoid';
+import { generateId } from '@card-architect/import-core';
 import sharp from 'sharp';
 import type { CharxData } from '@character-foundry/character-foundry/charx';
 import type { CCv3Data } from '@character-foundry/character-foundry/schemas';
@@ -174,7 +174,7 @@ export class CardImportService {
         console.log(`[Card Import] Importing asset: ${assetInfo.descriptor.type}/${assetInfo.descriptor.name} (${assetInfo.buffer.length} bytes)`);
 
         // Generate asset ID
-        const assetId = nanoid();
+        const assetId = generateId();
         const ext = assetInfo.descriptor.ext;
         const filename = `${assetId}.${ext}`;
 
@@ -430,7 +430,7 @@ export class CardImportService {
           console.log(`[Card Import] Extracting asset: ${descriptor.name} (${buffer.length} bytes)`);
 
           // Generate asset ID and save file
-          const assetId = nanoid();
+          const assetId = generateId();
           const filename = `${assetId}.${ext}`;
           const assetPath = join(options.storagePath, filename);
 
@@ -589,7 +589,7 @@ export class CardImportService {
     }
 
     // Save the stripped PNG as main icon
-    const assetId = nanoid();
+    const assetId = generateId();
     const filename = `${assetId}.${iconExt}`;
     const cardStorageDir = join(options.storagePath, cardId);
     await fs.mkdir(cardStorageDir, { recursive: true });

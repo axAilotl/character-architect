@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState, lazy, Suspense } from 'react';
+import { generateId } from '@card-architect/import-core';
 import { useCardStore } from '../../../store/card-store';
 import { api } from '../../../lib/api';
 import { localDB, type StoredVersion } from '../../../lib/db';
@@ -185,7 +186,7 @@ export function DiffPanel() {
     if (isClientMode) {
       const versionNumber = await localDB.getNextVersionNumber(currentCard.meta.id);
       const version: StoredVersion = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         cardId: currentCard.meta.id,
         versionNumber,
         message: message || undefined,

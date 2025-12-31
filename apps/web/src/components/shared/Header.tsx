@@ -12,7 +12,6 @@ import {
   shouldUseClientSidePush,
   type SillyTavernSettings,
 } from '../../lib/sillytavern-client';
-import { useFederationStore } from '../../modules/federation/lib/federation-store';
 
 interface HeaderProps {
   onBack: () => void;
@@ -165,40 +164,54 @@ export function Header({ onBack }: HeaderProps) {
       return;
     }
 
-    // Check if federation is enabled and connected to SillyTavern
-    const federationState = useFederationStore.getState();
-    const stFederationEnabled =
-      federationState.settings?.platforms?.sillytavern?.enabled &&
-      federationState.settings?.platforms?.sillytavern?.connected;
-
-    if (stFederationEnabled) {
-      // Use federation to push to SillyTavern
-      console.log('[pushToST] Using FEDERATION to push to SillyTavern');
+    // Federation is optional: only load it if explicitly enabled.
+    const federationEnabled = useSettingsStore.getState().features?.federationEnabled ?? false;
+    if (!isLightMode && federationEnabled) {
       try {
-        const result = await federationState.pushToST(currentCard.meta.id);
+        const { useFederationStore } = await import('../../modules/federation/lib/federation-store');
+        const federationState = useFederationStore.getState();
 
-        if (result.success) {
-          setPushStatus({
-            type: 'success',
-            message: `Successfully synced ${getCharacterName()} to SillyTavern via federation!`,
-          });
-          setTimeout(() => setPushStatus(null), 5000);
-        } else {
-          setPushStatus({
-            type: 'error',
-            message: result.error || 'Federation sync failed',
-          });
-          setTimeout(() => setPushStatus(null), 8000);
+        if (!federationState.initialized) {
+          await federationState.initialize();
         }
-      } catch (error: any) {
-        console.error('[pushToST] Federation push failed:', error);
-        setPushStatus({
-          type: 'error',
-          message: error?.message || 'Federation sync failed',
-        });
-        setTimeout(() => setPushStatus(null), 8000);
+
+        const refreshed = useFederationStore.getState();
+        const stFederationEnabled =
+          refreshed.settings?.platforms?.sillytavern?.enabled &&
+          refreshed.settings?.platforms?.sillytavern?.connected;
+
+        if (stFederationEnabled) {
+          // Use federation to push to SillyTavern
+          console.log('[pushToST] Using FEDERATION to push to SillyTavern');
+          try {
+            const result = await refreshed.pushToST(currentCard.meta.id);
+
+            if (result.success) {
+              setPushStatus({
+                type: 'success',
+                message: `Successfully synced ${getCharacterName()} to SillyTavern via federation!`,
+              });
+              setTimeout(() => setPushStatus(null), 5000);
+            } else {
+              setPushStatus({
+                type: 'error',
+                message: result.error || 'Federation sync failed',
+              });
+              setTimeout(() => setPushStatus(null), 8000);
+            }
+          } catch (error: any) {
+            console.error('[pushToST] Federation push failed:', error);
+            setPushStatus({
+              type: 'error',
+              message: error?.message || 'Federation sync failed',
+            });
+            setTimeout(() => setPushStatus(null), 8000);
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('[pushToST] Federation module failed to load, falling back to direct push:', err);
       }
-      return;
     }
 
     // Fall back to direct SillyTavern push (non-federation)
@@ -393,9 +406,19 @@ export function Header({ onBack }: HeaderProps) {
         const result = await client.push(currentCard, imageBuffer);
 
         if (result.success) {
-          // Record the sync state for badge display
-          const { recordManualSync } = useFederationStore.getState();
-          await recordManualSync(currentCard.meta.id, 'sillytavern', result.fileName);
+          // Record the sync state for badge display (only if federation is enabled)
+          const federationEnabled = useSettingsStore.getState().features?.federationEnabled ?? false;
+          if (!isLightMode && federationEnabled) {
+            try {
+              const { useFederationStore } = await import(
+                '../../modules/federation/lib/federation-store'
+              );
+              const { recordManualSync } = useFederationStore.getState();
+              await recordManualSync(currentCard.meta.id, 'sillytavern', result.fileName);
+            } catch (err) {
+              console.warn('[pushToST] Failed to record federation sync state:', err);
+            }
+          }
 
           setPushStatus({
             type: 'success',
@@ -433,9 +456,19 @@ export function Header({ onBack }: HeaderProps) {
         const result = await api.pushToSillyTavern(currentCard.meta.id);
 
         if (result.data?.success) {
-          // Record the sync state for badge display
-          const { recordManualSync } = useFederationStore.getState();
-          await recordManualSync(currentCard.meta.id, 'sillytavern', result.data.fileName);
+          // Record the sync state for badge display (only if federation is enabled)
+          const federationEnabled = useSettingsStore.getState().features?.federationEnabled ?? false;
+          if (!isLightMode && federationEnabled) {
+            try {
+              const { useFederationStore } = await import(
+                '../../modules/federation/lib/federation-store'
+              );
+              const { recordManualSync } = useFederationStore.getState();
+              await recordManualSync(currentCard.meta.id, 'sillytavern', result.data.fileName);
+            } catch (err) {
+              console.warn('[pushToST] Failed to record federation sync state:', err);
+            }
+          }
 
           setPushStatus({
             type: 'success',
@@ -574,26 +607,13 @@ export function Header({ onBack }: HeaderProps) {
           New
         </button>
 
-        <label
-          htmlFor="header-import-file"
-          className="btn-primary cursor-pointer"
+        <button
+          onClick={handleImportFile}
+          className="btn-primary"
           title="Import Character Card or Lorebook (JSON, PNG, CHARX, or VOXPKG)"
         >
           Import
-          <input
-            id="header-import-file"
-            name="header-import-file"
-            type="file"
-            accept=".json,.png,.charx,.voxpkg"
-            multiple
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) {
-                handleImportFile();
-              }
-            }}
-            className="hidden"
-          />
-        </label>
+        </button>
 
         {currentCard && (
           <div className="relative">

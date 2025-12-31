@@ -9,21 +9,7 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import type { ModuleDefinition } from '../../lib/registry/types';
-
-/**
- * Module metadata for auto-discovery
- */
-export const MODULE_METADATA: ModuleDefinition = {
-  id: 'charx-optimizer',
-  name: 'Package Optimizer',
-  description: 'Optimize media for CHARX/Voxta export (WebP, WebM, selective assets).',
-  defaultEnabled: true,
-  badge: 'Export',
-  color: 'purple',
-  order: 45,
-  requiresServer: true, // Uses server-side Sharp for image optimization
-};
+export { MODULE_METADATA } from './metadata';
 
 // Lazy-load the settings component
 const PackageOptimizerSettings = lazy(() =>

@@ -14,18 +14,24 @@ export function parseCHARX(file: Buffer | Uint8Array): ParsedData {
   // Use the unified loader (same as PNG)
   const result = parseCardLoader(file, { extractAssets: true });
 
-  // Determine actual spec from card data structure
-  const actualSpec = (result.card as any).spec;
-  const spec = actualSpec === 'chara_card_v3' ? 'v3' : 'v2';
+  // The loader normalizes cards to a wrapped shape, but also tells us the original spec.
+  // Use `result.spec` so v2 inputs remain v2 in storage/exports.
+  const spec = result.spec === 'v3' ? 'v3' : 'v2';
+
+  // Preserve the original shape for v2 cards (the loader may return a v3 wrapper in `result.card`).
+  const cardData = spec === 'v2' ? result.originalShape : result.card;
 
   // Extract character name
   let name = 'Unknown Character';
-  const card = result.card as any;
-  if (spec === 'v3' && card?.data?.name) {
-    name = card.data.name;
-  } else if (spec === 'v2' && card?.name) {
-    name = card.name;
+  const card = cardData as any;
+  if (spec === 'v3') {
+    if (card?.data?.name) name = card.data.name;
+  } else {
+    if (card?.data?.name) name = card.data.name;
+    else if (card?.name) name = card.name;
   }
+
+  const tags = (Array.isArray(card?.data?.tags) ? card.data.tags : Array.isArray(card?.tags) ? card.tags : []) as string[];
 
   // Convert loader assets to ParsedAsset format
   const assets: ParsedAsset[] = result.assets
@@ -65,11 +71,11 @@ export function parseCHARX(file: Buffer | Uint8Array): ParsedData {
       meta: {
         name,
         spec,
-        tags: [],
+        tags,
         creator: card?.data?.creator || card?.creator,
         characterVersion: card?.data?.character_version
       },
-      data: result.card
+      data: cardData
     },
     thumbnail,
     assets
