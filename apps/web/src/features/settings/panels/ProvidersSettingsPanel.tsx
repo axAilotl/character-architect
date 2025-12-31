@@ -223,17 +223,24 @@ export function ProvidersSettingsPanel() {
                 <button
                   onClick={async () => {
                     if (!editingProvider.id) {
-                      alert('Please save provider first');
                       return;
                     }
 
                     if (!editingProvider.baseURL || !editingProvider.apiKey) {
-                      alert('Please enter Base URL and API Key first');
+                      setModelFetchError('Please enter Base URL and API Key first');
                       return;
                     }
 
                     setModelFetchLoading(true);
                     setModelFetchError(null);
+
+                    // Save provider first so fetchModelsForProvider can find it
+                    const isExisting = settings.providers.some((p) => p.id === editingProvider.id);
+                    if (isExisting) {
+                      await updateProvider(editingProvider.id, editingProvider as ProviderConfig);
+                    } else {
+                      await addProvider(editingProvider as ProviderConfig);
+                    }
 
                     const result = await fetchModelsForProvider(editingProvider.id);
                     setModelFetchLoading(false);
