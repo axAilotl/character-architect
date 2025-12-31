@@ -17,9 +17,9 @@ vi.mock('../../lib/db', () => {
   };
 });
 
-// Mock nanoid
-vi.mock('nanoid', () => ({
-  nanoid: vi.fn(() => 'mock-id-12345'),
+// Mock generateId from @card-architect/import-core
+vi.mock('@card-architect/import-core', () => ({
+  generateId: vi.fn(() => 'mock-id-12345'),
 }));
 
 describe('ClientStorageAdapter', () => {
