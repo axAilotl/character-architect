@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
 # Copy workspace config files first for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* .npmrc ./
 COPY packages/defaults/package.json ./packages/defaults/
+COPY packages/import-core/package.json ./packages/import-core/
 COPY packages/plugins/package.json ./packages/plugins/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
@@ -38,6 +39,9 @@ RUN pnpm run build:web
 # Stage 3: Production API
 FROM base AS api
 
+# Install gosu for running as non-root user
+RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
+
 # Copy workspace config and node_modules from builder (includes compiled native modules)
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml* ./
 COPY --from=builder /app/.npmrc ./
@@ -49,15 +53,19 @@ COPY --from=builder /app/packages/defaults/dist ./packages/defaults/dist
 COPY --from=builder /app/packages/defaults/assets ./packages/defaults/assets
 COPY --from=builder /app/packages/defaults/node_modules ./packages/defaults/node_modules
 
+COPY --from=builder /app/packages/import-core/package.json ./packages/import-core/
+COPY --from=builder /app/packages/import-core/dist ./packages/import-core/dist
+COPY --from=builder /app/packages/import-core/node_modules ./packages/import-core/node_modules
+
 # Copy API with deps
 COPY --from=builder /app/apps/api/package.json ./apps/api/
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 
-# Create data and storage directories with correct ownership
-# Use node user (UID 1000) which exists in node:20-slim base image
-RUN mkdir -p /app/data /app/storage && \
-    chown -R node:node /app/data /app/storage
+# Copy entrypoint script
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    chown root:root /usr/local/bin/entrypoint.sh
 
 ENV NODE_ENV=production
 ENV PORT=3456
@@ -67,10 +75,8 @@ ENV STORAGE_PATH=/app/storage
 
 EXPOSE 3456
 
-# Switch to non-root user (node user has UID 1000, matching most host users)
-USER node
-
 WORKDIR /app/apps/api
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["node", "dist/index.js"]
 
 # Stage 4: Production Web (Nginx)
