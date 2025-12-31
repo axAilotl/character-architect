@@ -227,7 +227,7 @@ describe('LLM Schemas', () => {
         providerId: 'provider-123',
         instruction: 'Tighten this text',
         context: {
-          field: 'description',
+          fieldName: 'description',
           currentValue: 'Some long text here',
         },
       });
