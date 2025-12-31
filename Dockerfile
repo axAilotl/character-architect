@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* .npmrc ./
 COPY packages/defaults/package.json ./packages/defaults/
 COPY packages/plugins/package.json ./packages/plugins/
+COPY packages/import-core/package.json ./packages/import-core/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 
@@ -48,6 +49,11 @@ COPY --from=builder /app/packages/defaults/package.json ./packages/defaults/
 COPY --from=builder /app/packages/defaults/dist ./packages/defaults/dist
 COPY --from=builder /app/packages/defaults/assets ./packages/defaults/assets
 COPY --from=builder /app/packages/defaults/node_modules ./packages/defaults/node_modules
+
+# Copy import-core package
+COPY --from=builder /app/packages/import-core/package.json ./packages/import-core/
+COPY --from=builder /app/packages/import-core/dist ./packages/import-core/dist
+COPY --from=builder /app/packages/import-core/node_modules ./packages/import-core/node_modules
 
 # Copy API with deps
 COPY --from=builder /app/apps/api/package.json ./apps/api/
