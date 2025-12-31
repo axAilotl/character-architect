@@ -50,11 +50,16 @@ export async function getSettings(): Promise<LLMSettings> {
     const settings = JSON.parse(data) as LLMSettings;
 
     // Merge with defaults to handle new fields
-    return {
+    const merged = {
       ...DEFAULT_SETTINGS,
       ...settings,
       rag: { ...DEFAULT_SETTINGS.rag, ...settings.rag },
     };
+    // Ensure indexPath is never empty
+    if (!merged.rag.indexPath) {
+      merged.rag.indexPath = DEFAULT_SETTINGS.rag.indexPath;
+    }
+    return merged;
   } catch (error: any) {
     if (error.code === 'ENOENT') {
       // File doesn't exist, return defaults

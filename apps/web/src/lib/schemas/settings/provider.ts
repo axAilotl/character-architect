@@ -19,7 +19,7 @@ export const providerConfigSchema = z.object({
   name: z.string().min(1).describe('Display name'),
   label: z.string().optional().describe('Optional label'),
   kind: providerKindSchema.describe('Provider type'),
-  baseURL: z.string().url().describe('API base URL'),
+  baseURL: z.string().describe('API base URL'),
   apiKey: z.string().describe('API key (secret)'),
   defaultModel: z.string().describe('Default model'),
   temperature: z

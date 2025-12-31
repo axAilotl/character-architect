@@ -103,10 +103,8 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
       const activeId = loadActiveProvider();
 
       // Convert client providers to ProviderConfig format
-      // IMPORTANT: Must set both 'name' and 'label' - API schema requires 'name'
       const providers: ProviderConfig[] = clientProviders.map(p => ({
         id: p.id,
-        name: p.name,
         label: p.name,
         kind: p.kind === 'openrouter' ? 'openai-compatible' : p.kind,
         baseURL: p.baseURL,
@@ -186,18 +184,11 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
         body: JSON.stringify(newSettings),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMsg = errorData.details?.fieldErrors
-          ? `Validation failed: ${JSON.stringify(errorData.details.fieldErrors)}`
-          : errorData.error || 'Failed to save settings';
-        console.error('LLM settings save failed:', errorData);
-        throw new Error(errorMsg);
-      }
+      if (!response.ok) throw new Error('Failed to save settings');
       set({ settings: newSettings, isLoading: false });
     } catch (error: any) {
-      console.error('LLM settings save error:', error);
       set({ error: error.message, isLoading: false });
+      throw error;
     }
   },
 
