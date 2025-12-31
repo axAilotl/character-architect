@@ -105,6 +105,7 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
       // Convert client providers to ProviderConfig format
       const providers: ProviderConfig[] = clientProviders.map(p => ({
         id: p.id,
+        name: p.name,
         label: p.name,
         kind: p.kind === 'openrouter' ? 'openai-compatible' : p.kind,
         baseURL: p.baseURL,
