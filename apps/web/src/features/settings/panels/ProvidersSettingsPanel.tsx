@@ -43,10 +43,34 @@ export function ProvidersSettingsPanel() {
   const handleSaveProvider = async () => {
     if (!editingProvider || !editingProvider.id) return;
 
+    // Ensure required fields are set
+    if (!editingProvider.name?.trim()) {
+      alert('Provider name is required');
+      return;
+    }
+    if (!editingProvider.baseURL?.trim()) {
+      alert('Base URL is required');
+      return;
+    }
+    if (!editingProvider.defaultModel?.trim()) {
+      alert('Default model is required');
+      return;
+    }
+
+    // Normalize the provider data - ensure name is always set
+    const providerToSave: ProviderConfig = {
+      ...editingProvider,
+      name: editingProvider.name.trim(),
+      baseURL: editingProvider.baseURL.trim(),
+      apiKey: editingProvider.apiKey || '',
+      defaultModel: editingProvider.defaultModel.trim(),
+      kind: editingProvider.kind || 'openai',
+    } as ProviderConfig;
+
     if (settings.providers.find((p) => p.id === editingProvider.id)) {
-      await updateProvider(editingProvider.id, editingProvider as ProviderConfig);
+      await updateProvider(editingProvider.id, providerToSave);
     } else {
-      await addProvider(editingProvider as ProviderConfig);
+      await addProvider(providerToSave);
     }
 
     setEditingProvider(null);
@@ -223,24 +247,17 @@ export function ProvidersSettingsPanel() {
                 <button
                   onClick={async () => {
                     if (!editingProvider.id) {
+                      alert('Please save provider first');
                       return;
                     }
 
                     if (!editingProvider.baseURL || !editingProvider.apiKey) {
-                      setModelFetchError('Please enter Base URL and API Key first');
+                      alert('Please enter Base URL and API Key first');
                       return;
                     }
 
                     setModelFetchLoading(true);
                     setModelFetchError(null);
-
-                    // Save provider first so fetchModelsForProvider can find it
-                    const isExisting = settings.providers.some((p) => p.id === editingProvider.id);
-                    if (isExisting) {
-                      await updateProvider(editingProvider.id, editingProvider as ProviderConfig);
-                    } else {
-                      await addProvider(editingProvider as ProviderConfig);
-                    }
 
                     const result = await fetchModelsForProvider(editingProvider.id);
                     setModelFetchLoading(false);
