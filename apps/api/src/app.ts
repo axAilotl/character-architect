@@ -5,6 +5,7 @@ import staticPlugin from '@fastify/static';
 import { config } from './config.js';
 import { registerRateLimiter } from './middleware/rate-limiter.js';
 import { initDatabase, createTables } from './db/schema.js';
+import { setDatabase } from './db/index.js';
 import { cardRoutes } from './routes/cards.js';
 import { tokenizeRoutes } from './routes/tokenize.js';
 import { importExportRoutes } from './routes/import-export.js';
@@ -41,6 +42,7 @@ export async function build(opts: FastifyServerOptions = {}) {
   // Initialize database
   const db = initDatabase(config.databasePath);
   createTables(db);
+  setDatabase(db); // Make db available globally for settings
 
   // Make db available to routes
   fastify.decorate('db', db);

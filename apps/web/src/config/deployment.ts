@@ -151,9 +151,11 @@ function isPrivateNetwork(hostname: string): boolean {
   // Localhost variants
   if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
 
-  // .local mDNS domains (ONLY if it ends with .local, not subdomains like foo.local.example.com)
-  // mDNS domains are things like "mycomputer.local", not "foo.local.example.com"
+  // .local mDNS domains (ends with .local)
   if (hostname.endsWith('.local')) return true;
+
+  // Local subdomains (contains .local. as a segment, e.g., app.local.example.com)
+  if (hostname.includes('.local.')) return true;
 
   // RFC1918 private IP ranges
   const ipMatch = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);

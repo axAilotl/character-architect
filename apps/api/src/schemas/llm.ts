@@ -14,16 +14,18 @@ const llmMessageSchema = z.object({
 const llmProviderSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(100),
+  label: z.string().optional(),
   kind: z.enum(['openai', 'anthropic', 'openai-compatible']),
-  baseURL: z.string().url(),
+  baseURL: z.string().min(1),
   apiKey: z.string(),
   organization: z.string().optional(),
   defaultModel: z.string().min(1),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().positive().optional(),
+  streamDefault: z.boolean().optional(),
   mode: z.enum(['chat', 'responses']).optional(),
   anthropicVersion: z.string().optional(),
-});
+}).passthrough();
 
 // RAG settings - use passthrough to allow additional fields
 const ragSettingsSchema = z.object({

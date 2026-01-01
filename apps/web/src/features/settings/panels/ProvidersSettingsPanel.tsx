@@ -2,26 +2,19 @@
  * Providers Settings Panel
  *
  * Configure LLM providers with connection testing and model fetching.
- * Uses AutoForm for the provider editor form, with manual handling for
- * provider list CRUD operations and model selection.
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { AutoForm } from '@character-foundry/character-foundry/app-framework';
+import { useState, useEffect } from 'react';
 import { useLLMStore } from '../../../store/llm-store';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import {
-  providerConfigSchema,
-  providerConfigUiHints,
-} from '../../../lib/schemas/settings/provider';
 import type { ProviderConfig } from '../../../lib/types';
 
-// Create a schema without the defaultModel field (handled separately)
-const providerEditorSchema = providerConfigSchema.omit({ defaultModel: true });
+type ProviderKind = 'openai' | 'anthropic' | 'openai-compatible';
 
 export function ProvidersSettingsPanel() {
   const {
     settings,
+    loadSettings,
     addProvider,
     updateProvider,
     removeProvider,
@@ -34,6 +27,11 @@ export function ProvidersSettingsPanel() {
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; error?: string }>>({});
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
   const [modelFetchLoading, setModelFetchLoading] = useState(false);
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   useEffect(() => {
     setModelFetchError(null);
@@ -75,11 +73,10 @@ export function ProvidersSettingsPanel() {
     });
   };
 
-  // Memoize UI hints to avoid object recreation
-  const editorUiHints = useMemo(() => {
-    const { defaultModel: _, ...rest } = providerConfigUiHints;
-    return rest;
-  }, []);
+  const updateField = <K extends keyof ProviderConfig>(field: K, value: ProviderConfig[K]) => {
+    if (!editingProvider) return;
+    setEditingProvider({ ...editingProvider, [field]: value });
+  };
 
   return (
     <div>
@@ -116,7 +113,7 @@ export function ProvidersSettingsPanel() {
                   Test
                 </button>
                 <button
-                  onClick={() => setEditingProvider(provider)}
+                  onClick={() => setEditingProvider({ ...provider })}
                   className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                 >
                   Edit
@@ -164,44 +161,139 @@ export function ProvidersSettingsPanel() {
           </h4>
 
           <div className="space-y-4">
-            {/* AutoForm handles most fields */}
-            <AutoForm
-              schema={providerEditorSchema}
-              values={{
-                id: editingProvider.id ?? '',
-                name: editingProvider.name ?? '',
-                kind: editingProvider.kind ?? 'openai',
-                baseURL: editingProvider.baseURL ?? '',
-                apiKey: editingProvider.apiKey ?? '',
-                temperature: editingProvider.temperature,
-                maxTokens: editingProvider.maxTokens,
-                streamDefault: editingProvider.streamDefault,
-                mode: editingProvider.mode,
-                organization: editingProvider.organization,
-                anthropicVersion: editingProvider.anthropicVersion,
-              }}
-              onChange={(updated) => {
-                // Only update if values actually changed to prevent infinite loops
-                const hasChanges =
-                  updated.id !== (editingProvider.id ?? '') ||
-                  updated.name !== (editingProvider.name ?? '') ||
-                  updated.kind !== (editingProvider.kind ?? 'openai') ||
-                  updated.baseURL !== (editingProvider.baseURL ?? '') ||
-                  updated.apiKey !== (editingProvider.apiKey ?? '') ||
-                  updated.temperature !== editingProvider.temperature ||
-                  updated.maxTokens !== editingProvider.maxTokens ||
-                  updated.streamDefault !== editingProvider.streamDefault ||
-                  updated.mode !== editingProvider.mode ||
-                  updated.organization !== editingProvider.organization ||
-                  updated.anthropicVersion !== editingProvider.anthropicVersion;
-                if (hasChanges) {
-                  setEditingProvider({ ...editingProvider, ...updated });
-                }
-              }}
-              uiHints={editorUiHints}
-            />
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Name</label>
+              <input
+                type="text"
+                value={editingProvider.name || ''}
+                onChange={(e) => updateField('name', e.target.value)}
+                placeholder="My Provider"
+                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
 
-            {/* Model selector - handled manually due to async fetch behavior */}
+            {/* Kind */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Provider Type</label>
+              <select
+                value={editingProvider.kind || 'openai'}
+                onChange={(e) => updateField('kind', e.target.value as ProviderKind)}
+                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="openai">OpenAI</option>
+                <option value="openai-compatible">OpenAI-Compatible</option>
+                <option value="anthropic">Anthropic</option>
+              </select>
+            </div>
+
+            {/* Base URL */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Base URL</label>
+              <input
+                type="text"
+                value={editingProvider.baseURL || ''}
+                onChange={(e) => updateField('baseURL', e.target.value)}
+                placeholder="https://api.openai.com"
+                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            {/* API Key */}
+            <div>
+              <label className="block text-sm font-medium mb-1">API Key</label>
+              <input
+                type="password"
+                value={editingProvider.apiKey || ''}
+                onChange={(e) => updateField('apiKey', e.target.value)}
+                placeholder="sk-..."
+                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Temperature */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Temperature: {editingProvider.temperature ?? 0.7}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={editingProvider.temperature ?? 0.7}
+                onChange={(e) => updateField('temperature', parseFloat(e.target.value))}
+                className="w-full"
+              />
+            </div>
+
+            {/* Max Tokens */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Max Tokens</label>
+              <input
+                type="number"
+                value={editingProvider.maxTokens ?? 2048}
+                onChange={(e) => updateField('maxTokens', parseInt(e.target.value) || 2048)}
+                className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Stream Default */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="streamDefault"
+                checked={editingProvider.streamDefault ?? true}
+                onChange={(e) => updateField('streamDefault', e.target.checked)}
+                className="w-4 h-4"
+              />
+              <label htmlFor="streamDefault" className="text-sm">Enable streaming by default</label>
+            </div>
+
+            {/* Mode (OpenAI only) */}
+            {(editingProvider.kind === 'openai' || editingProvider.kind === 'openai-compatible') && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Mode</label>
+                <select
+                  value={editingProvider.mode || 'chat'}
+                  onChange={(e) => updateField('mode', e.target.value as 'chat' | 'responses')}
+                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="chat">Chat Completions</option>
+                  <option value="responses">Responses API</option>
+                </select>
+              </div>
+            )}
+
+            {/* Organization (OpenAI only) */}
+            {(editingProvider.kind === 'openai' || editingProvider.kind === 'openai-compatible') && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Organization ID (Optional)</label>
+                <input
+                  type="text"
+                  value={editingProvider.organization || ''}
+                  onChange={(e) => updateField('organization', e.target.value)}
+                  placeholder="org-..."
+                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            )}
+
+            {/* Anthropic Version */}
+            {editingProvider.kind === 'anthropic' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Anthropic Version</label>
+                <input
+                  type="text"
+                  value={editingProvider.anthropicVersion || ''}
+                  onChange={(e) => updateField('anthropicVersion', e.target.value)}
+                  placeholder="2023-06-01"
+                  className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            )}
+
+            {/* Model selector */}
             <div>
               <label className="block text-sm font-medium mb-1">Default Model</label>
               <div className="flex gap-2">
@@ -209,19 +301,18 @@ export function ProvidersSettingsPanel() {
                   <SearchableSelect
                     options={getCachedModels(editingProvider.id)}
                     value={editingProvider.defaultModel || ''}
-                    onChange={(value) =>
-                      setEditingProvider({
-                        ...editingProvider,
-                        defaultModel: value,
-                      })
-                    }
+                    onChange={(value) => updateField('defaultModel', value)}
                     placeholder="Search models..."
                     className="flex-1"
                   />
                 ) : (
-                  <div className="flex-1 bg-dark-card border border-dark-border rounded px-3 py-2 text-dark-muted">
-                    Click "Fetch Models" to load available models
-                  </div>
+                  <input
+                    type="text"
+                    value={editingProvider.defaultModel || ''}
+                    onChange={(e) => updateField('defaultModel', e.target.value)}
+                    placeholder="gpt-4, claude-3-opus, etc."
+                    className="flex-1 bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
                 )}
                 <button
                   onClick={async () => {
@@ -244,17 +335,14 @@ export function ProvidersSettingsPanel() {
                     if (!result.success) {
                       setModelFetchError(result.error || 'Failed to fetch models');
                     } else if (!editingProvider.defaultModel && result.models && result.models.length > 0) {
-                      setEditingProvider({
-                        ...editingProvider,
-                        defaultModel: result.models[0],
-                      });
+                      updateField('defaultModel', result.models[0]);
                     }
                   }}
                   className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors whitespace-nowrap disabled:opacity-60"
                   title="Fetch available models from provider"
                   disabled={modelFetchLoading}
                 >
-                  {modelFetchLoading ? 'Fetching…' : 'Fetch Models'}
+                  {modelFetchLoading ? 'Fetching...' : 'Fetch Models'}
                 </button>
               </div>
               {modelFetchError && (

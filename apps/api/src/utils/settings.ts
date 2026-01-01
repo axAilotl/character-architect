@@ -1,15 +1,14 @@
 /**
  * Settings management for LLM providers and RAG configuration
- * Stores settings in ~/.card-architect/config.json with 600 permissions
+ * Stores settings in the SQLite database (app_settings table)
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import type { LLMSettings } from '../types/index.js';
+import { getDatabase } from '../db/index.js';
 
 const CONFIG_DIR = join(homedir(), '.card-architect');
-const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
 /**
  * Default settings
@@ -29,25 +28,18 @@ const DEFAULT_SETTINGS: LLMSettings = {
 };
 
 /**
- * Ensure config directory exists with proper permissions
- */
-async function ensureConfigDir(): Promise<void> {
-  try {
-    await fs.mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
-  } catch (error) {
-    // Directory may already exist
-  }
-}
-
-/**
- * Load settings from disk
+ * Load settings from database
  */
 export async function getSettings(): Promise<LLMSettings> {
-  await ensureConfigDir();
-
   try {
-    const data = await fs.readFile(CONFIG_FILE, 'utf-8');
-    const settings = JSON.parse(data) as LLMSettings;
+    const db = getDatabase();
+    const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get('llm_settings') as { value: string } | undefined;
+
+    if (!row) {
+      return DEFAULT_SETTINGS;
+    }
+
+    const settings = JSON.parse(row.value) as LLMSettings;
 
     // Merge with defaults to handle new fields
     const merged = {
@@ -55,28 +47,32 @@ export async function getSettings(): Promise<LLMSettings> {
       ...settings,
       rag: { ...DEFAULT_SETTINGS.rag, ...settings.rag },
     };
+
     // Ensure indexPath is never empty
     if (!merged.rag.indexPath) {
       merged.rag.indexPath = DEFAULT_SETTINGS.rag.indexPath;
     }
+
     return merged;
   } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      // File doesn't exist, return defaults
-      return DEFAULT_SETTINGS;
-    }
-    throw error;
+    console.error('Failed to load settings from database:', error);
+    return DEFAULT_SETTINGS;
   }
 }
 
 /**
- * Save settings to disk with secure permissions
+ * Save settings to database
  */
 export async function saveSettings(settings: LLMSettings): Promise<void> {
-  await ensureConfigDir();
+  const db = getDatabase();
+  const value = JSON.stringify(settings);
+  const now = new Date().toISOString();
 
-  const data = JSON.stringify(settings, null, 2);
-  await fs.writeFile(CONFIG_FILE, data, { mode: 0o600 });
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run('llm_settings', value, now);
 }
 
 /**

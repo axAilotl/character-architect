@@ -407,6 +407,22 @@ export const migrations: Migration[] = [
       `);
     },
   },
+  {
+    version: 9,
+    name: 'add_app_settings_table',
+    up: (db: Database.Database) => {
+      // Create app_settings table for storing LLM providers and other settings
+      if (!tableExists(db, 'app_settings')) {
+        db.exec(`
+          CREATE TABLE app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+          )
+        `);
+      }
+    },
+  },
 ];
 
 /**

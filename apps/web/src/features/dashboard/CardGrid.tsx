@@ -780,29 +780,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     setCurrentPage(1);
   }, [searchQuery, filterBy, cardsPerPage]);
 
-  if (loading) {
-    return (
-      <div className="h-full flex flex-col bg-dark-bg">
-        <div className="bg-dark-surface border-b border-dark-border px-4 py-2 h-[72px] flex items-center">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Character Architect" className="w-12 h-12" />
-            <div>
-              <h1 className="text-lg font-bold">Character Architect</h1>
-              <p className="text-xs text-dark-muted">Loading cards...</p>
-            </div>
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="h-full flex flex-col bg-dark-bg">
       {/* Header */}
@@ -981,7 +958,13 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
       {/* Grid */}
       <div className="flex-1 overflow-auto p-6">
-        {cards.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        ) : cards.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-dark-muted">
               <h2 className="text-xl font-semibold mb-2">No cards yet</h2>
