@@ -226,6 +226,18 @@ export function LorebookEditor() {
   const selectedEntry = selectedEntryIndex !== null ? entries[selectedEntryIndex] : null;
   const entryExt = getLorebookEntryExtensions(selectedEntry?.extensions);
 
+  // Compute current LLM assist value dynamically based on selected entry
+  const currentLLMAssistValue = (() => {
+    if (llmAssistField === 'lorebook_description') {
+      return lorebook?.description || '';
+    } else if (llmAssistField === 'lore_keys' && selectedEntry) {
+      return selectedEntry.keys?.join(', ') || '';
+    } else if (llmAssistField === 'lore_content' && selectedEntry) {
+      return selectedEntry.content || '';
+    }
+    return llmAssistValue; // Fallback to stored value
+  })();
+
   return (
     <div className="flex flex-col h-full overflow-auto p-6">
       <div className="max-w-5xl mx-auto w-full">
@@ -776,7 +788,7 @@ export function LorebookEditor() {
           isOpen={llmAssistOpen}
           onClose={() => setLLMAssistOpen(false)}
           fieldName={llmAssistField}
-          currentValue={llmAssistValue}
+          currentValue={currentLLMAssistValue}
           onApply={handleLLMApply}
           cardSpec={normalizeSpec(currentCard.meta.spec)}
         />
