@@ -45,7 +45,40 @@ export const config = {
     // SSRF protection
     ssrfProtectionEnabled: process.env.SSRF_PROTECTION_ENABLED !== 'false',
     // Allowed external hosts for LLM providers (comma-separated)
-    allowedLLMHosts: process.env.ALLOWED_LLM_HOSTS || 'api.openai.com,api.anthropic.com,api.together.xyz,openrouter.ai,api.groq.com,localhost,127.0.0.1',
+    allowedLLMHosts: process.env.ALLOWED_LLM_HOSTS || [
+      // Major providers
+      'api.openai.com',
+      'api.anthropic.com',
+      'openrouter.ai',
+      // Cloud platforms
+      'bedrock-runtime.us-east-1.amazonaws.com',
+      'bedrock-runtime.us-west-2.amazonaws.com',
+      'bedrock-runtime.eu-west-1.amazonaws.com',
+      'bedrock-runtime.ap-northeast-1.amazonaws.com',
+      'aiplatform.googleapis.com',
+      'us-central1-aiplatform.googleapis.com',
+      'europe-west1-aiplatform.googleapis.com',
+      'openai.azure.com',
+      // OpenRouter providers
+      'api.together.xyz',
+      'api.groq.com',
+      'api.novita.ai',
+      'api.parasail.io',
+      'api.deepinfra.com',
+      'api.fireworks.ai',
+      'api.lepton.ai',
+      'api.perplexity.ai',
+      'api.mistral.ai',
+      'api.cohere.ai',
+      'api.cohere.com',
+      'inference.cerebras.ai',
+      'api.hyperbolic.xyz',
+      'api.avian.io',
+      'api.lambdalabs.com',
+      // Local
+      'localhost',
+      '127.0.0.1',
+    ].join(','),
 
     // ZIP/Archive Security (Core 0.1.0)
     zipSecurity: {
