@@ -438,7 +438,7 @@ Respond with ONLY the revised text. Do not include explanations or markdown form
           >
             {settings.providers.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.label}
+                {p.name || p.label}
               </option>
             ))}
           </select>
