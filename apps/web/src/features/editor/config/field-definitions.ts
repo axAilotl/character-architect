@@ -115,7 +115,7 @@ const basicFields: FieldDefinition[] = [
     showTokens: true,
     tokenKey: 'name',
     llmAssist: true,
-    fieldName: 'description', // Uses description context for name suggestions
+    fieldName: 'name',
   },
   {
     id: 'nickname',
