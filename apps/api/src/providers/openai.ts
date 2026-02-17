@@ -20,6 +20,8 @@ export interface OpenAIRequestParams {
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
+  /** Use `max_completion_tokens` instead of `max_tokens` (required for OpenAI GPT-5+/o-series) */
+  useMaxCompletionTokens?: boolean;
 }
 
 /**
@@ -92,18 +94,21 @@ export async function openaiChat(
   params: OpenAIRequestParams
 ): Promise<LLMResponse | AsyncIterable<LLMStreamChunk>> {
   const { baseURL, apiKey, organization } = config;
-  const { model, messages, system, temperature, maxTokens, stream } = params;
+  const { model, messages, system, temperature, maxTokens, stream, useMaxCompletionTokens } = params;
 
   // Build messages array (Chat API uses 'messages')
   const chatMessages = system
     ? [{ role: 'system' as const, content: system }, ...messages]
     : messages;
 
+  // GPT-5+ and o-series models require max_completion_tokens; older models use max_tokens
+  const tokenParam = useMaxCompletionTokens ? 'max_completion_tokens' : 'max_tokens';
+
   const body = {
     model,
     messages: chatMessages,
     ...(temperature !== undefined && { temperature }),
-    ...(maxTokens !== undefined && { max_tokens: maxTokens }), // Note: Chat uses max_tokens
+    ...(maxTokens !== undefined && { [tokenParam]: maxTokens }),
     stream: stream ?? false,
   };
 

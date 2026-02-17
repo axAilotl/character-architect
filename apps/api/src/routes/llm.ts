@@ -127,6 +127,7 @@ export async function llmRoutes(fastify: FastifyInstance) {
               messages: [testMessage],
               maxTokens: 1,
               stream: false,
+              useMaxCompletionTokens: provider.kind === 'openai',
             }
           );
         } else if (provider.kind === 'anthropic') {
@@ -198,6 +199,7 @@ export async function llmRoutes(fastify: FastifyInstance) {
             temperature,
             maxTokens,
             stream,
+            useMaxCompletionTokens: provider.kind === 'openai',
           }
         );
       } else if (provider.kind === 'anthropic') {
@@ -296,6 +298,7 @@ export async function llmRoutes(fastify: FastifyInstance) {
             temperature: temperature ?? provider.temperature,
             maxTokens: maxTokens ?? provider.maxTokens,
             stream,
+            useMaxCompletionTokens: provider.kind === 'openai',
           }
         );
       } else if (provider.kind === 'anthropic') {
