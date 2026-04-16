@@ -95,3 +95,7 @@ db_dump.json
 !test-fixtures/**/*.charx
 profile_raw.txt
 apps/api/debug-*.ts
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key

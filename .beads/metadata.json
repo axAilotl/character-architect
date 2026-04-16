@@ -1,0 +1,8 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "character_architect",
+  "project_id": "abbaeb30-a8e4-4fb7-b709-2ed452d7f236",
+  "global_dolt_database": "beads_global"
+}
