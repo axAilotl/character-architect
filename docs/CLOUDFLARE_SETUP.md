@@ -57,4 +57,4 @@ After deployment:
 4. Validate and preview a browser backup.
 5. Confirm an existing browser profile still loads its cards and settings.
 
-The full Docker deployment remains separate at `http://127.0.0.1:8765`; Cloudflare does not provide its server-only RAG, ComfyUI, web-import, or server proxy features.
+The full Docker deployment remains separate at `http://<docker-host-ip>:8765` (and `http://127.0.0.1:8765` locally); Cloudflare does not provide its server-only RAG, ComfyUI, web-import, or server proxy features.

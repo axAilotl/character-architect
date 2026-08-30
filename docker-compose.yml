@@ -32,8 +32,8 @@ services:
       context: .
       target: web
     ports:
-      # Default: localhost only. For LAN access, change to "0.0.0.0:8765:80"
-      - "127.0.0.1:8765:80"
+      # LAN by default. Set CHARACTER_ARCHITECT_BIND_ADDRESS=127.0.0.1 for localhost-only access.
+      - "${CHARACTER_ARCHITECT_BIND_ADDRESS:-0.0.0.0}:8765:80"
     depends_on:
       api:
         condition: service_healthy

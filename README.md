@@ -116,7 +116,8 @@ cd character-architect
 # Start with Docker Compose
 docker compose up -d
 
-# Access the application at http://localhost:8765
+# Access the application locally at http://localhost:8765
+# or from another LAN device at http://<docker-host-ip>:8765
 # Verify both containers and persistent storage
 pnpm docker:smoke
 ```
@@ -127,7 +128,7 @@ pnpm docker:smoke
 - **nginx** serves the web app and proxies `/api`, `/storage`, `/user` to the internal API container
 - API container runs as non-root `node` user (UID 1000) for security
 - API container includes `ffmpeg` for full-mode media conversion
-- Default binding: `127.0.0.1:8765` (localhost only). For LAN access, change to `0.0.0.0:8765:80` in docker-compose.yml
+- Default binding: `0.0.0.0:8765` (localhost and LAN). To restrict it to localhost, start Compose with `CHARACTER_ARCHITECT_BIND_ADDRESS=127.0.0.1 docker compose up -d`
 - Persistent volumes: `./data` (SQLite database) and `./storage` (card assets)
 
 To expose the API port directly (for debugging), uncomment the `ports` section in `docker-compose.yml`.
@@ -157,7 +158,7 @@ Character Architect supports separate dev and production environments to prevent
 
 | Environment | Branch | URL | Docker Compose | Data Location |
 |------------|--------|-----|----------------|---------------|
-| **Production** | `main` | http://localhost:8765 | `docker-compose.yml` | `./data/`, `./storage/` |
+| **Production** | `main` | http://localhost:8765 or `http://<docker-host-ip>:8765` | `docker-compose.yml` | `./data/`, `./storage/` |
 | **Development** | `dev` | http://localhost:8766 | `docker/docker-compose.dev.yml` | `./data-dev/`, `./storage-dev/` |
 
 **Starting Dev Environment:**
