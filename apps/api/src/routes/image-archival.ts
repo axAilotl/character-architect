@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import { join, basename, extname, resolve } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { isURLSafeForFetch } from '../utils/ssrf-protection.js';
+import { fetchWithSSRFProtection } from '../utils/ssrf-protection.js';
 import { sanitizeFilename as sanitizeFilenameSecure, isFilenameSafe } from '../utils/path-security.js';
 import { extractRemoteImageUrls } from '@character-foundry/character-foundry/image-utils';
 
@@ -28,17 +28,11 @@ function extractImageUrls(content: string): Array<{ url: string; fullMatch: stri
  * Download an image from URL
  */
 async function downloadImage(url: string): Promise<{ buffer: Buffer; mimeType: string; ext: string }> {
-  // SSRF Protection: Validate URL before fetching
-  const ssrfCheck = isURLSafeForFetch(url);
-  if (!ssrfCheck.valid) {
-    throw new Error(`URL blocked: ${ssrfCheck.error}`);
-  }
-
-  const response = await fetch(url, {
+  const response = await fetchWithSSRFProtection(url, {
     headers: {
       'User-Agent': 'Card-Architect/1.0 (image-archival)',
     },
-  });
+  }, { maxBytes: 50 * 1024 * 1024 });
 
   if (!response.ok) {
     throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);

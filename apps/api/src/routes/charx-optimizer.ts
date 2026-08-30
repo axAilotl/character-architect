@@ -8,6 +8,17 @@
 import type { FastifyInstance } from 'fastify';
 import { getSettings, saveSettings } from '../utils/settings.js';
 import type { CharxExportSettings } from '../types/index.js';
+import { z } from 'zod';
+
+const optimizerSettingsSchema = z.object({
+  convertToWebp: z.boolean().optional(),
+  webpQuality: z.number().int().min(1).max(100).optional(),
+  maxMegapixels: z.number().finite().min(0).max(100).optional(),
+  stripMetadata: z.boolean().optional(),
+  convertMp4ToWebm: z.boolean().optional(),
+  webmQuality: z.number().int().min(0).max(63).optional(),
+  includedAssetTypes: z.array(z.string().min(1).max(64)).max(100).optional(),
+}).strict();
 
 /**
  * Default package export optimization settings
@@ -47,6 +58,7 @@ export async function charxOptimizerRoutes(fastify: FastifyInstance) {
   fastify.patch<{ Body: Partial<CharxExportSettings> }>(
     '/package-optimizer/settings',
     async (request) => {
+      const body = optimizerSettingsSchema.parse(request.body);
       const settings = await getSettings();
       const current: CharxExportSettings = {
         ...DEFAULT_CHARX_EXPORT_SETTINGS,
@@ -54,13 +66,13 @@ export async function charxOptimizerRoutes(fastify: FastifyInstance) {
       };
 
       const updated: CharxExportSettings = {
-        convertToWebp: request.body.convertToWebp ?? current.convertToWebp,
-        webpQuality: request.body.webpQuality ?? current.webpQuality,
-        maxMegapixels: request.body.maxMegapixels ?? current.maxMegapixels,
-        stripMetadata: request.body.stripMetadata ?? current.stripMetadata,
-        convertMp4ToWebm: request.body.convertMp4ToWebm ?? current.convertMp4ToWebm,
-        webmQuality: request.body.webmQuality ?? current.webmQuality,
-        includedAssetTypes: request.body.includedAssetTypes ?? current.includedAssetTypes,
+        convertToWebp: body.convertToWebp ?? current.convertToWebp,
+        webpQuality: body.webpQuality ?? current.webpQuality,
+        maxMegapixels: body.maxMegapixels ?? current.maxMegapixels,
+        stripMetadata: body.stripMetadata ?? current.stripMetadata,
+        convertMp4ToWebm: body.convertMp4ToWebm ?? current.convertMp4ToWebm,
+        webmQuality: body.webmQuality ?? current.webmQuality,
+        includedAssetTypes: body.includedAssetTypes ?? current.includedAssetTypes,
       };
 
       settings.charxExport = updated;
@@ -83,6 +95,7 @@ export async function charxOptimizerRoutes(fastify: FastifyInstance) {
   fastify.patch<{ Body: Partial<CharxExportSettings> }>(
     '/charx-optimizer/settings',
     async (request) => {
+      const body = optimizerSettingsSchema.parse(request.body);
       const settings = await getSettings();
       const current: CharxExportSettings = {
         ...DEFAULT_CHARX_EXPORT_SETTINGS,
@@ -90,13 +103,13 @@ export async function charxOptimizerRoutes(fastify: FastifyInstance) {
       };
 
       const updated: CharxExportSettings = {
-        convertToWebp: request.body.convertToWebp ?? current.convertToWebp,
-        webpQuality: request.body.webpQuality ?? current.webpQuality,
-        maxMegapixels: request.body.maxMegapixels ?? current.maxMegapixels,
-        stripMetadata: request.body.stripMetadata ?? current.stripMetadata,
-        convertMp4ToWebm: request.body.convertMp4ToWebm ?? current.convertMp4ToWebm,
-        webmQuality: request.body.webmQuality ?? current.webmQuality,
-        includedAssetTypes: request.body.includedAssetTypes ?? current.includedAssetTypes,
+        convertToWebp: body.convertToWebp ?? current.convertToWebp,
+        webpQuality: body.webpQuality ?? current.webpQuality,
+        maxMegapixels: body.maxMegapixels ?? current.maxMegapixels,
+        stripMetadata: body.stripMetadata ?? current.stripMetadata,
+        convertMp4ToWebm: body.convertMp4ToWebm ?? current.convertMp4ToWebm,
+        webmQuality: body.webmQuality ?? current.webmQuality,
+        includedAssetTypes: body.includedAssetTypes ?? current.includedAssetTypes,
       };
 
       settings.charxExport = updated;

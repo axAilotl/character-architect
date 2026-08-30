@@ -22,6 +22,7 @@
     const DEFAULT_WEB_URL = 'https://ca.axailotl.ai';
     let pendingImportData = null;
     let caWindow = null;
+    let pendingNonce = null;
 
     const BUTTON_STYLES = `
         .ca-import-btn {
@@ -306,7 +307,8 @@
             pendingImportData = importData;
 
             // Open Character Architect import page
-            const importUrl = `${webUrl}/#/import-pending`;
+            pendingNonce = crypto.randomUUID();
+            const importUrl = `${webUrl}/#/import-pending?nonce=${encodeURIComponent(pendingNonce)}`;
             caWindow = window.open(importUrl, '_blank');
 
             showToast('Character Architect opened! Check the new tab.', 'success');
@@ -388,11 +390,9 @@
 
     // Listen for Character Architect requesting import data
     window.addEventListener('message', (event) => {
-        // Verify origin is Character Architect
-        const webUrl = getWebUrl();
-        if (!event.origin.includes(new URL(webUrl).hostname) &&
-            !event.origin.includes('localhost') &&
-            !event.origin.includes('127.0.0.1')) {
+        const architectOrigin = new URL(getWebUrl()).origin;
+        if (event.source !== caWindow || event.origin !== architectOrigin ||
+            !pendingNonce || event.data?.nonce !== pendingNonce) {
             return;
         }
 
@@ -401,16 +401,18 @@
             if (pendingImportData && caWindow) {
                 caWindow.postMessage({
                     type: 'CA_IMPORT_DATA',
+                    nonce: pendingNonce,
                     data: pendingImportData
-                }, '*');
+                }, architectOrigin);
                 console.log('[CA Userscript] Sent import data to Character Architect');
                 // Clear after sending
                 pendingImportData = null;
             } else {
                 caWindow?.postMessage({
                     type: 'CA_IMPORT_DATA',
+                    nonce: pendingNonce,
                     error: 'No pending import data'
-                }, '*');
+                }, architectOrigin);
             }
         }
     });

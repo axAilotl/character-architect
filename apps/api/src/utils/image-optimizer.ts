@@ -6,14 +6,14 @@
  */
 
 import sharp from 'sharp';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { CharxExportSettings } from '../types/index.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface OptimizedMedia {
   buffer: Buffer;
@@ -178,7 +178,7 @@ async function checkFfmpeg(): Promise<boolean> {
   if (ffmpegAvailable !== null) return ffmpegAvailable;
 
   try {
-    await execAsync('ffmpeg -version');
+    await execFileAsync('ffmpeg', ['-version'], { timeout: 10_000 });
     ffmpegAvailable = true;
     console.log('[Media Optimizer] ffmpeg is available for video conversion');
   } catch {
@@ -199,6 +199,9 @@ export async function convertMp4ToWebm(
   quality: number = 30
 ): Promise<OptimizedMedia> {
   const originalSize = buffer.length;
+  if (!Number.isInteger(quality) || quality < 0 || quality > 63) {
+    throw new Error('WebM quality must be an integer between 0 and 63');
+  }
 
   // Check if ffmpeg is available
   const hasFfmpeg = await checkFfmpeg();
@@ -227,9 +230,14 @@ export async function convertMp4ToWebm(
     // -b:v 0: Use constant quality mode
     // -c:v libvpx-vp9: Use VP9 codec for WebM
     // -c:a libopus: Use Opus for audio
-    const cmd = `ffmpeg -i "${inputPath}" -c:v libvpx-vp9 -crf ${quality} -b:v 0 -c:a libopus -y "${outputPath}"`;
-
-    await execAsync(cmd, { timeout: 120000 }); // 2 minute timeout
+    await execFileAsync('ffmpeg', [
+      '-i', inputPath,
+      '-c:v', 'libvpx-vp9',
+      '-crf', String(quality),
+      '-b:v', '0',
+      '-c:a', 'libopus',
+      '-y', outputPath,
+    ], { timeout: 120_000 });
 
     // Read output file
     const outputBuffer = await fs.readFile(outputPath);

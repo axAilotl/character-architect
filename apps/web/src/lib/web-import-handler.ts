@@ -160,13 +160,33 @@ function requestImportDataFromOpener(): Promise<PendingImport> {
       return;
     }
 
+    const nonce = new URLSearchParams(window.location.hash.split('?')[1] || '').get('nonce');
+    let openerOrigin: string;
+    try {
+      openerOrigin = new URL(document.referrer).origin;
+    } catch {
+      reject(new Error('Unable to verify the character-site opener origin.'));
+      return;
+    }
+    const allowedOpeners = [
+      /(^|\.)chub\.ai$/,
+      /^app\.wyvern\.chat$/,
+      /^character-tavern\.com$/,
+      /^realm\.risuai\.net$/,
+    ];
+    if (!nonce || !allowedOpeners.some((pattern) => pattern.test(new URL(openerOrigin).hostname))) {
+      reject(new Error('Invalid or missing import handshake. Please reopen the import from the character site.'));
+      return;
+    }
+
     const timeout = setTimeout(() => {
       window.removeEventListener('message', handler);
       reject(new Error('Timeout waiting for import data. Please try again.'));
     }, 10000);
 
     function handler(event: MessageEvent) {
-      if (event.data?.type === 'CA_IMPORT_DATA') {
+      if (event.source === window.opener && event.origin === openerOrigin &&
+          event.data?.type === 'CA_IMPORT_DATA' && event.data?.nonce === nonce) {
         clearTimeout(timeout);
         window.removeEventListener('message', handler);
 
@@ -184,7 +204,7 @@ function requestImportDataFromOpener(): Promise<PendingImport> {
 
     // Request data from opener
     console.log('[WebImport] Requesting import data from opener...');
-    window.opener.postMessage({ type: 'CA_REQUEST_IMPORT_DATA' }, '*');
+    window.opener.postMessage({ type: 'CA_REQUEST_IMPORT_DATA', nonce }, openerOrigin);
   });
 }
 
