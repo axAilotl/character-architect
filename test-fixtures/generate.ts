@@ -314,6 +314,7 @@ function createV3Card(options: {
               case_sensitive: false,
               priority: 10,
               id: i,
+              name: '',
               comment: `Entry ${i + 1}`,
               selective: false,
               secondary_keys: [],
@@ -376,6 +377,7 @@ function createV2Card(options: {
               case_sensitive: false,
               priority: 10,
               id: i,
+              name: '',
               comment: `Entry ${i + 1}`,
               selective: false,
               secondary_keys: [],
@@ -396,7 +398,14 @@ async function generateFixtures() {
   console.log('Generating synthetic test fixtures...\n');
 
   // Ensure directories exist
-  const dirs = ['basic/png', 'basic/json', 'basic/charx', 'basic/voxta', 'extended/charx'];
+  const dirs = [
+    'basic/png',
+    'basic/json',
+    'basic/charx',
+    'basic/voxta',
+    'extended/charx',
+    'synthetic/generated',
+  ];
   for (const dir of dirs) {
     const fullPath = path.join(OUTPUT_DIR, dir);
     fs.mkdirSync(fullPath, { recursive: true });
@@ -432,6 +441,68 @@ async function generateFixtures() {
   fs.writeFileSync(path.join(OUTPUT_DIR, 'basic/json/hybrid_format_v2.json'), jsonContent);
   console.log(`  Size: ${jsonContent.length} bytes`);
 
+  // Edge-case JSON fixtures used by both the browser and API parity suites.
+  const v1Unwrapped = {
+    name: 'Synthetic V1 Character',
+    description: 'An unwrapped legacy character card.',
+    personality: 'Friendly and compatible.',
+    scenario: 'A legacy import test.',
+    first_mes: 'Hello from a V1 card.',
+    mes_example: '<START>\n{{user}}: Hi\n{{char}}: Hello!',
+  };
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, 'basic/json/v1_unwrapped.json'),
+    JSON.stringify(v1Unwrapped, null, 2)
+  );
+
+  const nullBookV2 = createV2Card({ name: 'Synthetic V2 Null Lorebook' }) as {
+    data: Record<string, unknown>;
+  };
+  nullBookV2.data.character_book = null;
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, 'basic/json/null_character_book_v2.json'),
+    JSON.stringify(nullBookV2, null, 2)
+  );
+
+  const nullBookV3 = createV3Card({ name: 'Synthetic V3 Null Lorebook' }) as {
+    data: Record<string, unknown>;
+  };
+  nullBookV3.data.character_book = null;
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, 'basic/json/null_character_book_v3.json'),
+    JSON.stringify(nullBookV3, null, 2)
+  );
+
+  const validV2 = createV2Card({ name: 'Synthetic Valid V2' });
+  const validV3 = createV3Card({ name: 'Synthetic Valid V3' });
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, 'synthetic/generated/valid_v2_card.json'),
+    JSON.stringify(validV2, null, 2)
+  );
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, 'synthetic/generated/valid_v3_card.json'),
+    JSON.stringify(validV3, null, 2)
+  );
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, 'synthetic/generated/hybrid_chubai_format.json'),
+    JSON.stringify({ name: 'Synthetic Chub Wrapper', definition: validV2 }, null, 2)
+  );
+
+  const syntheticCharxCard = createV3Card({
+    name: 'Synthetic CHARX With Assets',
+    hasAlternateGreetings: true,
+    alternateGreetingsCount: 2,
+    assets: [{ type: 'icon', uri: 'embeded://assets/icon/image/1.png', name: 'main', ext: 'png' }],
+  });
+  const syntheticCharx = createZip([
+    { name: 'card.json', data: JSON.stringify(syntheticCharxCard, null, 2) },
+    { name: 'assets/icon/image/1.png', data: minimalIcon },
+  ]);
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, 'synthetic/generated/charx_with_assets.charx'),
+    syntheticCharx
+  );
+
   // 3. Basic CharX (v3 ZIP with correct asset structure)
   console.log('Creating basic/charx/baseline_v3_small.charx...');
   const v3CardForCharx = createV3Card({
@@ -439,6 +510,8 @@ async function generateFixtures() {
     tags: ['synthetic', 'test', 'charx'],
     hasLorebook: true,
     lorebookEntries: 2,
+    hasAlternateGreetings: true,
+    alternateGreetingsCount: 2,
     assets: [
       {
         type: 'icon',
@@ -567,6 +640,9 @@ These fixtures are intentionally minimal to keep the repository small.
 |------|--------|------|-------------|
 | \`basic/png/baseline_v3_small.png\` | png | v3 | V3 card with embedded icon |
 | \`basic/json/hybrid_format_v2.json\` | json | v2 | V2 JSON with lorebook |
+| \`basic/json/v1_unwrapped.json\` | json | v1 | Legacy unwrapped JSON |
+| \`basic/json/null_character_book_v2.json\` | json | v2 | Null lorebook edge case |
+| \`basic/json/null_character_book_v3.json\` | json | v3 | Null lorebook edge case |
 | \`basic/charx/baseline_v3_small.charx\` | charx | v3 | V3 CharX ZIP package |
 | \`basic/voxta/character_only_small.voxpkg\` | voxta | v3 | Minimal Voxta package |
 
@@ -575,6 +651,11 @@ These fixtures are intentionally minimal to keep the repository small.
 | Path | Format | Spec | Description |
 |------|--------|------|-------------|
 | \`extended/charx/v3_many_assets_01.charx\` | charx | v3 | V3 CharX with 5 assets |
+
+### Synthetic Compatibility Fixtures
+
+The \`synthetic/generated\` directory contains minimal V2, V3, wrapped Chub-style,
+and CHARX fixtures used by the import/export parity tests.
 
 ## Generation
 

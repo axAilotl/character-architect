@@ -8,11 +8,15 @@
 import type { ParsedAsset } from '../types/index.js';
 
 // Lazy-load sharp only in Node.js
-let sharpModule: typeof import('sharp') | null = null;
-async function getSharp() {
+type SharpConstructor = typeof import('sharp')['default'];
+let sharpModule: SharpConstructor | null = null;
+async function getSharp(): Promise<SharpConstructor | null> {
   if (sharpModule === null && typeof window === 'undefined') {
     try {
-      sharpModule = (await import('sharp')).default;
+      // Keep the native Node dependency out of browser bundles. This branch is
+      // unreachable in browsers and Vite must not pre-resolve the specifier.
+      const sharpSpecifier = 'sharp';
+      sharpModule = (await import(/* @vite-ignore */ sharpSpecifier)).default;
     } catch {
       // sharp not available (browser or not installed)
     }

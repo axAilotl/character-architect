@@ -558,7 +558,7 @@ export class CardImportService {
 
     // 1. Try stripped PNG container
     try {
-      const { removeAllTextChunks } = await import('@character-foundry/png');
+      const { removeAllTextChunks } = await import('@character-foundry/character-foundry/png');
       iconBuffer = Buffer.from(removeAllTextChunks(pngBuffer));
       console.log('[Card Import] Using stripped PNG container as main icon');
     } catch (err) {

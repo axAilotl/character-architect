@@ -1,0 +1,24 @@
+{
+  "spec": "chara_card_v3",
+  "spec_version": "3.0",
+  "data": {
+    "name": "Synthetic Valid V3",
+    "description": "A synthetic test character.",
+    "personality": "Friendly and helpful.",
+    "scenario": "A test scenario.",
+    "first_mes": "Hello! I am a synthetic test character.",
+    "mes_example": "<START>\n{{user}}: Hi\n{{char}}: Hello!",
+    "creator": "Synthetic Generator",
+    "creator_notes": "This is a synthetic fixture for testing purposes.",
+    "tags": [
+      "synthetic",
+      "test"
+    ],
+    "character_version": "1.0.0",
+    "system_prompt": "",
+    "post_history_instructions": "",
+    "alternate_greetings": [],
+    "extensions": {},
+    "assets": []
+  }
+}

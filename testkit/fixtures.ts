@@ -10,7 +10,8 @@ export interface ResolveFixturesOptions {
 
 /**
  * Resolve the fixtures directory from CF_FIXTURES_DIR env var.
- * Returns null if not set or directory doesn't exist (CI-friendly).
+ * Returns null only when the fixture suite was not requested. A configured but
+ * missing path is a test-configuration failure, never a silent skip.
  */
 export function resolveFixturesDir(_options: ResolveFixturesOptions = {}): string | null {
   const envDir = process.env.CF_FIXTURES_DIR?.trim();
@@ -20,7 +21,7 @@ export function resolveFixturesDir(_options: ResolveFixturesOptions = {}): strin
   }
 
   if (!existsSync(envDir) || !statSync(envDir).isDirectory()) {
-    return null;
+    throw new Error(`CF_FIXTURES_DIR does not exist or is not a directory: ${envDir}`);
   }
 
   return envDir;

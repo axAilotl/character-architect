@@ -1681,7 +1681,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           let voxtaData = convertCardMacros(
             card.data as unknown as Record<string, unknown>,
             standardToVoxta
-          ) as unknown as import('@character-foundry/schemas').CCv3Data;
+          ) as unknown as import('@character-foundry/character-foundry/schemas').CCv3Data;
           fastify.log.info({ cardId: request.params.id }, 'Converted standard macros to Voxta format for Voxta export');
 
           // Convert local /user/images/ URLs to embeded:// URLs for archived images
@@ -1707,7 +1707,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
               voxtaArchivedAssets,
               characterName
             );
-            voxtaData = convertedData as unknown as import('@character-foundry/schemas').CCv3Data;
+            voxtaData = convertedData as unknown as import('@character-foundry/character-foundry/schemas').CCv3Data;
 
             // Add embedded archived images to the assets list
             for (const embedded of embeddedAssets) {

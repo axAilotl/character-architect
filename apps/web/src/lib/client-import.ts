@@ -213,7 +213,7 @@ function createCard(
  * Create a Lorebook card from imported lorebook data
  */
 function createLorebookCard(
-  book: import('@character-foundry/lorebook').ParsedLorebook['book'],
+  book: import('@character-foundry/character-foundry/lorebook').ParsedLorebook['book'],
   fileName: string
 ): Card {
   const id = generateId();

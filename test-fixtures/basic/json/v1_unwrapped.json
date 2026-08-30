@@ -1,0 +1,8 @@
+{
+  "name": "Synthetic V1 Character",
+  "description": "An unwrapped legacy character card.",
+  "personality": "Friendly and compatible.",
+  "scenario": "A legacy import test.",
+  "first_mes": "Hello from a V1 card.",
+  "mes_example": "<START>\n{{user}}: Hi\n{{char}}: Hello!"
+}

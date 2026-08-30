@@ -91,8 +91,9 @@ export function parseJSON(file: Buffer | Uint8Array): ParsedData {
     };
   }
 
-  // Check for standalone lorebook
-  if ((json as any).entries || (json as any).name) {
+  // A standalone lorebook must actually contain entries. Treating any object
+  // with a name as a lorebook misclassifies legacy V1/V2 character cards.
+  if ((json as any).entries) {
     const lorebook = json as any;
     const character: ParsedCharacter = {
       card: {
