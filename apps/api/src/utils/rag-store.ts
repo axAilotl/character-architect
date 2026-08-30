@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { nanoid } from 'nanoid';
-import pdfParse from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 import type {
   RagDatabase,
   RagDatabaseDetail,
@@ -109,8 +109,13 @@ function detectDocType(filename: string): RagDocumentType {
 
 async function extractText(buffer: Buffer, type: RagDocumentType): Promise<string> {
   if (type === 'pdf') {
-    const parsed = await pdfParse(buffer);
-    return parsed.text;
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const parsed = await parser.getText();
+      return parsed.text;
+    } finally {
+      await parser.destroy();
+    }
   }
 
   const text = buffer.toString('utf-8');

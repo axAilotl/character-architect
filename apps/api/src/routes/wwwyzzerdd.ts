@@ -5,15 +5,12 @@
 
 import type { FastifyInstance } from 'fastify';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { config } from '../config.js';
 
 // Paths for JSON storage
-const SETTINGS_DIR = join(__dirname, '../../data/settings/presets');
+const SETTINGS_DIR = config.presetStoragePath;
 const WWWYZZERDD_PATH = join(SETTINGS_DIR, 'wwwyzzerdd.json');
 
 // Ensure directory exists

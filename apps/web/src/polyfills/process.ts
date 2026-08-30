@@ -1,6 +1,10 @@
 // Polyfill process for Node.js libraries running in browser
-if (typeof globalThis.process === 'undefined') {
-  (globalThis as any).process = {
+const browserGlobal = globalThis as typeof globalThis & {
+  process?: { env: { NODE_ENV: string }; version: string; platform: string };
+};
+
+if (typeof browserGlobal.process === 'undefined') {
+  browserGlobal.process = {
     env: {
       NODE_ENV: 'production',
     },

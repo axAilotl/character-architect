@@ -77,9 +77,7 @@ interface PageErrorBoundaryProps extends Props {
   onNavigateHome?: () => void;
 }
 
-interface PageErrorBoundaryState extends State {
-  // Additional state if needed
-}
+type PageErrorBoundaryState = State;
 
 export class PageErrorBoundary extends Component<PageErrorBoundaryProps, PageErrorBoundaryState> {
   constructor(props: PageErrorBoundaryProps) {

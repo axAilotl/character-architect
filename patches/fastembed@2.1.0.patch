@@ -1,0 +1,33 @@
+diff --git a/lib/esm/fastembed.js b/lib/esm/fastembed.js
+--- a/lib/esm/fastembed.js
++++ b/lib/esm/fastembed.js
+@@ -3,7 +3,7 @@ import https from "https";
+ import * as ort from "onnxruntime-node";
+ import path from "path";
+ import Progress from "progress";
+-import tar from "tar";
++import * as tar from "tar";
+ import { downloadFileToCacheDir } from "@huggingface/hub";
+ export var ExecutionProvider;
+ (function (ExecutionProvider) {
+diff --git a/lib/cjs/fastembed.js b/lib/cjs/fastembed.js
+--- a/lib/cjs/fastembed.js
++++ b/lib/cjs/fastembed.js
+@@ -32,7 +32,7 @@ const https_1 = __importDefault(require("https"));
+ const ort = __importStar(require("onnxruntime-node"));
+ const path_1 = __importDefault(require("path"));
+ const progress_1 = __importDefault(require("progress"));
+-const tar_1 = __importDefault(require("tar"));
++const tar_1 = require("tar");
+ const hub_1 = require("@huggingface/hub");
+ var ExecutionProvider;
+ (function (ExecutionProvider) {
+@@ -205,7 +205,7 @@ class FlagEmbedding {
+     static async decompressToCache(targzPath, cacheDir) {
+         // Implementation for decompressing a .tar.gz file to a cache directory
+         if (path_1.default.extname(targzPath.toString()) === ".gz") {
+-            await tar_1.default.x({
++            await tar_1.x({
+                 file: targzPath,
+                 // @ts-ignore
+                 cwd: cacheDir,

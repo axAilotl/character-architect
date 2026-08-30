@@ -423,6 +423,15 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 10,
+    name: 'add_llm_presets_is_hidden',
+    up: (db: Database.Database) => {
+      if (!columnExists(db, 'llm_presets', 'is_hidden')) {
+        db.exec('ALTER TABLE llm_presets ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0');
+      }
+    },
+  },
 ];
 
 /**

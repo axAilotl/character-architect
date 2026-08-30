@@ -51,6 +51,18 @@ export interface StoredAsset {
   updatedAt: string;
 }
 
+export interface RestoreData {
+  cards: Card[];
+  images: Array<{ cardId: string; type: string; data: string }>;
+  versions: StoredVersion[];
+  assets: StoredAsset[];
+}
+
+export interface RestoreCounts {
+  imported: { cards: number; images: number; versions: number; assets: number };
+  skipped: number;
+}
+
 export class LocalDB {
   private db: IDBPDatabase | null = null;
 
@@ -304,30 +316,74 @@ export class LocalDB {
     await tx.done;
   }
 
-  // Import data to IndexedDB stores
-  async importAll(data: {
-    cards: Card[];
-    images: Array<{ cardId: string; type: string; data: string }>;
-    versions: StoredVersion[];
-    assets: StoredAsset[];
-  }): Promise<void> {
+  /**
+   * Restore every IndexedDB-backed entity in one transaction. In replace mode
+   * the clears and all writes commit together, so a rejected write leaves the
+   * previous database untouched.
+   */
+  async restoreAll(
+    data: RestoreData,
+    mode: 'replace' | 'merge',
+    skipConflicts = true,
+  ): Promise<RestoreCounts> {
     if (!this.db) await this.init();
-    const tx = this.db!.transaction([CARDS_STORE, IMAGES_STORE, VERSIONS_STORE, ASSETS_STORE], 'readwrite');
+    const storeNames = [CARDS_STORE, IMAGES_STORE, VERSIONS_STORE, ASSETS_STORE, DRAFTS_STORE];
+
+    if (mode === 'merge' && !skipConflicts) {
+      const conflictChecks: Array<Promise<unknown>> = [
+        ...data.cards.map((card) => this.db!.get(CARDS_STORE, card.meta.id)),
+        ...data.images.map((image) => this.db!.get(IMAGES_STORE, [image.cardId, image.type])),
+        ...data.versions.map((version) => this.db!.get(VERSIONS_STORE, version.id)),
+        ...data.assets.map((asset) => this.db!.get(ASSETS_STORE, asset.id)),
+      ];
+      const existing = await Promise.all(conflictChecks);
+      if (existing.some(Boolean)) {
+        throw new Error('Merge conflict: the backup overlaps existing browser data');
+      }
+    }
+
+    const tx = this.db!.transaction(storeNames, 'readwrite');
+    const imported = { cards: 0, images: 0, versions: 0, assets: 0 };
+    let skipped = 0;
+
+    if (mode === 'replace') {
+      await Promise.all(storeNames.map((storeName) => tx.objectStore(storeName).clear()));
+    }
+
+    const putIfAllowed = async (
+      storeName: string,
+      key: IDBValidKey,
+      value: Card | StoredImage | StoredVersion | StoredAsset,
+      counter: keyof typeof imported,
+    ) => {
+      if (mode === 'merge' && await tx.objectStore(storeName).get(key)) {
+        skipped++;
+        return;
+      }
+      await tx.objectStore(storeName).put(value);
+      imported[counter]++;
+    };
 
     for (const card of data.cards) {
-      await tx.objectStore(CARDS_STORE).put(card);
+      await putIfAllowed(CARDS_STORE, card.meta.id, card, 'cards');
     }
     for (const image of data.images) {
-      await tx.objectStore(IMAGES_STORE).put(image);
+      await putIfAllowed(IMAGES_STORE, [image.cardId, image.type], image as StoredImage, 'images');
     }
     for (const version of data.versions) {
-      await tx.objectStore(VERSIONS_STORE).put(version);
+      await putIfAllowed(VERSIONS_STORE, version.id, version, 'versions');
     }
     for (const asset of data.assets) {
-      await tx.objectStore(ASSETS_STORE).put(asset);
+      await putIfAllowed(ASSETS_STORE, asset.id, asset, 'assets');
     }
 
     await tx.done;
+    return { imported, skipped };
+  }
+
+  // Import data to IndexedDB stores
+  async importAll(data: RestoreData): Promise<void> {
+    await this.restoreAll(data, 'merge');
   }
 }
 

@@ -18,13 +18,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@character-foundry/character-foundry": "0.4.2-dev.1765997746",
-    "nanoid": "^5.0.4",
-    "sharp": "^0.33.1"
+    "@character-foundry/character-foundry": "0.5.0",
+    "nanoid": "6.0.1",
+    "sharp": "0.35.4"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "@types/node": "^20.10.6",
-    "vitest": "^1.1.0"
+    "typescript": "6.0.3",
+    "@types/node": "24.13.3",
+    "vitest": "4.1.11"
   }
 }

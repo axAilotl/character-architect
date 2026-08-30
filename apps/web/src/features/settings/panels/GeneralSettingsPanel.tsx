@@ -8,12 +8,12 @@ import {
 } from '../../../lib/schemas/settings/general';
 
 export function GeneralSettingsPanel() {
-  const { linkedImageArchivalEnabled, setLinkedImageArchivalEnabled } =
-    useSettingsStore((state) => ({
-      linkedImageArchivalEnabled:
-        state.features?.linkedImageArchivalEnabled ?? false,
-      setLinkedImageArchivalEnabled: state.setLinkedImageArchivalEnabled,
-    }));
+  const linkedImageArchivalEnabled = useSettingsStore(
+    (state) => state.features?.linkedImageArchivalEnabled ?? false,
+  );
+  const setLinkedImageArchivalEnabled = useSettingsStore(
+    (state) => state.setLinkedImageArchivalEnabled,
+  );
 
   const deploymentConfig = getDeploymentConfig();
 

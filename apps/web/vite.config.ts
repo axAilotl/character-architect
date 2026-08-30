@@ -17,20 +17,13 @@ export default defineConfig({
       module: path.resolve(__dirname, './src/polyfills/module-shim.ts'),
     },
   },
-  build: {
-    rollupOptions: {
-      // Externalize node-specific modules from @character-foundry/core
-      external: [],
-      output: {
-        globals: {},
-      },
-    },
-  },
   optimizeDeps: {
     exclude: ['@character-foundry/core'],
-    esbuildOptions: {
-      define: {
-        global: 'globalThis',
+    rolldownOptions: {
+      transform: {
+        define: {
+          global: 'globalThis',
+        },
       },
     },
   },
@@ -175,7 +168,7 @@ export default defineConfig({
         target: 'http://localhost:3456',
         changeOrigin: true,
       },
-      '/user': {
+      '/user/': {
         target: 'http://localhost:3456',
         changeOrigin: true,
       },

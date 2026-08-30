@@ -17,7 +17,8 @@ if %errorlevel% neq 0 (
 
 :: Set variables
 set NVM_VERSION=1.2.2
-set NODE_VERSION=22
+set NODE_VERSION=24
+set PNPM_VERSION=11.24.0
 set INSTALL_DIR=%USERPROFILE%
 
 echo [INFO] This script will install:
@@ -100,6 +101,11 @@ echo [OK] Node.js %NODE_VER% installed and active.
 
 for /f "tokens=*" %%i in ('npm --version 2^>nul') do set NPM_VER=%%i
 echo [OK] npm v%NPM_VER% available.
+call npm install --global corepack@0.34.6
+call corepack enable
+call corepack install --global pnpm@%PNPM_VERSION%
+for /f "tokens=*" %%i in ('pnpm --version 2^>nul') do set PNPM_VER=%%i
+echo [OK] pnpm v%PNPM_VER% installed and active.
 
 :: ============================================
 :: Check for Visual Studio Build Tools
@@ -170,13 +176,8 @@ if not exist "package.json" (
 )
 
 :: Clean install
-echo [INFO] Running npm install...
-call npm install
-
-if %errorlevel% neq 0 (
-    echo [WARN] npm install had some issues. Trying with legacy peer deps...
-    call npm install --legacy-peer-deps
-)
+echo [INFO] Running pnpm install --frozen-lockfile...
+call pnpm install --frozen-lockfile
 
 :: ============================================
 :: Build packages
@@ -186,19 +187,19 @@ echo [5/6] Building packages...
 
 :: Build packages first (required for apps to work)
 echo [INFO] Building shared packages first...
-call npm run build:packages
+call pnpm run build:packages
 
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to build packages. Please check the error messages above.
     echo [INFO] Common issues:
-    echo        - Missing dependencies: run 'npm install' again
+    echo        - Missing dependencies: run 'pnpm install --frozen-lockfile' again
     echo        - TypeScript errors: check for syntax errors in package source
     pause
     exit /b 1
 )
 
 echo [INFO] Building applications...
-call npm run build:apps
+call pnpm run build:apps
 
 if %errorlevel% neq 0 (
     echo [WARN] App build had some warnings, but may still work.
@@ -221,7 +222,7 @@ echo echo API will be available at: http://localhost:3456
 echo echo.
 echo echo Press Ctrl+C to stop.
 echo echo.
-echo call npm run dev
+echo call pnpm run dev
 echo pause
 ) > start-dev.bat
 
@@ -231,14 +232,14 @@ echo @echo off
 echo cd /d "%%~dp0"
 echo echo Starting Character Architect production build...
 echo echo.
-echo call npm run build
+echo call pnpm run build
 echo echo.
 echo echo Starting production server...
 echo echo Web UI will be available at: http://localhost:8765
 echo echo API will be available at: http://localhost:3456
 echo echo.
 echo cd apps/api
-echo call npm start
+echo call pnpm start
 echo pause
 ) > start-prod.bat
 
@@ -256,7 +257,7 @@ echo To start Character Architect:
 echo.
 echo   Development mode:
 echo     Double-click start-dev.bat
-echo     OR run: npm run dev
+echo     OR run: pnpm run dev
 echo.
 echo   Production mode:
 echo     Double-click start-prod.bat

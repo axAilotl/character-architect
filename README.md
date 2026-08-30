@@ -102,7 +102,7 @@ For Windows users who are new to development:
 
 The installer will set up:
 - NVM for Windows (Node Version Manager)
-- Node.js v22
+- Node.js v24 LTS and pnpm 11.24.0
 - Visual Studio Build Tools (for native modules like better-sqlite3)
 - All project dependencies
 
@@ -117,6 +117,8 @@ cd character-architect
 docker compose up -d
 
 # Access the application at http://localhost:8765
+# Verify both containers and persistent storage
+pnpm docker:smoke
 ```
 
 **Docker Architecture:**
@@ -124,6 +126,7 @@ docker compose up -d
 - Multi-stage build: builder stage compiles packages + apps, runtime stages copy built artifacts
 - **nginx** serves the web app and proxies `/api`, `/storage`, `/user` to the internal API container
 - API container runs as non-root `node` user (UID 1000) for security
+- API container includes `ffmpeg` for full-mode media conversion
 - Default binding: `127.0.0.1:8765` (localhost only). For LAN access, change to `0.0.0.0:8765:80` in docker-compose.yml
 - Persistent volumes: `./data` (SQLite database) and `./storage` (card assets)
 
@@ -132,12 +135,14 @@ To expose the API port directly (for debugging), uncomment the `ports` section i
 ### Local Development
 
 ```bash
-# Prerequisites: Node.js 20+, pnpm
+# Prerequisites: Node.js 24 LTS and pnpm 11.24.0
 # Note: If install fails for @character-foundry/* packages, you may need a GitHub token (read:packages):
 # export GITHUB_TOKEN=... (or configure npm auth for GitHub Packages)
 
 # Install dependencies
-pnpm install
+corepack enable
+corepack install --global pnpm@11.24.0
+pnpm install --frozen-lockfile
 
 # Start development servers
 pnpm run dev
@@ -181,7 +186,7 @@ Character Architect supports three deployment modes, set via `VITE_DEPLOYMENT_MO
 |------|----------|-----------------|----------|
 | `full` | Self-hosted | Yes (API + SQLite) | Local dev, home server, full features |
 | `light` | Cheap VPS | Minimal | $5/mo VPS, most features client-side |
-| `static` | Static hosting | No | Cloudflare Pages, GitHub Pages |
+| `static` | Static hosting | No | Cloudflare Workers Static Assets, GitHub Pages |
 
 ### Full Mode (Default)
 
@@ -220,7 +225,8 @@ No server at all - pure client-side with IndexedDB:
 ```bash
 # Build for static deployment
 VITE_DEPLOYMENT_MODE=static pnpm run build:web
-# Deploy dist/ to Cloudflare Pages, GitHub Pages, etc.
+# Deploy the configured Cloudflare Worker with Static Assets
+pnpm cf:deploy
 ```
 
 ### Feature Availability by Mode
@@ -238,13 +244,20 @@ VITE_DEPLOYMENT_MODE=static pnpm run build:web
 | SillyTavern Push | ✓ | ✓ | ✓ |
 | Data Sync | SQLite | SQLite | IndexedDB only |
 
+### Backup and restore
+
+Settings → Backup & Restore produces a ZIP with the user-owned data available in the current mode. Full-mode backups include SQLite records, stored assets, application settings, custom preset files, and theme images. Browser-mode backups include IndexedDB records and supported local settings. Treat these archives as sensitive because provider configuration can contain API keys.
+
+Restore validates the entire archive before changing live data. Replace mode is transactional and rolls back failed database, filesystem, IndexedDB, and local-setting changes. Merge mode skips existing records by default. Full backups can also be restored into a static browser deployment; server-only features remain unavailable there.
+
 ## Architecture
 
 Character Architect is a monorepo with:
 
 ```
-/apps/api              # Fastify backend (Node 20 + SQLite)
+/apps/api              # Fastify backend (Node 24 + SQLite)
 /apps/web              # React frontend (Vite + TypeScript + Tailwind)
+/packages/backup-core  # Shared browser/server backup contract
 /packages/defaults     # Shared default templates, snippets, and presets
 /packages/plugins      # Plugin SDK (stub)
 /docker                # Nginx config + dev Docker Compose
@@ -270,7 +283,7 @@ Character Architect is a monorepo with:
 - **Zod** - Runtime validation (shared schemas)
 
 **Frontend:**
-- **React 18** + **TypeScript** - UI framework
+- **React 19** + **TypeScript** - UI framework
 - **Vite** - Build tool and dev server
 - **Tailwind CSS** - Styling
 - **Zustand** - State management

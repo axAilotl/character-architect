@@ -1,8 +1,0 @@
-{
-  "sillyTavern": {
-    "enabled": true,
-    "baseUrl": "https://silly.local.vega.nyc",
-    "importEndpoint": "/api/characters/import",
-    "sessionCookie": ""
-  }
-}

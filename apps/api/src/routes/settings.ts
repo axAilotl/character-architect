@@ -1,17 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, readdirSync } from 'fs';
 import { join, dirname, extname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { isFilenameSafe, sanitizeFilename } from '../utils/path-security.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { config } from '../config.js';
 
 // Path to store settings JSON
-const SETTINGS_PATH = join(__dirname, '../../data/settings.json');
+const SETTINGS_PATH = config.settingsPath;
 // Path to store theme images
-const THEME_IMAGES_PATH = join(__dirname, '../../themes/images');
+const THEME_IMAGES_PATH = config.themeImagesPath;
 
 interface Settings {
   sillyTavern?: {

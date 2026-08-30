@@ -11,23 +11,14 @@ import { generateId } from '@card-architect/import-core';
 import type { LocalDB } from '../lib/db.js';
 
 /**
- * Convert Buffer or Uint8Array to base64 data URL
+ * Convert binary data to a base64 data URL without relying on Node globals.
  */
-function bufferToDataURL(buffer: Buffer | Uint8Array, mimetype: string): string {
-  // Convert to base64
-  let base64: string;
-
-  if (typeof Buffer !== 'undefined' && buffer instanceof Buffer) {
-    base64 = buffer.toString('base64');
-  } else {
-    // Uint8Array - convert to binary string then base64
-    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    base64 = btoa(binary);
+function bufferToDataURL(buffer: Uint8Array, mimetype: string): string {
+  let binary = '';
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
   }
+  const base64 = btoa(binary);
 
   return `data:${mimetype};base64,${base64}`;
 }
@@ -79,7 +70,7 @@ export class ClientStorageAdapter implements StorageAdapter {
     await this.db.saveCard(updated);
   }
 
-  async setCardImage(cardId: string, imageData: Buffer | Uint8Array | string): Promise<void> {
+  async setCardImage(cardId: string, imageData: Uint8Array | string): Promise<void> {
     // Ensure data is a data URL
     let dataUrl: string;
 

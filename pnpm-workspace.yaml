@@ -3,7 +3,43 @@ packages:
   - 'packages/*'
 
 # Allow build scripts for native modules
-onlyBuiltDependencies:
-  - better-sqlite3
-  - esbuild
-  - sharp
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  onnxruntime-node: true
+  sharp: true
+  workerd: true
+
+# Docker and a few legacy workspace imports still expect a flat public surface.
+shamefullyHoist: true
+
+# fastembed is archived and still requests vulnerable tar 6. The package patch
+# below updates its import style so the secure tar 7 API can be substituted.
+overrides:
+  '@codemirror/commands': 6.11.0
+  '@codemirror/lang-html': 6.4.12
+  '@codemirror/lang-json': 6.0.2
+  '@codemirror/lang-markdown': 6.5.2
+  '@codemirror/language': 6.12.4
+  '@codemirror/merge': 6.12.2
+  '@codemirror/search': 6.7.1
+  '@codemirror/state': 6.7.1
+  '@codemirror/view': 6.43.9
+  '@fastify/ajv-compiler>ajv': 8.18.0
+  'fast-json-stringify>ajv': 8.18.0
+  'workbox-build>ajv': 8.18.0
+  dompurify: 3.4.14
+  fast-uri: 3.1.5
+  'fastembed>tar': 7.5.22
+  lodash-es: 4.18.1
+  'onnxruntime-node>tar': 7.5.22
+  sharp: 0.35.4
+  uuid: 11.1.1
+  ws: 8.21.3
+
+patchedDependencies:
+  fastembed@2.1.0: patches/fastembed@2.1.0.patch
+
+minimumReleaseAgeExclude:
+  - tsx@4.23.13
+  - react-hook-form@7.87.0

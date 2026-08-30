@@ -313,10 +313,6 @@ function FocusedEditorInner() {
     rawMarkdownRef.current = value;
   }, [selectedField, alternateGreetingIndex, drafts, getFieldValue]);
 
-  if (!currentCard || !cardData) {
-    return <div className="p-6 text-center text-dark-muted">Load a card to use Focused Mode.</div>;
-  }
-
   const currentValue = drafts[selectedField] ?? '';
 
   const normalizeDraft = (value: string) => value.replace(/^(\s*)\\\[/gm, '$1[');
@@ -357,6 +353,10 @@ function FocusedEditorInner() {
     },
     [editorFocus]
   );
+
+  if (!currentCard || !cardData) {
+    return <div className="p-6 text-center text-dark-muted">Load a card to use Focused Mode.</div>;
+  }
 
   const applyChanges = () => {
     const value = drafts[selectedField] ?? '';

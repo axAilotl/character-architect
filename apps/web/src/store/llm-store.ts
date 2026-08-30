@@ -464,7 +464,7 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
     // Full mode: fetch via server or directly
     try {
       let headers: Record<string, string> = {};
-      let url = `${provider.baseURL.replace(/\/$/, '')}/v1/models`;
+      const url = `${provider.baseURL.replace(/\/$/, '')}/v1/models`;
 
       if (provider.kind === 'anthropic') {
         headers = {

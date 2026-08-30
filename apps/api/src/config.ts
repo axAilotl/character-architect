@@ -2,18 +2,26 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const databasePath = process.env.DATABASE_PATH || join(__dirname, '../data/cards.db');
+const dataPath = process.env.DATA_PATH || dirname(databasePath);
+const storagePath = process.env.STORAGE_PATH || join(__dirname, '../storage');
 
 export const config = {
   port: parseInt(process.env.PORT || '3456', 10),
   // Default to loopback for safety; set HOST=0.0.0.0 explicitly for LAN access
   host: process.env.HOST || '127.0.0.1',
   webPort: parseInt(process.env.WEB_PORT || '5173', 10),
-  databasePath: process.env.DATABASE_PATH || join(__dirname, '../data/cards.db'),
-  storagePath: process.env.STORAGE_PATH || join(__dirname, '../storage'),
+  databasePath,
+  dataPath,
+  storagePath,
+  settingsPath: join(dataPath, 'settings.json'),
+  presetStoragePath: join(dataPath, 'settings', 'presets'),
+  themeImagesPath: join(storagePath, 'themes', 'images'),
   webImport: {
     // Enable server-side web import routes (default true; set to false for light/static deployments).
     enabled: process.env.WEB_IMPORT_ENABLED !== 'false',
@@ -21,6 +29,7 @@ export const config = {
   limits: {
     maxCardSizeMB: parseInt(process.env.MAX_CARD_SIZE_MB || '300', 10),
     maxPngSizeMB: parseInt(process.env.MAX_PNG_SIZE_MB || '300', 10),
+    maxBackupSizeMB: parseInt(process.env.MAX_BACKUP_SIZE_MB || '300', 10),
     warnPngSizeMB: parseInt(process.env.WARN_PNG_SIZE_MB || '100', 10),
     warnCardSizeMB: parseInt(process.env.WARN_CARD_SIZE_MB || '50', 10),
   },

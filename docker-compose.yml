@@ -14,6 +14,7 @@ services:
       - NODE_ENV=production
       - PORT=3456
       - HOST=0.0.0.0
+      - DATA_PATH=/app/data
       - DATABASE_PATH=/app/data/cards.db
       - STORAGE_PATH=/app/storage
       # Size limits use generous defaults from config.ts (300MB card/png, 500MB uncompressed ZIP)
@@ -34,14 +35,11 @@ services:
       # Default: localhost only. For LAN access, change to "0.0.0.0:8765:80"
       - "127.0.0.1:8765:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-volumes:
-  data:
-  storage:

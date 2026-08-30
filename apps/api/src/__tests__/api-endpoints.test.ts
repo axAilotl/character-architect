@@ -314,6 +314,55 @@ describe('API Endpoints', () => {
     });
   });
 
+  describe('Backup routes', () => {
+    let archive: Buffer;
+
+    it('streams a valid backup archive', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/backup',
+        payload: { includeVersions: true, includePresets: true },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('application/zip');
+      expect(response.headers['content-disposition']).toContain('character-architect-backup-');
+      archive = response.rawPayload;
+      expect(archive.subarray(0, 2).toString()).toBe('PK');
+    });
+
+    it('validates and previews the streamed archive through multipart staging', async () => {
+      const FormData = (await import('form-data')).default;
+      const createForm = () => {
+        const form = new FormData();
+        form.append('file', archive, { filename: 'backup.zip', contentType: 'application/zip' });
+        return form;
+      };
+
+      const validationForm = createForm();
+      const validation = await app.inject({
+        method: 'POST',
+        url: '/api/backup/validate',
+        payload: validationForm,
+        headers: validationForm.getHeaders(),
+      });
+      expect(validation.statusCode).toBe(200);
+      expect(JSON.parse(validation.body)).toMatchObject({ valid: true, errors: [] });
+
+      const previewForm = createForm();
+      const preview = await app.inject({
+        method: 'POST',
+        url: '/api/backup/preview',
+        payload: previewForm,
+        headers: previewForm.getHeaders(),
+      });
+      expect(preview.statusCode).toBe(200);
+      expect(JSON.parse(preview.body)).toMatchObject({
+        manifest: { version: '1.0', sourceMode: 'full' },
+      });
+    });
+  });
+
   describe('Tokenization', () => {
     it('should tokenize text', async () => {
       const response = await app.inject({

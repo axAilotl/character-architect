@@ -15,10 +15,8 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "@character-foundry/schemas": "^0.2.0"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "typescript": "6.0.3"
   }
 }

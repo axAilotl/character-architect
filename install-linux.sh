@@ -13,7 +13,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Config
-NODE_VERSION="22"
+NODE_VERSION="24"
+PNPM_VERSION="11.24.0"
 NVM_VERSION="0.40.1"
 
 echo -e "${BLUE}============================================${NC}"
@@ -120,6 +121,10 @@ NPM_VER=$(npm --version)
 
 echo -e "${GREEN}[OK] Node.js $NODE_VER installed and active.${NC}"
 echo -e "${GREEN}[OK] npm v$NPM_VER available.${NC}"
+npm install --global corepack@0.34.6
+corepack enable
+corepack install --global "pnpm@$PNPM_VERSION"
+echo -e "${GREEN}[OK] pnpm $(pnpm --version) installed and active.${NC}"
 
 # ============================================
 # Install project dependencies
@@ -137,11 +142,8 @@ if [ ! -f "package.json" ]; then
     exit 1
 fi
 
-echo "[INFO] Running npm install..."
-npm install || {
-    echo -e "${YELLOW}[WARN] npm install had some issues. Trying with legacy peer deps...${NC}"
-    npm install --legacy-peer-deps
-}
+echo "[INFO] Running pnpm install --frozen-lockfile..."
+pnpm install --frozen-lockfile
 
 # ============================================
 # Build packages
@@ -150,18 +152,10 @@ echo ""
 echo -e "${BLUE}[5/6] Building packages...${NC}"
 
 echo "[INFO] Building shared packages..."
-npm run build:packages || {
-    echo -e "${YELLOW}[WARN] build:packages failed. Trying individual builds...${NC}"
-    for pkg in schemas utils png charx voxta tokenizers plugins; do
-        if [ -d "packages/$pkg" ]; then
-            echo "[INFO] Building packages/$pkg..."
-            (cd "packages/$pkg" && npm run build) || true
-        fi
-    done
-}
+pnpm run build:packages
 
 echo "[INFO] Building applications..."
-npm run build:apps || {
+pnpm run build:apps || {
     echo -e "${YELLOW}[WARN] App build had some warnings, but may still work.${NC}"
 }
 
@@ -188,7 +182,7 @@ echo ""
 echo "Press Ctrl+C to stop."
 echo ""
 
-npm run dev
+pnpm run dev
 EOF
 chmod +x start-dev.sh
 
@@ -202,7 +196,7 @@ export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 
 echo "Building Character Architect for production..."
-npm run build
+pnpm run build
 
 echo ""
 echo "Starting production server..."
@@ -212,7 +206,7 @@ echo "Press Ctrl+C to stop."
 echo ""
 
 cd apps/api
-npm start
+pnpm start
 EOF
 chmod +x start-prod.sh
 
@@ -252,7 +246,7 @@ echo "To start Character Architect:"
 echo ""
 echo "  Development mode:"
 echo "    ./start-dev.sh"
-echo "    OR: npm run dev"
+echo "    OR: pnpm run dev"
 echo ""
 echo "  Production mode:"
 echo "    ./start-prod.sh"

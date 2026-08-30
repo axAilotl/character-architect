@@ -50,10 +50,15 @@ export async function build(opts: FastifyServerOptions = {}) {
   // Register plugins - Hardened CORS configuration
   const corsOrigins = config.security.corsOrigins;
   const corsConfig = corsOrigins === '*'
-    ? { origin: true, credentials: true }  // Dev mode: allow all
+    ? {
+        origin: true,
+        credentials: true,
+        methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+      }  // Dev mode: allow all
     : {
         origin: corsOrigins.split(',').map(o => o.trim()),
         credentials: true,
+        methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
       };
 
   await fastify.register(cors, corsConfig);
@@ -63,7 +68,7 @@ export async function build(opts: FastifyServerOptions = {}) {
 
   await fastify.register(multipart, {
     limits: {
-      fileSize: config.limits.maxPngSizeMB * 1024 * 1024,
+      fileSize: Math.max(config.limits.maxPngSizeMB, config.limits.maxBackupSizeMB) * 1024 * 1024,
     },
   });
 
@@ -74,20 +79,23 @@ export async function build(opts: FastifyServerOptions = {}) {
 
   // Global error handler - standardizes error responses
   fastify.setErrorHandler((error, request, reply) => {
-    const statusCode = error.statusCode || 500;
+    const normalizedError: Error & { statusCode?: number } = error instanceof Error
+      ? error
+      : new Error('Internal Server Error');
+    const statusCode = normalizedError.statusCode || 500;
 
     // Log the error (skip 4xx client errors at error level)
     if (statusCode >= 500) {
-      fastify.log.error({ err: error, url: request.url }, 'Server error');
+      fastify.log.error({ err: normalizedError, url: request.url }, 'Server error');
     } else {
-      fastify.log.warn({ err: error, url: request.url }, 'Client error');
+      fastify.log.warn({ err: normalizedError, url: request.url }, 'Client error');
     }
 
     // Standardized error response
     reply.status(statusCode).send({
-      error: error.message || 'Internal Server Error',
+      error: normalizedError.message || 'Internal Server Error',
       statusCode,
-      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack }),
+      ...(process.env.NODE_ENV !== 'production' && { stack: normalizedError.stack }),
     });
   });
 

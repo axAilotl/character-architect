@@ -5,8 +5,10 @@ import {
   previewBackup,
   type BackupPreview,
 } from '../../../lib/backup';
+import { getDeploymentConfig } from '../../../config/deployment';
 
 export function BackupRestorePanel() {
+  const deploymentMode = getDeploymentConfig().mode;
   const [includeVersions, setIncludeVersions] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -84,7 +86,7 @@ export function BackupRestorePanel() {
     // Show confirmation for replace mode
     if (restoreMode === 'replace') {
       const confirmed = window.confirm(
-        'Replace mode will DELETE all existing data. This cannot be undone. Continue?'
+        `This validated backup contains ${preview?.manifest.counts.cards ?? 0} cards. Replace mode will overwrite the corresponding library and settings categories. Failed restores retain the current data, but a successful replacement requires another backup to undo. Continue?`
       );
       if (!confirmed) return;
     }
@@ -93,10 +95,22 @@ export function BackupRestorePanel() {
     setError(null);
     setSuccess(null);
     try {
-      const result = await restoreBackup(selectedFile, { mode: restoreMode });
+      const result = await restoreBackup(selectedFile, {
+        mode: restoreMode,
+        skipConflicts: restoreMode === 'merge',
+      });
       if (result.success) {
+        const restored = [
+          `${result.imported.cards} cards`,
+          `${result.imported.images} images`,
+          `${result.imported.assets} assets`,
+          `${result.imported.versions} versions`,
+          result.imported.presets > 0 ? `${result.imported.presets} presets` : null,
+          result.imported.settings > 0 ? `${result.imported.settings} settings` : null,
+          result.imported.files > 0 ? `${result.imported.files} configuration files` : null,
+        ].filter(Boolean).join(', ');
         setSuccess(
-          `Restored ${result.imported.cards} cards, ${result.imported.images} images, ${result.imported.assets} assets, ${result.imported.versions} versions`
+          `Restore complete: ${restored}${result.skipped > 0 ? `; skipped ${result.skipped} conflicts` : ''}`
         );
         setSelectedFile(null);
         setPreview(null);
@@ -125,13 +139,13 @@ export function BackupRestorePanel() {
 
       {/* Status Messages */}
       {error && (
-        <div className="p-3 bg-red-900/20 border border-red-600 rounded">
+        <div role="alert" className="p-3 bg-red-900/20 border border-red-600 rounded">
           <p className="text-sm text-red-200">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="p-3 bg-green-900/20 border border-green-600 rounded">
+        <div role="status" className="p-3 bg-green-900/20 border border-green-600 rounded">
           <p className="text-sm text-green-200">{success}</p>
         </div>
       )}
@@ -148,11 +162,14 @@ export function BackupRestorePanel() {
               <li>All character cards with metadata</li>
               <li>Card images (thumbnails &amp; full-size)</li>
               <li>Card assets (icons, emotions, sounds, etc.)</li>
-              <li>App settings (theme, editor, features)</li>
-              <li>Templates &amp; snippets</li>
-              <li>LLM providers &amp; presets</li>
+              <li>{deploymentMode === 'full' ? 'Server settings, presets, and theme files' : 'Browser settings, templates, and snippets'}</li>
+              <li>LLM provider configuration and presets</li>
               <li>wwwyzzerdd prompts</li>
             </ul>
+          </div>
+
+          <div className="mb-4 p-3 bg-amber-900/20 border border-amber-700 rounded text-xs text-amber-100">
+            Backup files can contain provider credentials and other private settings. Store them securely.
           </div>
 
           <div className="space-y-3">
@@ -227,6 +244,10 @@ export function BackupRestorePanel() {
                 <span className="font-medium">Mode:</span> {preview.manifest.sourceMode}
               </p>
               <p className="text-dark-muted">
+                <span className="font-medium">App version:</span> {preview.manifest.appVersion}
+                {preview.manifest.schemaVersion !== undefined ? ` (schema ${preview.manifest.schemaVersion})` : ''}
+              </p>
+              <p className="text-dark-muted">
                 <span className="font-medium">Cards:</span> {preview.manifest.counts.cards}
               </p>
               <p className="text-dark-muted">
@@ -238,6 +259,22 @@ export function BackupRestorePanel() {
               <p className="text-dark-muted">
                 <span className="font-medium">Versions:</span> {preview.manifest.counts.versions}
               </p>
+              {(preview.manifest.counts.presets !== undefined || preview.manifest.counts.settings !== undefined) && (
+                <p className="text-dark-muted">
+                  <span className="font-medium">Presets/settings:</span>{' '}
+                  {preview.manifest.counts.presets ?? 0}/{preview.manifest.counts.settings ?? 0}
+                </p>
+              )}
+              {(preview.manifest.counts.settingsFile !== undefined ||
+                preview.manifest.counts.presetFiles !== undefined ||
+                preview.manifest.counts.themeImages !== undefined) && (
+                <p className="text-dark-muted">
+                  <span className="font-medium">Configuration files:</span>{' '}
+                  {(preview.manifest.counts.settingsFile ?? 0) +
+                    (preview.manifest.counts.presetFiles ?? 0) +
+                    (preview.manifest.counts.themeImages ?? 0)}
+                </p>
+              )}
               <p className="text-dark-muted">
                 <span className="font-medium">Size:</span> {(preview.totalSize / 1024 / 1024).toFixed(2)} MB
               </p>
@@ -295,7 +332,9 @@ export function BackupRestorePanel() {
               <div className="p-3 bg-amber-900/20 border border-amber-600 rounded">
                 <p className="text-sm text-amber-200">
                   <strong>Warning:</strong> Replace mode will delete all existing cards,
-                  assets, and settings. This cannot be undone.
+                  assets, and any optional settings categories present in this backup. The restore is
+                  transactional—validation or write failures retain your current data—but a successful
+                  replacement requires another backup to undo.
                 </p>
               </div>
             )}

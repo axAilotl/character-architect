@@ -7,6 +7,10 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+testkit/*.js
+testkit/*.js.map
+testkit/*.d.ts
+testkit/*.d.ts.map
 
 # Environment variables
 .env
@@ -66,6 +70,8 @@ temp/
 
 # Assets storage (during development)
 apps/api/storage/
+apps/api/data/
+apps/api/themes/
 
 # Dev environment data
 data-dev/

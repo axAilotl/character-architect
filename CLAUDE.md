@@ -8,33 +8,33 @@ Character Architect is a self-hostable CCv2/CCv3 character card editor with AI-p
 
 ```bash
 # Development
-npm run dev               # Start both API and web dev servers
-npm run dev:api           # API only (localhost:3456)
-npm run dev:web           # Web only (localhost:5173)
+pnpm run dev               # Start both API and web dev servers
+pnpm run dev:api           # API only (localhost:3456)
+pnpm run dev:web           # Web only (localhost:5173)
 
 # Building
-npm run build             # Build everything
-npm run build:api         # Build API only
-npm run build:web         # Build web only
+pnpm run build             # Build everything
+pnpm run build:api         # Build API only
+pnpm run build:web         # Build web only
 
 # Testing
-npm run test              # Workspace tests (API + web)
+pnpm run test              # Workspace tests (API + web)
 
 # Golden fixtures (shared across repos)
 export CF_FIXTURES_DIR=/home/vega/ai/character-foundry/fixtures
 
-npm run test:e2e           # Playwright (full-mode + light-mode fixture smoke)
-npm run test:e2e:fixtures  # Fixture smoke only
-npm run test:e2e:ui        # Playwright UI mode
+pnpm run test:e2e           # Playwright (full-mode + light-mode fixture smoke)
+pnpm run test:e2e:fixtures  # Fixture smoke only
+pnpm run test:e2e:ui        # Playwright UI mode
 
 # Dependencies
-npm install
+pnpm install --frozen-lockfile
 ```
 
 ## Project Structure
 
 ```
-/apps/api              # Fastify backend (Node 20 + SQLite)
+/apps/api              # Fastify backend (Node 24 + SQLite)
 /apps/web              # React frontend (Vite + TypeScript + Tailwind)
 /packages/defaults     # Shared templates, snippets, presets
 /packages/plugins      # Plugin SDK (stub)
@@ -225,7 +225,7 @@ Modules that require backend functionality MUST set `requiresServer: true`. Thes
 
 - `full` - Self-hosted with API server. All modules available.
 - `light` - Cheap VPS, minimal server. Server-only modules hidden.
-- `static` - No server (Cloudflare Pages). Server-only modules hidden.
+- `static` - No server (Cloudflare Worker Static Assets). Server-only modules hidden.
 
 Auto-detection: localhost/LAN → full, otherwise → light.
 

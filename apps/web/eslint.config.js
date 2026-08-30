@@ -1,9 +1,13 @@
 import eslint from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 
 export default tseslint.config(
+  {
+    ignores: ['dist/**', 'coverage/**'],
+  },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -11,14 +15,11 @@ export default tseslint.config(
       ecmaVersion: 2022,
       sourceType: 'module',
       parserOptions: {
-        project: true,
         tsconfigRootDir: import.meta.dirname,
       },
       globals: {
-        window: 'readonly',
-        document: 'readonly',
-        navigator: 'readonly',
-        console: 'readonly',
+        ...globals.browser,
+        ...globals.node,
       },
     },
     plugins: {
@@ -26,7 +27,8 @@ export default tseslint.config(
       'react-refresh': reactRefresh,
     },
     rules: {
-      ...reactHooks.configs.recommended.rules,
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
@@ -36,6 +38,18 @@ export default tseslint.config(
         'warn',
         { argsIgnorePattern: '^_' },
       ],
+      'no-useless-assignment': 'warn',
+      'preserve-caught-error': 'warn',
+    },
+  },
+  {
+    files: ['public/*.js'],
+    languageOptions: {
+      globals: {
+        GM_getValue: 'readonly',
+        GM_setValue: 'readonly',
+        GM_registerMenuCommand: 'readonly',
+      },
     },
   }
 );

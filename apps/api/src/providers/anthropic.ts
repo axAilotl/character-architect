@@ -6,6 +6,17 @@
 
 import type { LLMMessage, LLMResponse, LLMStreamChunk } from '../types/index.js';
 
+interface AnthropicErrorPayload {
+  error?: { message?: string };
+}
+
+interface AnthropicResponsePayload {
+  content?: string | Array<{ type?: string; text?: string }>;
+  usage?: { input_tokens?: number; output_tokens?: number };
+  model?: string;
+  stop_reason?: string;
+}
+
 export interface AnthropicConfig {
   baseURL: string;
   apiKey: string;
@@ -58,7 +69,7 @@ export async function anthropicMessages(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+    const error = await response.json().catch(() => ({ error: { message: response.statusText } })) as AnthropicErrorPayload;
     throw new Error(`Anthropic API error: ${error.error?.message || response.statusText}`);
   }
 
@@ -66,7 +77,7 @@ export async function anthropicMessages(
     return streamAnthropic(response);
   }
 
-  const data = await response.json();
+  const data = await response.json() as AnthropicResponsePayload;
 
   // Extract content from Anthropic's response format
   let content = '';

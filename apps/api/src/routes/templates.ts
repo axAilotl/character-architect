@@ -5,8 +5,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
 import type { Template, Snippet } from '../types/index.js';
 import { validateBody } from '../middleware/validate.js';
@@ -21,12 +20,10 @@ import {
 } from '../schemas/index.js';
 
 import { DEFAULT_TEMPLATES, DEFAULT_SNIPPETS } from '@card-architect/defaults';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { config } from '../config.js';
 
 // Paths for JSON storage
-const SETTINGS_DIR = join(__dirname, '../../data/settings/presets');
+const SETTINGS_DIR = config.presetStoragePath;
 const TEMPLATES_PATH = join(SETTINGS_DIR, 'templates.json');
 const SNIPPETS_PATH = join(SETTINGS_DIR, 'snippets.json');
 const ELARA_VOSS_PATH = join(SETTINGS_DIR, 'elara_voss.json');

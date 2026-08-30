@@ -2,8 +2,10 @@
 # Uses pnpm workspaces for proper dependency resolution
 
 # Stage 1: Base with pnpm
-FROM node:20-slim AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+FROM node:24-bookworm-slim AS base
+RUN npm install --global corepack@0.34.6 \
+    && corepack enable \
+    && corepack install --global pnpm@11.24.0
 WORKDIR /app
 
 # Stage 2: Install all dependencies and build
@@ -16,14 +18,16 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace config files first for better caching
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches/ ./patches/
+COPY packages/backup-core/package.json ./packages/backup-core/
 COPY packages/defaults/package.json ./packages/defaults/
 COPY packages/plugins/package.json ./packages/plugins/
 COPY packages/import-core/package.json ./packages/import-core/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 
-# Install all dependencies (ignore-scripts=false is set in .npmrc)
+# Install all dependencies; pnpm-workspace.yaml explicitly allows required native builds.
 RUN pnpm install --frozen-lockfile
 
 # Copy source files
@@ -34,18 +38,25 @@ COPY apps/ ./apps/
 # Build packages first, then apps
 RUN pnpm run build:packages
 RUN pnpm run build:api
-RUN pnpm run build:web
+RUN VITE_DEPLOYMENT_MODE=full pnpm run build:web
 
 # Stage 3: Production API
 FROM base AS api
 
-# Install gosu for running as non-root user
-RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
+# Install the runtime helper and ffmpeg for full-mode media conversion.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    gosu \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace config and node_modules from builder (includes compiled native modules)
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml* ./
-COPY --from=builder /app/.npmrc ./
 COPY --from=builder /app/node_modules ./node_modules
+
+# Copy deployment-neutral backup contract package
+COPY --from=builder /app/packages/backup-core/package.json ./packages/backup-core/
+COPY --from=builder /app/packages/backup-core/dist ./packages/backup-core/dist
+COPY --from=builder /app/packages/backup-core/node_modules ./packages/backup-core/node_modules
 
 # Copy packages structure with deps
 COPY --from=builder /app/packages/defaults/package.json ./packages/defaults/
@@ -71,6 +82,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh && \
 ENV NODE_ENV=production
 ENV PORT=3456
 ENV HOST=0.0.0.0
+ENV DATA_PATH=/app/data
 ENV DATABASE_PATH=/app/data/cards.db
 ENV STORAGE_PATH=/app/storage
 

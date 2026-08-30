@@ -4,9 +4,45 @@
  * API endpoints for creating and restoring full database backups.
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { BackupService } from '../services/backup.service.js';
 import { config } from '../config.js';
+import { createReadStream, createWriteStream, promises as fs } from 'fs';
+import { pipeline } from 'stream/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
+type MultipartUpload = NonNullable<Awaited<ReturnType<FastifyRequest['file']>>>;
+
+interface StagedUpload {
+  buffer: Buffer;
+  size: number;
+  cleanup: () => Promise<void>;
+}
+
+async function stageBackupUpload(data: MultipartUpload): Promise<StagedUpload> {
+  const temporaryDirectory = await fs.mkdtemp(join(tmpdir(), 'character-architect-upload-'));
+  const uploadPath = join(temporaryDirectory, 'backup.zip');
+  let size = 0;
+  data.file.on('data', (chunk: Buffer | string) => {
+    size += typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.length;
+  });
+
+  try {
+    await pipeline(data.file, createWriteStream(uploadPath, { mode: 0o600 }));
+    if (data.file.truncated || size > config.limits.maxBackupSizeMB * 1024 * 1024) {
+      throw new Error(`Backup exceeds ${config.limits.maxBackupSizeMB} MB upload limit`);
+    }
+    return {
+      buffer: await fs.readFile(uploadPath),
+      size,
+      cleanup: () => fs.rm(temporaryDirectory, { recursive: true, force: true }),
+    };
+  } catch (error) {
+    await fs.rm(temporaryDirectory, { recursive: true, force: true });
+    throw error;
+  }
+}
 
 export async function backupRoutes(fastify: FastifyInstance) {
   const backupService = new BackupService(fastify.db, config.storagePath);
@@ -32,7 +68,7 @@ export async function backupRoutes(fastify: FastifyInstance) {
         includePresets,
       }, 'Creating backup');
 
-      const zipBuffer = await backupService.createBackup({
+      const archive = await backupService.createBackupArchive({
         includeVersions,
         includePresets,
       });
@@ -42,16 +78,25 @@ export async function backupRoutes(fastify: FastifyInstance) {
       const filename = `character-architect-backup-${timestamp}.zip`;
 
       fastify.log.info({
-        size: zipBuffer.length,
+        size: archive.size,
         filename,
       }, 'Backup created successfully');
 
       // Return ZIP file
       reply.header('Content-Type', 'application/zip');
       reply.header('Content-Disposition', `attachment; filename="${filename}"`);
-      reply.header('Content-Length', zipBuffer.length);
+      reply.header('Content-Length', archive.size);
 
-      return reply.send(zipBuffer);
+      const stream = createReadStream(archive.path);
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        void archive.cleanup().catch((error) => fastify.log.warn({ error }, 'Failed to clean up staged backup'));
+      };
+      stream.once('close', cleanup);
+      reply.raw.once('close', cleanup);
+      return reply.send(stream);
     } catch (err) {
       fastify.log.error({ error: err }, 'Failed to create backup');
       reply.code(500);
@@ -76,32 +121,37 @@ export async function backupRoutes(fastify: FastifyInstance) {
     };
   }>('/backup/restore', async (request, reply) => {
     try {
+      const mode = request.query.mode || 'merge';
+      if (mode !== 'replace' && mode !== 'merge') {
+        reply.code(400);
+        return { error: 'Invalid mode. Must be "replace" or "merge"' };
+      }
+
       const data = await request.file();
       if (!data) {
         reply.code(400);
         return { error: 'No file provided' };
       }
 
-      const buffer = await data.toBuffer();
-      const mode = request.query.mode || 'merge';
+      const upload = await stageBackupUpload(data);
       const skipConflicts = request.query.skipConflicts === 'true';
 
-      if (mode !== 'replace' && mode !== 'merge') {
-        reply.code(400);
-        return { error: 'Invalid mode. Must be "replace" or "merge"' };
+      let result;
+      try {
+        fastify.log.info({
+          filename: data.filename,
+          size: upload.size,
+          mode,
+          skipConflicts,
+        }, 'Starting backup restore');
+
+        result = await backupService.restoreBackup(upload.buffer, {
+          mode,
+          skipConflicts,
+        });
+      } finally {
+        await upload.cleanup();
       }
-
-      fastify.log.info({
-        filename: data.filename,
-        size: buffer.length,
-        mode,
-        skipConflicts,
-      }, 'Starting backup restore');
-
-      const result = await backupService.restoreBackup(buffer, {
-        mode,
-        skipConflicts,
-      });
 
       fastify.log.info({
         success: result.success,
@@ -140,14 +190,19 @@ export async function backupRoutes(fastify: FastifyInstance) {
         return { error: 'No file provided' };
       }
 
-      const buffer = await data.toBuffer();
+      const upload = await stageBackupUpload(data);
 
-      fastify.log.info({
-        filename: data.filename,
-        size: buffer.length,
-      }, 'Validating backup');
+      let validation;
+      try {
+        fastify.log.info({
+          filename: data.filename,
+          size: upload.size,
+        }, 'Validating backup');
 
-      const validation = await backupService.validateBackup(buffer);
+        validation = await backupService.validateBackup(upload.buffer);
+      } finally {
+        await upload.cleanup();
+      }
 
       fastify.log.info({
         valid: validation.valid,
@@ -184,14 +239,19 @@ export async function backupRoutes(fastify: FastifyInstance) {
         return { error: 'No file provided' };
       }
 
-      const buffer = await data.toBuffer();
+      const upload = await stageBackupUpload(data);
 
-      fastify.log.info({
-        filename: data.filename,
-        size: buffer.length,
-      }, 'Previewing backup');
+      let preview;
+      try {
+        fastify.log.info({
+          filename: data.filename,
+          size: upload.size,
+        }, 'Previewing backup');
 
-      const preview = await backupService.previewBackup(buffer);
+        preview = await backupService.previewBackup(upload.buffer);
+      } finally {
+        await upload.cleanup();
+      }
 
       fastify.log.info({
         cardCount: preview.cardNames.length,

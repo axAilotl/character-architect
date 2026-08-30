@@ -594,20 +594,31 @@ class ApiClient {
     return response.blob();
   }
 
-  async restoreBackup(file: File, mode: 'replace' | 'merge'): Promise<{
+  async restoreBackup(file: File, mode: 'replace' | 'merge', skipConflicts = mode === 'merge'): Promise<{
     success: boolean;
-    imported: { cards: number; versions: number; assets: number; presets: number };
+    imported: {
+      cards: number;
+      versions: number;
+      assets: number;
+      images: number;
+      presets: number;
+      settings: number;
+      files: number;
+    };
     errors: string[];
   }> {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await fetch(`${this.baseURL}/backup/restore?mode=${mode}`, {
-      method: 'POST',
-      body: formData,
-    });
+    const response = await fetch(
+      `${this.baseURL}/backup/restore?mode=${mode}&skipConflicts=${skipConflicts}`,
+      {
+        method: 'POST',
+        body: formData,
+      },
+    );
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Restore failed');
+      throw new Error(error.message || error.error || 'Restore failed');
     }
     return response.json();
   }

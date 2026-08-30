@@ -1,17 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { CardRepository } from '../db/repository.js';
 import { config } from '../config.js';
-import { dirname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import FormData from 'form-data';
 import axios from 'axios';
-import { fileURLToPath } from 'url';
 import { createCardPNG } from '../utils/file-handlers.js';
 import sharp from 'sharp';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const SETTINGS_PATH = join(__dirname, '../../data/settings.json');
+const SETTINGS_PATH = config.settingsPath;
 
 export async function sillyTavernRoutes(fastify: FastifyInstance) {
   const cardRepo = new CardRepository(fastify.db);

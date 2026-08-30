@@ -7,6 +7,23 @@
 
 import type { LLMMessage, LLMResponse, LLMStreamChunk } from '../types/index.js';
 
+interface OpenAIErrorPayload {
+  error?: { message?: string };
+}
+
+interface OpenAIResponsePayload {
+  output?: Array<{ content?: string; finish_reason?: string }>;
+  choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  model?: string;
+}
+
 export interface OpenAIConfig {
   baseURL: string;
   apiKey: string;
@@ -64,7 +81,7 @@ export async function openaiResponses(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+    const error = await response.json().catch(() => ({ error: { message: response.statusText } })) as OpenAIErrorPayload;
     throw new Error(`OpenAI Responses API error: ${error.error?.message || response.statusText}`);
   }
 
@@ -72,7 +89,7 @@ export async function openaiResponses(
     return streamOpenAIResponses(response);
   }
 
-  const data = await response.json();
+  const data = await response.json() as OpenAIResponsePayload;
   return {
     content: data.output?.[0]?.content || '',
     usage: {
@@ -128,7 +145,7 @@ export async function openaiChat(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+    const error = await response.json().catch(() => ({ error: { message: response.statusText } })) as OpenAIErrorPayload;
     throw new Error(`OpenAI Chat API error: ${error.error?.message || response.statusText}`);
   }
 
@@ -136,7 +153,7 @@ export async function openaiChat(
     return streamOpenAIChat(response);
   }
 
-  const data = await response.json();
+  const data = await response.json() as OpenAIResponsePayload;
   return {
     content: data.choices?.[0]?.message?.content || '',
     usage: {

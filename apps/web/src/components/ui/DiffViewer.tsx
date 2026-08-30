@@ -3,7 +3,7 @@
  * Shows semantic diffs between original and revised text
  */
 
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import type { DiffOperation } from '../../lib/types';
 import { SideBySideDiffViewer } from './SideBySideDiffViewer';
 
@@ -34,7 +34,7 @@ export function DiffViewer({ diff, originalText, revisedText, compact = false }:
   };
 
   const renderCompactDiff = () => {
-    const compacted: JSX.Element[] = [];
+    const compacted: ReactElement[] = [];
     let unchangedCount = 0;
     let lastUnchangedIdx = -1;
 

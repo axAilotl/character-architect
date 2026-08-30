@@ -14,105 +14,84 @@ on:
       - 'docs/**'
       - '.github/*.md'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint-and-test:
+  quality:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
-          version: 9
+          version: 11.24.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
           GITHUB_TOKEN: ${{ secrets.FOUNDRY_PAT }}
 
-      - name: Build packages
-        run: pnpm run build:packages
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=low
+
+      - name: Build workspace packages
+        run: pnpm build:packages
+
+      - name: Type-check
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+        env:
+          CF_FIXTURES_DIR: ${{ github.workspace }}/test-fixtures
 
       - name: Build API
-        run: pnpm --filter @card-architect/api run build
+        run: pnpm build:api
 
-      - name: Build Web
-        run: pnpm --filter @card-architect/web run build
+      - name: Build full-mode web app
+        run: pnpm build:web:full
 
-      - name: Run API tests
-        run: pnpm --filter @card-architect/api run test
-        env:
-          CF_FIXTURES_DIR: ./test-fixtures
+      - name: Build light-mode web app
+        run: pnpm build:web:light
 
-      - name: Run Web tests
-        run: pnpm --filter @card-architect/web run test
-        env:
-          CF_FIXTURES_DIR: ./test-fixtures
+      - name: Build static web app
+        run: pnpm build:web:static
 
-  deploy-cloudflare:
-    runs-on: ubuntu-latest
-    needs: lint-and-test
-    if: github.event_name == 'push'
-    environment:
-      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'dev' }}
-      url: ${{ github.ref == 'refs/heads/main' && 'https://ca.axailotl.ai' || 'https://character-architect-dev.axailotl.workers.dev' }}
+      - name: Install Chromium for static startup smoke
+        run: pnpm exec playwright install --with-deps chromium
 
-    steps:
-      - uses: actions/checkout@v4
+      - name: Smoke-test static startup
+        run: node scripts/static-browser-smoke.mjs
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        env:
-          GITHUB_TOKEN: ${{ secrets.FOUNDRY_PAT }}
-
-      - name: Build packages
-        run: pnpm run build:packages
-
-      - name: Build Web
-        run: pnpm run build:web
-        env:
-          VITE_DEPLOYMENT_MODE: static
-
-      - name: Deploy to Cloudflare (Dev)
-        if: github.ref == 'refs/heads/dev'
-        run: pnpm run cf:deploy:dev
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Deploy to Cloudflare (Production)
-        if: github.ref == 'refs/heads/main'
-        run: pnpm run cf:deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
 
   docker-build:
     runs-on: ubuntu-latest
-    needs: deploy-cloudflare
+    needs: quality
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build API image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: api
@@ -122,7 +101,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build Web image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: web
@@ -130,3 +109,48 @@ jobs:
           tags: character-architect-web:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy-cloudflare:
+    runs-on: ubuntu-latest
+    needs: [quality, docker-build]
+    if: github.event_name == 'push'
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'dev' }}
+      url: ${{ github.ref == 'refs/heads/main' && 'https://ca.axailotl.ai' || 'https://character-architect-dev.axailotl.workers.dev' }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.24.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_TOKEN: ${{ secrets.FOUNDRY_PAT }}
+
+      - name: Build workspace packages
+        run: pnpm build:packages
+
+      - name: Build static web app
+        run: pnpm build:web:static
+
+      - name: Deploy to Cloudflare (Dev)
+        if: github.ref == 'refs/heads/dev'
+        run: pnpm cf:deploy:dev
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy to Cloudflare (Production)
+        if: github.ref == 'refs/heads/main'
+        run: pnpm cf:deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

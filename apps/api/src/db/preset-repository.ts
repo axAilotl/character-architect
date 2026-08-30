@@ -14,13 +14,6 @@ export class PresetRepository {
 
     const now = new Date().toISOString();
 
-    // First, ensure is_hidden column exists (migration)
-    try {
-      this.db.exec('ALTER TABLE llm_presets ADD COLUMN is_hidden INTEGER DEFAULT 0');
-    } catch {
-      // Column already exists
-    }
-
     for (const preset of builtInPresets) {
       // Check if preset with this name already exists
       const existing = this.db

@@ -448,7 +448,7 @@ export const useBlockEditorStore = create<BlockEditorStore>()(
       if (!sourceBlock) return state;
 
       // Remove from original location
-      let newBlocks = deleteBlockRecursive(state.blocks, sourceId);
+      const newBlocks = deleteBlockRecursive(state.blocks, sourceId);
 
       // Add to target
       const addToTarget = (blocks: Block[]): Block[] => {

@@ -440,7 +440,7 @@ export const useFederationStore = create<FederationStore>((set, get) => ({
     try {
       // Check if there's an existing sync state for this card
       const allStates = await store.list();
-      let existingState = allStates.find((s) => s.localId === localCardId);
+      const existingState = allStates.find((s) => s.localId === localCardId);
 
       const now = new Date().toISOString();
       const baseUrl = window.location.origin;
