@@ -461,39 +461,18 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
       return result;
     }
 
-    // Full mode: fetch via server or directly
+    // Use the server's saved credentials and avoid cross-origin provider requests.
     try {
-      let headers: Record<string, string> = {};
-      const url = `${provider.baseURL.replace(/\/$/, '')}/v1/models`;
-
-      if (provider.kind === 'anthropic') {
-        headers = {
-          'x-api-key': provider.apiKey,
-          'anthropic-version': provider.anthropicVersion || '2023-06-01',
-        };
-      } else {
-        headers = {
-          Authorization: `Bearer ${provider.apiKey}`,
-        };
+      const response = await fetch(`${api.baseURL}/llm/models`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerId }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to fetch models');
       }
-
-      const response = await fetch(url, { headers });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch models (${response.status})`);
-      }
-
-      const data = await response.json();
-      const models =
-        Array.isArray(data.data) && data.data.length > 0
-          ? data.data
-              .map((m: any) => m.id || m.model || m.name)
-              .filter(Boolean)
-              .sort((a: string, b: string) => a.localeCompare(b)) // Sort alphabetically
-          : [];
-
-      if (models.length === 0) {
-        return { success: false, error: 'No models returned by provider' };
-      }
+      const models: string[] = result.models;
 
       // Cache the sorted models
       set((state) => ({

@@ -13,6 +13,7 @@ import { computeDiff } from '../utils/diff.js';
 import { getTokenizer } from '../utils/tokenizer.js';
 import { validateLLMProviderURL } from '../utils/ssrf-protection.js';
 import { validateBody } from '../middleware/validate.js';
+import { llmModelRoutes } from './llm-models.js';
 import {
   updateLLMSettingsSchema,
   testConnectionSchema,
@@ -21,6 +22,7 @@ import {
 } from '../schemas/index.js';
 
 export async function llmRoutes(fastify: FastifyInstance) {
+  await fastify.register(llmModelRoutes);
   /**
    * Get LLM settings
    */

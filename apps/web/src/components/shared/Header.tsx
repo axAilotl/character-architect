@@ -1,4 +1,5 @@
 import { FavoriteButton } from './FavoriteButton';
+import { ChatExportMenu } from './ChatExportMenu';
 import { useState, useEffect } from 'react';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { useTokenStore } from '../../store/token-store';
@@ -25,7 +26,6 @@ export function Header({ onBack }: HeaderProps) {
   const sillytavernEnabled = useSettingsStore(
     (state) => state.features?.sillytavernEnabled ?? false
   );
-  const [sendingLumiverse, setSendingLumiverse] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [pushStatus, setPushStatus] = useState<{
@@ -661,24 +661,16 @@ export function Header({ onBack }: HeaderProps) {
         {currentCard && <FavoriteButton card={currentCard} onChange={favorite => {
           useCardStore.setState(state => state.currentCard ? { currentCard: { ...state.currentCard, meta: { ...state.currentCard.meta, favorite } } } : {});
         }} />}
-        {currentCard && config.mode === 'full' && <button className="btn-secondary" disabled={sendingLumiverse} onClick={async () => {
-          setSendingLumiverse(true);
-          try {
-            await useCardStore.getState().saveCard();
-            const result = await api.pushToLumiverse(currentCard.meta.id);
-            setPushStatus({ type: result.error ? 'error' : 'success', message: result.error || 'Sent to Lumiverse' });
-          } catch (error) { setPushStatus({ type: 'error', message: error instanceof Error ? error.message : 'Send failed' }); }
-          finally { setSendingLumiverse(false); }
-        }}>{sendingLumiverse ? 'Sending…' : '→ Lumiverse'}</button>}
-        {currentCard && sillytavernEnabled && (
-          <button
-            onClick={handlePushToSillyTavern}
-            className="btn-primary"
-            title="Push to SillyTavern (PNG)"
-          >
-            → SillyTavern
-          </button>
-        )}
+        {currentCard && <ChatExportMenu
+          onLumiverse={config.mode === 'full' ? async () => {
+            try {
+              await useCardStore.getState().saveCard();
+              const result = await api.pushToLumiverse(currentCard.meta.id);
+              setPushStatus({ type: result.error ? 'error' : 'success', message: result.error || 'Sent to Lumiverse' });
+            } catch (error) { setPushStatus({ type: 'error', message: error instanceof Error ? error.message : 'Send failed' }); }
+          } : undefined}
+          onSillyTavern={sillytavernEnabled ? handlePushToSillyTavern : undefined}
+        />}
       </div>
 
       {pushStatus && (

@@ -145,7 +145,7 @@ export function SillyTavernSettings() {
           <li>Enable the integration and configure your SillyTavern base URL above</li>
           <li>Click "Save Settings" to apply the configuration</li>
           <li>Open a character card in the editor</li>
-          <li>Click the "-&gt; SillyTavern" button in the header - the card will be automatically converted to PNG and pushed</li>
+          <li>Choose "Chat Export → SillyTavern" in the header - the card will be automatically converted to PNG and pushed</li>
         </ol>
       </div>
     </div>

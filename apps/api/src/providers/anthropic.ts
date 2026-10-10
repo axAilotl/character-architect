@@ -5,6 +5,7 @@
  */
 
 import type { LLMMessage, LLMResponse, LLMStreamChunk } from '../types/index.js';
+import { providerEndpoint } from './endpoint.js';
 
 interface AnthropicErrorPayload {
   error?: { message?: string };
@@ -62,7 +63,7 @@ export async function anthropicMessages(
     'anthropic-version': anthropicVersion,
   };
 
-  const response = await fetch(`${baseURL}/v1/messages`, {
+  const response = await fetch(providerEndpoint(baseURL, 'messages'), {
     method: 'POST',
     headers,
     body: JSON.stringify(body),

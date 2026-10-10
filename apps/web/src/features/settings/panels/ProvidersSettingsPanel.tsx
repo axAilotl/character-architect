@@ -197,6 +197,9 @@ export function ProvidersSettingsPanel() {
                 placeholder="https://api.openai.com"
                 className="w-full bg-dark-card border border-dark-border rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
               />
+              <p className="text-xs text-dark-muted mt-1">
+                OpenRouter: https://openrouter.ai/api/v1 · DeepSeek: https://api.deepseek.com
+              </p>
             </div>
 
             {/* API Key */}

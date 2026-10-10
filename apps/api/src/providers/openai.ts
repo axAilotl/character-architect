@@ -6,6 +6,7 @@
  */
 
 import type { LLMMessage, LLMResponse, LLMStreamChunk } from '../types/index.js';
+import { providerEndpoint } from './endpoint.js';
 
 interface OpenAIErrorPayload {
   error?: { message?: string };
@@ -74,7 +75,7 @@ export async function openaiResponses(
     headers['OpenAI-Organization'] = organization;
   }
 
-  const response = await fetch(`${baseURL}/v1/responses`, {
+  const response = await fetch(providerEndpoint(baseURL, 'responses'), {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -138,7 +139,7 @@ export async function openaiChat(
     headers['OpenAI-Organization'] = organization;
   }
 
-  const response = await fetch(`${baseURL}/v1/chat/completions`, {
+  const response = await fetch(providerEndpoint(baseURL, 'chat/completions'), {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
