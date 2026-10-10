@@ -186,7 +186,7 @@ Tell me your preferences and describe the character you'd like to create!`;
     }
 
     if (!activeProvider) {
-      alert('Please configure an LLM provider in Settings > AI Providers first.');
+      alert('Please configure an LLM provider in Settings > AI > Providers first.');
       return;
     }
 

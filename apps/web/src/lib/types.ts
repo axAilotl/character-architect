@@ -640,3 +640,10 @@ export type TemplateCategory = 'general' | 'fantasy' | 'modern' | 'sci-fi' | 'cu
 // ============================================================================
 
 export type { DiffViewMode, EntryDiffStatus, EntryDiffResult, LorebookDiff, LorebookDiffSummary, FieldChange, CharacterBook, CardDiff } from './diff-utils';
+
+export interface LumiverseSettings {
+  enabled: boolean;
+  baseUrl: string;
+  sessionToken: string;
+  sessionCookie: string;
+}

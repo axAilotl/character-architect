@@ -80,7 +80,7 @@ export function ProvidersSettingsPanel() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-between items-center">
+      <div className="mb-5 flex flex-wrap justify-between items-center gap-3">
         <h3 className="text-lg font-semibold">Configured Providers</h3>
         <button
           onClick={handleNewProvider}
@@ -97,30 +97,30 @@ export function ProvidersSettingsPanel() {
             key={provider.id}
             className="border border-dark-border rounded-lg p-4 hover:border-blue-500 transition-colors"
           >
-            <div className="flex justify-between items-start">
+            <div className="flex flex-wrap justify-between items-start gap-3">
               <div>
                 <h4 className="font-semibold">{provider.name}</h4>
-                <p className="text-sm text-dark-muted">
+                <p className="text-sm text-dark-muted break-all">
                   {provider.kind} • {provider.defaultModel}
                 </p>
-                <p className="text-xs text-dark-muted mt-1">{provider.baseURL}</p>
+                <p className="text-xs text-dark-muted mt-1 break-all">{provider.baseURL}</p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleTestConnection(provider.id)}
-                  className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                  className="btn-secondary px-3 py-1 text-sm"
                 >
                   Test
                 </button>
                 <button
                   onClick={() => setEditingProvider({ ...provider })}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  className="btn-secondary px-3 py-1 text-sm"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => removeProvider(provider.id)}
-                  className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  className="px-3 py-1 text-sm text-red-400 hover:bg-red-500/10 rounded-lg"
                 >
                   Remove
                 </button>

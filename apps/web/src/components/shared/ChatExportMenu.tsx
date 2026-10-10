@@ -25,7 +25,22 @@ export function ChatExportMenu({ onLumiverse, onSillyTavern }: ChatExportMenuPro
     return () => document.removeEventListener('mousedown', closeOutside);
   }, [open]);
 
+  async function send(option: typeof options[number]) {
+    if (sending) return;
+    setOpen(false);
+    trigger.current?.focus();
+    setSending(true);
+    try { await option.send?.(); }
+    finally { setSending(false); }
+  }
+
   if (!options.length) return null;
+  if (options.length === 1) return (
+    <button ref={trigger} type="button" className="btn-secondary whitespace-nowrap" disabled={sending}
+      title={`Send to ${options[0].label}`} onClick={() => void send(options[0])}>
+      {sending ? 'Sending…' : options[0].label}
+    </button>
+  );
 
   return (
     <div ref={container} className="relative" onBlur={event => {
@@ -51,13 +66,7 @@ export function ChatExportMenu({ onLumiverse, onSillyTavern }: ChatExportMenuPro
           {options.map(option => (
             <button key={option.label} type="button" role="menuitem"
               className="block w-full px-4 py-2 text-left hover:bg-slate-700 focus:bg-slate-700 first:rounded-t last:rounded-b"
-              onClick={async () => {
-                setOpen(false);
-                trigger.current?.focus();
-                setSending(true);
-                try { await option.send?.(); }
-                finally { setSending(false); }
-              }}>
+              onClick={() => void send(option)}>
               {option.label}
             </button>
           ))}

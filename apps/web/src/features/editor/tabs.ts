@@ -21,9 +21,7 @@ const AssetsPanel = lazy(() =>
 const LorebookEditor = lazy(() =>
   import('./components/LorebookEditor').then((m) => ({ default: m.LorebookEditor }))
 );
-const FocusedEditor = lazy(() =>
-  import('./components/FocusedEditor').then((m) => ({ default: m.FocusedEditor }))
-);
+
 const PreviewPanel = lazy(() =>
   import('./components/PreviewPanel').then((m) => ({ default: m.PreviewPanel }))
 );
@@ -32,9 +30,7 @@ const DiffPanel = lazy(() =>
 );
 
 // Lazy-loaded settings panels
-const FocusedSettings = lazy(() =>
-  import('./settings/FocusedSettings').then((m) => ({ default: m.FocusedSettings }))
-);
+
 const DiffSettings = lazy(() =>
   import('./settings/DiffSettings').then((m) => ({ default: m.DiffSettings }))
 );
@@ -74,17 +70,6 @@ export function registerCoreTabs(): void {
     condition: () => useSettingsStore.getState().features?.assetsEnabled ?? true,
   });
 
-  // Focused - Distraction-free editing (order: 10)
-  // Only for character cards, not lorebooks or collections
-  registry.registerTab({
-    id: 'focused',
-    label: 'Focused',
-    component: FocusedEditor,
-    order: 10,
-    contexts: ['card'],
-    condition: () => useSettingsStore.getState().features?.focusedEnabled ?? true,
-  });
-
   // Preview - Markdown preview (order: 60)
   // Available for cards, lorebooks, and collections
   registry.registerTab({
@@ -108,29 +93,17 @@ export function registerCoreTabs(): void {
 
   // ==================== Settings Panels ====================
 
-  // Focused settings panel
-  registry.registerSettingsPanel({
-    id: 'focused-settings',
-    label: 'Focused',
-    component: FocusedSettings,
-    row: 'main',
-    color: 'cyan',
-    order: 30,
-    condition: () => useSettingsStore.getState().features?.focusedEnabled ?? true,
-  });
-
   // Diff settings panel
   registry.registerSettingsPanel({
     id: 'diff-settings',
-    label: 'Diff',
+    label: 'Snapshots',
     component: DiffSettings,
-    row: 'main',
+    group: 'general',
     color: 'amber',
     order: 35,
-    condition: () => useSettingsStore.getState().features?.diffEnabled ?? true,
   });
 
   // Note: Web Import and SillyTavern settings are registered by their own modules
 
-  console.log('[CoreTabs] Registered 6 core editor tabs and 2 settings panels');
+  console.log('[CoreTabs] Registered 5 core editor tabs and snapshot settings');
 }

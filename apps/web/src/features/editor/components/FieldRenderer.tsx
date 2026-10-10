@@ -7,7 +7,9 @@
 
 import type { FieldDefinition } from '../config/field-definitions';
 import type { FocusField } from '../../../lib/types';
+import { AssistIcon, TemplateIcon } from '../../../components/ui/FieldIcons';
 import { TagInput } from './TagInput';
+import { ExpandEditorButton } from './ExpandEditorButton';
 
 // ============================================================================
 // PROPS INTERFACE
@@ -76,6 +78,7 @@ interface FieldHeaderProps {
   onGenerate?: () => void;
   onOpenLLMAssist?: (fieldName: string, value: string) => void;
   onOpenTemplates?: (fieldName: FocusField, value: string) => void;
+  onChange: (value: unknown) => void;
 }
 
 function FieldHeader({
@@ -86,12 +89,13 @@ function FieldHeader({
   onGenerate,
   onOpenLLMAssist,
   onOpenTemplates,
+  onChange,
 }: FieldHeaderProps) {
   const stringValue = typeof value === 'string' ? value : '';
 
   return (
-    <div className="flex items-center justify-between mb-2">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+      <div className="flex items-center gap-2 min-w-0">
         <label className="label">{definition.label}</label>
         <SpecMarkerBadge marker={definition.specMarker} />
       </div>
@@ -102,35 +106,39 @@ function FieldHeader({
         {definition.templatesButton && onOpenTemplates && definition.fieldName && (
           <button
             onClick={() => onOpenTemplates(definition.fieldName as FocusField, stringValue)}
-            className="text-sm px-1.5 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="field-action"
             title="Templates & Snippets"
           >
-            📄
+            <TemplateIcon />
           </button>
         )}
         {definition.llmAssist && onOpenLLMAssist && (
           <button
             onClick={() => onOpenLLMAssist(definition.fieldName || definition.id, stringValue)}
-            className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+            className="field-action"
             title="AI Assist"
           >
-            ✨
+            <AssistIcon />
           </button>
         )}
         {definition.aiGenerate && onGenerate && (
           <button
             onClick={onGenerate}
             disabled={generating}
-            className="text-sm px-1.5 py-0.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
+            className="field-action"
             title={`Generate ${definition.label.toLowerCase()} using AI`}
           >
             {generating ? (
               <span className="animate-spin inline-block">&#9696;</span>
             ) : (
-              <>&#10024;</>
+              <AssistIcon />
             )}
           </button>
         )}
+        {['text', 'textarea', 'extension'].includes(definition.type) && <ExpandEditorButton
+          label={definition.label} value={stringValue} onChange={onChange}
+          placeholder={definition.placeholder} maxLength={definition.maxLength}
+          singleLine={definition.type === 'text' || definition.id === 'tagline'} />}
       </div>
     </div>
   );
@@ -152,6 +160,7 @@ function TextField({
   return (
     <input
       type="text"
+      aria-label={definition.label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={definition.placeholder}
@@ -176,6 +185,7 @@ function TextareaField({
 }) {
   return (
     <textarea
+      aria-label={definition.label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       rows={definition.rows || 3}
@@ -290,21 +300,24 @@ function ArrayField({
               {definition.templatesButton && onOpenTemplates && (
                 <button
                   onClick={() => onOpenTemplates('first_mes', item)}
-                  className="text-sm px-1.5 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  className="field-action"
                   title="Templates & Snippets"
                 >
-                  📄
+                  <TemplateIcon />
                 </button>
               )}
               {definition.llmAssist && onOpenLLMAssist && (
                 <button
                   onClick={() => onOpenLLMAssist(`${definition.id}:${index}`, item)}
-                  className="text-sm px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                  className="field-action"
                   title="AI Assist"
                 >
-                  ✨
+                  <AssistIcon />
                 </button>
               )}
+              <ExpandEditorButton label={`${itemLabel} ${index + 1}`} value={item}
+                onChange={next => handleChange(index, next)} placeholder={definition.placeholder}
+                maxLength={definition.maxLength} singleLine={!isTextarea} />
               <button
                 onClick={() => handleRemove(index)}
                 className="text-sm px-1.5 py-0.5 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-colors ml-1"
@@ -316,6 +329,7 @@ function ArrayField({
           </div>
           {isTextarea ? (
             <textarea
+              aria-label={`${itemLabel} ${index + 1}`}
               value={item}
               onChange={(e) => handleChange(index, e.target.value)}
               rows={definition.rows || 3}
@@ -325,6 +339,7 @@ function ArrayField({
           ) : (
             <input
               type="text"
+              aria-label={`${itemLabel} ${index + 1}`}
               value={item}
               onChange={(e) => handleChange(index, e.target.value)}
               className="flex-1"
@@ -398,6 +413,8 @@ function MapField({ definition, value, onChange }: MapFieldProps) {
               placeholder={definition.placeholder || 'en'}
               maxLength={2}
             />
+            <div className="ml-auto"><ExpandEditorButton label={`${definition.label} (${key})`} value={val}
+              onChange={next => handleValueChange(key, next)} placeholder={`Content in ${key}`} /></div>
             <button
               onClick={() => handleRemove(key)}
               className="btn-secondary text-sm"
@@ -458,6 +475,7 @@ function ExtensionField({
   // For other extensions (appearance, character_note), use textarea
   return (
     <textarea
+      aria-label={definition.label}
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       rows={definition.rows || 6}
@@ -610,11 +628,12 @@ export function FieldRenderer({
   const showHeader = definition.type !== 'tags' || definition.aiGenerate;
 
   return (
-    <div className="input-group">
+    <div className="input-group standard-editor-field">
       {showHeader && (
         <FieldHeader
           definition={definition}
           value={value}
+          onChange={onChange}
           tokenCount={tokenCount}
           generating={generating}
           onGenerate={onGenerate}

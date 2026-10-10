@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import { useCardStore, extractCardData } from '../../store/card-store';
 import { useTokenStore } from '../../store/token-store';
 import { useSettingsStore } from '../../store/settings-store';
+import { SettingsButton } from './SettingsButton';
 import { SettingsModal } from './SettingsModal';
 import { api } from '../../lib/api';
 import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
-import { useNavigate } from 'react-router-dom';
 import {
   SillyTavernClient,
   shouldUseClientSidePush,
@@ -20,12 +20,12 @@ interface HeaderProps {
 }
 
 export function Header({ onBack }: HeaderProps) {
-  const navigate = useNavigate();
-  const { currentCard, isSaving, createNewCard } = useCardStore();
+  const { currentCard, isSaving } = useCardStore();
   const tokenCounts = useTokenStore((state) => state.tokenCounts);
   const sillytavernEnabled = useSettingsStore(
     (state) => state.features?.sillytavernEnabled ?? false
   );
+  const lumiverseEnabled = useSettingsStore(state => state.features.lumiverseEnabled ?? false);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [pushStatus, setPushStatus] = useState<{
@@ -111,32 +111,6 @@ export function Header({ onBack }: HeaderProps) {
   };
 
   const avatarUrl = getAvatarUrl();
-
-  const handleImportFile = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json,.png,.charx,.voxpkg';
-    input.style.display = 'none'; // Hidden but in DOM for Playwright compatibility
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        let id = null;
-        if (file.name.endsWith('.voxpkg')) {
-          id = await useCardStore.getState().importVoxtaPackage(file);
-        } else {
-          id = await useCardStore.getState().importCard(file);
-        }
-
-        if (id) {
-          navigate(`/cards/${id}`);
-        }
-      }
-      // Clean up the input element after processing
-      input.remove();
-    };
-    document.body.appendChild(input);
-    input.click();
-  };
 
   const handleExport = async (format: 'json' | 'png' | 'charx' | 'voxta') => {
     setShowExportMenu(false);
@@ -494,18 +468,10 @@ export function Header({ onBack }: HeaderProps) {
     }
   };
 
-  const handleCreateNew = async () => {
-    await createNewCard();
-    const newCard = useCardStore.getState().currentCard;
-    if (newCard?.meta?.id) {
-      navigate(`/cards/${newCard.meta.id}`);
-    }
-  };
-
   return (
-    <header className="bg-dark-surface border-b border-dark-border px-4 py-2 flex items-center justify-between h-[72px]">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="btn-secondary p-2" title="Back to Cards">
+    <header className="editor-header bg-dark-surface border-b border-dark-border">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <button onClick={onBack} className="icon-button shrink-0" title="Back to Cards" aria-label="Back to Cards">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
@@ -520,102 +486,35 @@ export function Header({ onBack }: HeaderProps) {
           <img
             src={avatarUrl}
             alt={getCharacterName()}
-            className="w-12 h-12 rounded object-cover border border-dark-border bg-slate-700"
+            className="w-11 h-11 rounded-lg object-cover border border-dark-border shrink-0"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
             }}
           />
         ) : (
-          <div className="w-12 h-12 rounded bg-slate-700 border border-dark-border flex items-center justify-center text-dark-muted text-xs">
+          <div className="w-11 h-11 rounded-lg bg-dark-bg border border-dark-border flex items-center justify-center text-dark-muted text-xs shrink-0">
             No img
           </div>
         )}
 
         {currentCard && (
-          <div className="flex flex-col">
-            <span className="text-lg font-bold leading-tight">
+          <div className="flex flex-col min-w-0">
+            <span className="text-lg font-semibold leading-tight truncate" title={getCharacterName()}>
               {getCharacterName()}
               {isSaving && <span className="text-xs text-dark-muted ml-2">(saving...)</span>}
             </span>
-            <span className="text-sm text-dark-muted">{getCardTypeLabel()}</span>
+            <div className="flex items-center gap-3 text-xs text-dark-muted mt-1 truncate">
+              <span>{getCardTypeLabel()}</span>
+              {tokenCounts && <span title="Permanent tokens / total tokens">{getPermanentTokens().toLocaleString()} perm · {tokenCounts.total.toLocaleString()} total</span>}
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        {tokenCounts && (
-          <>
-            <div
-              className="chip chip-token flex items-center gap-1"
-              title="Permanent tokens: Name + Description + Personality + Scenario"
-            >
-              Perm: {getPermanentTokens()}
-              <svg
-                className="w-3.5 h-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <circle cx="12" cy="12" r="9" />
-                <text
-                  x="12"
-                  y="16"
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="currentColor"
-                  fontWeight="bold"
-                  stroke="none"
-                >
-                  T
-                </text>
-              </svg>
-            </div>
-            <div className="chip chip-token flex items-center gap-1">
-              Total: {tokenCounts.total}
-              <svg
-                className="w-3.5 h-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <circle cx="12" cy="12" r="9" />
-                <text
-                  x="12"
-                  y="16"
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="currentColor"
-                  fontWeight="bold"
-                  stroke="none"
-                >
-                  T
-                </text>
-              </svg>
-            </div>
-          </>
-        )}
-
-        <button
-          onClick={() => setShowSettings(true)}
-          className="btn-secondary"
-          title="LLM Settings"
-        >
-          ⚙️
-        </button>
-
-        <button onClick={handleCreateNew} className="btn-secondary">
-          New
-        </button>
-
-        <button
-          onClick={handleImportFile}
-          className="btn-primary"
-          title="Import Character Card or Lorebook (JSON, PNG, CHARX, or VOXPKG)"
-        >
-          Import
-        </button>
+      <div className="editor-header-actions">
+        {currentCard && <FavoriteButton card={currentCard} className="icon-button favorite-action" onChange={favorite => {
+          useCardStore.setState(state => state.currentCard ? { currentCard: { ...state.currentCard, meta: { ...state.currentCard.meta, favorite } } } : {});
+        }} />}
 
         {currentCard && (
           <div className="relative">
@@ -658,11 +557,8 @@ export function Header({ onBack }: HeaderProps) {
           </div>
         )}
 
-        {currentCard && <FavoriteButton card={currentCard} onChange={favorite => {
-          useCardStore.setState(state => state.currentCard ? { currentCard: { ...state.currentCard, meta: { ...state.currentCard.meta, favorite } } } : {});
-        }} />}
         {currentCard && <ChatExportMenu
-          onLumiverse={config.mode === 'full' ? async () => {
+          onLumiverse={lumiverseEnabled && config.mode === 'full' ? async () => {
             try {
               await useCardStore.getState().saveCard();
               const result = await api.pushToLumiverse(currentCard.meta.id);
@@ -671,6 +567,7 @@ export function Header({ onBack }: HeaderProps) {
           } : undefined}
           onSillyTavern={sillytavernEnabled ? handlePushToSillyTavern : undefined}
         />}
+        <SettingsButton onClick={() => setShowSettings(true)} />
       </div>
 
       {pushStatus && (

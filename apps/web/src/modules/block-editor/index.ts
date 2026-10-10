@@ -41,12 +41,13 @@ export function registerBlockEditorModule(): void {
   // Register settings panel
   registry.registerSettingsPanel({
     id: 'blockeditor-settings',
-    label: 'Block Editor',
+    label: 'Blocks',
     component: BlockEditorSettings,
-    row: 'modules',
+    group: 'editors',
+    moduleId: 'block-editor',
     color: 'orange',
     order: 30,
-    condition: () => useSettingsStore.getState().features?.blockEditorEnabled ?? true,
+
   });
 
   console.log('[block-editor] Module registered (tab + settings)');

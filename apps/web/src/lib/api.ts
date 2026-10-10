@@ -1,5 +1,5 @@
 import type { FavoriteState } from '@character-foundry/character-foundry/integrations';
-import type { LumiverseSettings } from '../features/settings/panels/ConnectionsSettingsPanel';
+import type { LumiverseSettings } from './types';
 import type {
   Card,
   TokenizeRequest,

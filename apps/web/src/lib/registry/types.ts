@@ -33,7 +33,11 @@ export interface SettingsPanelDefinition extends PluginContribution {
   label: string;
   icon?: ComponentType<{ className?: string }>;
   component: ComponentType | LazyExoticComponent<ComponentType<unknown>>;
-  /** Which row to display in: 'main' for top row, 'modules' for module settings row */
+  /** Settings category; omitted panels keep their own main tab or use the legacy modules row. */
+  group?: string;
+  /** Owning module, used for the enable control without guessing from the panel ID. */
+  moduleId?: string;
+  /** Legacy placement for third-party panels without a group. */
   row?: 'main' | 'modules';
   /** Color for tab highlight when active */
   color?: 'blue' | 'purple' | 'green' | 'orange' | 'red' | 'pink' | 'cyan' | 'amber' | 'teal';
@@ -93,6 +97,10 @@ export interface ModuleDefinition {
   description: string;
   /** Whether the module is enabled by default */
   defaultEnabled: boolean;
+  /** One-time compatibility check for modules introduced after their saved configuration. */
+  migrateEnabled?: () => Promise<boolean | undefined>;
+  /** Editors keep their settings discoverable even while disabled. */
+  category?: 'editor' | 'connection';
   /** Badge text (e.g., 'Export', 'Import', 'Beta') */
   badge?: string;
   /** Badge/toggle color */

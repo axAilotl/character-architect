@@ -1,82 +1,31 @@
-import { AutoForm } from '@character-foundry/character-foundry/app-framework';
 import { useSettingsStore } from '../../../store/settings-store';
 import { getDeploymentConfig } from '../../../config/deployment';
-import {
-  generalSettingsSchema,
-  generalSettingsUiHints,
-  type GeneralSettings,
-} from '../../../lib/schemas/settings/general';
 
 export function GeneralSettingsPanel() {
-  const linkedImageArchivalEnabled = useSettingsStore(
-    (state) => state.features?.linkedImageArchivalEnabled ?? false,
-  );
-  const setLinkedImageArchivalEnabled = useSettingsStore(
-    (state) => state.setLinkedImageArchivalEnabled,
-  );
-
-  const deploymentConfig = getDeploymentConfig();
-
-  const values: GeneralSettings = {
-    linkedImageArchivalEnabled,
-  };
-
-  const handleChange = (updated: GeneralSettings) => {
-    if (updated.linkedImageArchivalEnabled !== linkedImageArchivalEnabled) {
-      setLinkedImageArchivalEnabled(updated.linkedImageArchivalEnabled);
-    }
-  };
-
+  const { features, setAssetsEnabled, setDiffEnabled, setLinkedImageArchivalEnabled } = useSettingsStore();
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-2">General Settings</h3>
-        <p className="text-dark-muted">
-          Configure application-wide settings and behaviors.
-        </p>
-      </div>
-
-      {/* Linked Image Archival - Only available in full mode */}
-      {deploymentConfig.mode === 'full' && (
-        <div className="border border-dark-border rounded-lg p-6 space-y-4">
-          <AutoForm
-            schema={generalSettingsSchema}
-            values={values}
-            onChange={handleChange}
-            uiHints={generalSettingsUiHints}
-          />
-          {linkedImageArchivalEnabled && (
-            <div className="pt-4 border-t border-dark-border">
-              <div className="p-3 bg-amber-900/20 border border-amber-600 rounded">
-                <p className="text-sm text-amber-200">
-                  <strong>Warning:</strong> This feature modifies card content.
-                  A snapshot backup is automatically created before archiving.
-                  Use the "Convert Linked Images" button in the Assets tab to
-                  archive images for the current card.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="p-4 bg-dark-bg rounded border border-dark-border">
-        <p className="text-sm text-dark-muted">
-          Module-specific settings have been moved to their respective tabs in
-          the Module Settings row above.
-        </p>
-        <ul className="text-xs text-dark-muted mt-2 space-y-1 list-disc list-inside">
-          <li>
-            <strong>Auto-Snapshot</strong> → Diff module settings
-          </li>
-          <li>
-            <strong>Creator's Notes HTML</strong> → Focused module settings
-          </li>
-          <li>
-            <strong>Focused Editor Fields</strong> → Focused module settings
-          </li>
-        </ul>
-      </div>
+      <div><h3 className="settings-heading">Workspace preferences</h3>
+        <p className="settings-description">Choose the tools and storage behavior for your workspace.</p></div>
+      <section className="settings-section space-y-4">
+        <h4 className="font-medium">Card workspace</h4>
+        <label className="flex items-start justify-between gap-6">
+          <span><span className="block text-sm font-medium">Assets tab</span><span className="block text-sm text-dark-muted mt-1">Manage portraits, images, and files attached to cards.</span></span>
+          <input className="module-switch" role="switch" type="checkbox" checked={features.assetsEnabled} onChange={event => setAssetsEnabled(event.target.checked)} />
+        </label>
+        <label className="flex items-start justify-between gap-6">
+          <span><span className="block text-sm font-medium">Diff tab</span><span className="block text-sm text-dark-muted mt-1">Compare versions and restore snapshots.</span></span>
+          <input className="module-switch" role="switch" type="checkbox" checked={features.diffEnabled} onChange={event => setDiffEnabled(event.target.checked)} />
+        </label>
+      </section>
+      {getDeploymentConfig().mode === 'full' && <section className="settings-section space-y-3">
+        <h4 className="font-medium">Image storage</h4>
+        <label className="flex items-start justify-between gap-6">
+          <span><span className="block text-sm font-medium">Linked image archival</span><span className="block text-sm text-dark-muted mt-1">Allow external images in greetings to be saved as local assets.</span></span>
+          <input className="module-switch" role="switch" type="checkbox" checked={features.linkedImageArchivalEnabled} onChange={event => setLinkedImageArchivalEnabled(event.target.checked)} />
+        </label>
+        {features.linkedImageArchivalEnabled && <p className="text-sm text-dark-muted border-t border-dark-border pt-3">Use Convert Linked Images in Assets to archive a card’s images. This updates card content and creates a snapshot first; original URLs are preserved for export.</p>}
+      </section>}
     </div>
   );
 }

@@ -158,7 +158,7 @@ function AvatarUpload({ cardId, isLightMode, cachedImageUrl, onImageUploaded }: 
           </div>
         )}
       </div>
-      <label htmlFor="avatar-upload" className="btn-secondary text-sm cursor-pointer">
+      <label htmlFor="avatar-upload" className="btn-secondary inline-flex px-3 py-2 rounded-lg text-sm cursor-pointer">
         Upload Image
         <input
           id="avatar-upload"
@@ -551,27 +551,17 @@ export function EditPanelV2() {
     ];
   })();
 
-  // Layout calculations for LLM assist sidebar
-  const ASSIST_WIDTH_PX = 500;
-  const ASSIST_GAP_PX = 24;
-  const contentStyle = llmAssistOpen
-    ? {
-        width: `calc(100% - ${ASSIST_WIDTH_PX + ASSIST_GAP_PX}px)`,
-        marginRight: `${ASSIST_GAP_PX}px`,
-      }
-    : undefined;
-
   return (
     <div className="relative w-full h-full flex flex-col">
       {/* Tab Navigation */}
       <div className="bg-dark-surface border-b border-dark-border">
         <div className="flex items-center justify-between">
-          <div className="flex">
+          <div className="flex overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`font-medium transition-colors ${
+                className={`text-sm whitespace-nowrap font-medium transition-colors ${
                   activeTab === tab.id
                     ? 'bg-dark-bg text-dark-text border-b-2 border-blue-500'
                     : 'text-dark-muted hover:text-dark-text'
@@ -585,12 +575,9 @@ export function EditPanelV2() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 relative flex">
+      <div className="flex-1 min-h-0 relative flex">
         <div
-          className={`overflow-y-auto p-6 space-y-6 transition-all duration-300 ${
-            llmAssistOpen ? 'w-full' : 'max-w-[66%] w-full mx-auto'
-          }`}
-          style={contentStyle}
+          className={`standard-editor-content overflow-y-auto p-4 sm:p-6 space-y-6 w-full ${llmAssistOpen ? 'with-assistant' : 'max-w-6xl mx-auto'}`}
         >
           {/* Schema-driven tabs */}
           {(activeTab === 'basic' ||

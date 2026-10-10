@@ -65,15 +65,15 @@ export function EditorTabs({ context = 'card' }: EditorTabsProps) {
 
   return (
     <div className="bg-dark-surface border-b border-dark-border">
-      <div className="flex items-center justify-between">
-        <div className="flex">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 overflow-x-auto editor-tabs">
           {tabs.map((tab) => {
             const isActive = effectiveActiveTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`font-medium transition-colors ${getColorClasses(tab.color, isActive)}`}
+                className={`text-sm whitespace-nowrap font-medium transition-colors ${getColorClasses(tab.color, isActive)}`}
               >
                 {tab.icon && <tab.icon className="w-4 h-4 mr-2 inline" />}
                 {tab.label}
@@ -84,7 +84,7 @@ export function EditorTabs({ context = 'card' }: EditorTabsProps) {
 
         {/* Snapshot Button */}
         {currentCard?.meta.id && (
-          <div className="relative px-4">
+          <div className="relative px-2 shrink-0">
             {showPrompt ? (
               <div className="absolute top-full right-4 mt-2 bg-dark-surface border border-dark-border rounded-lg shadow-2xl p-4 w-80 z-50">
                 <h3 className="text-sm font-semibold mb-2">Create Snapshot</h3>
@@ -120,7 +120,7 @@ export function EditorTabs({ context = 'card' }: EditorTabsProps) {
             ) : (
               <button
                 onClick={() => setShowPrompt(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-2 text-sm"
+                className="btn-secondary flex items-center gap-2 text-sm"
                 title="Create version snapshot"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,7 +137,7 @@ export function EditorTabs({ context = 'card' }: EditorTabsProps) {
                     d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
-                Snapshot
+                <span className="hidden sm:inline">Snapshot</span>
               </button>
             )}
           </div>
