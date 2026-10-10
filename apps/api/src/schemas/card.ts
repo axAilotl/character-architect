@@ -36,6 +36,7 @@ export const createVersionSchema = z.object({
 
 // Query params for list
 export const listCardsQuerySchema = z.object({
+  favoritesOnly: z.enum(['true', 'false']).optional(),
   query: z.string().optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),

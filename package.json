@@ -57,6 +57,6 @@
     "pnpm": ">=11.24.0 <12"
   },
   "dependencies": {
-    "@character-foundry/character-foundry": "0.5.0"
+    "@character-foundry/character-foundry": "0.6.0"
   }
 }

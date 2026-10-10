@@ -14,6 +14,7 @@ import { assetRoutes } from './routes/assets.js';
 import { llmRoutes } from './routes/llm.js';
 import { ragRoutes } from './routes/rag.js';
 import { presetRoutes } from './routes/presets.js';
+import { directConnectionRoutes } from './routes/direct-connections.js';
 import { sillyTavernRoutes } from './routes/sillytavern.js';
 import { settingsRoutes } from './routes/settings.js';
 import { templateRoutes } from './routes/templates.js';
@@ -115,6 +116,7 @@ export async function build(opts: FastifyServerOptions = {}) {
   await fastify.register(ragRoutes, apiPrefix);
   await fastify.register(presetRoutes, apiPrefix);
   await fastify.register(sillyTavernRoutes, apiPrefix);
+  await fastify.register(directConnectionRoutes, apiPrefix);
   await fastify.register(settingsRoutes, apiPrefix);
   await fastify.register(templateRoutes, apiPrefix);
   await fastify.register(wwwyzzerddRoutes, apiPrefix);

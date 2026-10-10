@@ -45,8 +45,8 @@ export class CardService {
   /**
    * List cards with optional search and pagination
    */
-  list(query?: string, page?: number, limit?: number): { items: Card[]; total: number } {
-    return this.cardRepo.list(query, page ?? 1, limit ?? 50);
+  list(query?: string, page?: number, limit?: number, favoritesOnly = false): { items: Card[]; total: number } {
+    return this.cardRepo.list(query, page ?? 1, limit ?? 50, favoritesOnly);
   }
 
   /**

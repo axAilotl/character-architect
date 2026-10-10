@@ -43,3 +43,4 @@ patchedDependencies:
 minimumReleaseAgeExclude:
   - tsx@4.23.13
   - react-hook-form@7.87.0
+  - '@character-foundry/character-foundry@0.6.0'

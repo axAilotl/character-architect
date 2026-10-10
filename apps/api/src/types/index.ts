@@ -28,6 +28,7 @@ export type Spec = 'v2' | 'v3' | 'chara_card_v2' | 'chara_card_v3' | 'collection
  * Card metadata for database storage
  */
 export interface CardMeta {
+  favorite?: boolean;
   id: string;
   name: string;
   spec: Spec;

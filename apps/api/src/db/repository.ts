@@ -1,3 +1,4 @@
+import { getFavorite } from './favorites.js';
 import Database from 'better-sqlite3';
 import { generateId } from '@card-architect/import-core';
 import type { Card, CardMeta, CardUpdate, CardVersion, Spec, CardAsset, CardAssetWithDetails, Asset } from '../types/index.js';
@@ -8,16 +9,17 @@ export class CardRepository {
   /**
    * List all cards with optional filtering
    */
-  list(query?: string, page = 1, limit = 50): { items: Card[]; total: number } {
+  list(query?: string, page = 1, limit = 50, favoritesOnly = false): { items: Card[]; total: number } {
     // 1. Get total count
     let countSql = 'SELECT COUNT(*) as total FROM cards';
     const countParams: unknown[] = [];
 
     if (query) {
-      countSql += ' WHERE name LIKE ? OR tags LIKE ?';
+      countSql += ' WHERE (name LIKE ? OR tags LIKE ?)';
       countParams.push(`%${query}%`, `%${query}%`);
     }
 
+    if (favoritesOnly) countSql += (query ? ' AND' : ' WHERE') + ' id IN (SELECT card_id FROM card_favorites WHERE favorite = 1)';
     const countStmt = this.db.prepare(countSql);
     const { total } = countStmt.get(...countParams) as { total: number };
 
@@ -30,10 +32,11 @@ export class CardRepository {
     const params: unknown[] = [];
 
     if (query) {
-      sql += ' WHERE c.name LIKE ? OR c.tags LIKE ?';
+      sql += ' WHERE (c.name LIKE ? OR c.tags LIKE ?)';
       params.push(`%${query}%`, `%${query}%`);
     }
 
+    if (favoritesOnly) sql += (query ? ' AND' : ' WHERE') + ' c.id IN (SELECT card_id FROM card_favorites WHERE favorite = 1)';
     sql += ' ORDER BY c.updated_at DESC LIMIT ? OFFSET ?';
     params.push(limit, (page - 1) * limit);
 
@@ -264,6 +267,7 @@ export class CardRepository {
     return {
       meta: {
         id: r.id,
+        favorite: getFavorite(this.db, r.id).favorite,
         name: r.name,
         spec: r.spec,
         tags: JSON.parse(r.tags || '[]'),

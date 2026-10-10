@@ -5,6 +5,7 @@
  * The createTables function now delegates to the migration runner.
  */
 
+import { createFavoriteTable } from './favorites.js';
 import Database from 'better-sqlite3';
 import { dirname } from 'path';
 import { mkdirSync, existsSync } from 'fs';
@@ -27,4 +28,5 @@ export function initDatabase(dbPath: string): Database.Database {
 export function createTables(db: Database.Database): void {
   // Run all pending migrations
   runMigrations(db);
+  createFavoriteTable(db);
 }
