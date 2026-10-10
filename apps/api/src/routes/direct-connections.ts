@@ -12,6 +12,7 @@ import { CardRepository } from '../db/repository.js';
 import { getFavorite, setFavorite } from '../db/favorites.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { createCardPNG } from '../utils/file-handlers.js';
+import { lumiverseApiUrl } from '../utils/lumiverse.js';
 
 const connectionSchema = z
   .object({
@@ -55,7 +56,7 @@ export async function directConnectionRoutes(app: FastifyInstance) {
     const parsed = connectionSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Enter a valid instance URL' });
     try {
-      const response = await axios.get(instanceApiUrl(parsed.data.baseUrl, 'characters?limit=1'), {
+      const response = await axios.get(lumiverseApiUrl(parsed.data.baseUrl, 'characters?limit=1'), {
         headers: connectionHeaders(parsed.data),
         timeout: 10000,
         maxRedirects: 0,
@@ -90,7 +91,7 @@ export async function directConnectionRoutes(app: FastifyInstance) {
       const form = new FormData();
       form.append('file', png, { filename: `${card.meta.id}.png`, contentType: 'image/png' });
       const { data } = await axios.post(
-        instanceApiUrl(settings.baseUrl, 'characters/import'),
+        lumiverseApiUrl(settings.baseUrl, 'characters/import'),
         form,
         {
           headers: { ...connectionHeaders(settings), ...form.getHeaders() },
