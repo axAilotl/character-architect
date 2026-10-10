@@ -109,7 +109,7 @@ describe('library search results', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Unstar Description match' }));
     await screen.findByRole('heading', { name: 'Description match' });
     expect(api.listCards).toHaveBeenLastCalledWith('', 1, 20, true, { filter: 'favorites', sort: 'edited' });
-    expect(screen.getByText('20 cards')).toBeVisible();
+    expect(await screen.findByText('20 cards')).toBeVisible();
   });
 
   it('reports a failed search and lets the user retry the same query', async () => {
