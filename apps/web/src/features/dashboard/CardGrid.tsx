@@ -7,12 +7,12 @@ import { localDB } from '../../lib/db';
 import { getDeploymentConfig } from '../../config/deployment';
 import { importCardClientSide, importVoxtaPackageClientSide } from '../../lib/client-import';
 import { exportCard as exportCardClientSide } from '../../lib/client-export';
-import type { Card, CCv3Data } from '../../lib/types';
+import type { Card } from '../../lib/types';
 import { SettingsModal } from '../../components/shared/SettingsModal';
 import { useSettingsStore } from '../../store/settings-store';
 import { useTokenStore } from '../../store/token-store';
 import type { CardSyncState } from '../../modules/federation/lib/types';
-import { getExtensions } from '../../lib/card-type-guards';
+import { queryLocalCards, type CardListFilter, type CardListSort } from '../../lib/card-list';
 import { CardItem, CardSkeleton } from './CardItem';
 import { registry } from '@character-foundry/character-foundry/tokenizers';
 
@@ -50,20 +50,19 @@ interface CardGridProps {
   onCardClick: (cardId: string) => void;
 }
 
-type SortOption = 'edited' | 'newest' | 'oldest' | 'name';
-type FilterOption = 'all' | 'favorites' | 'collection' | 'lorebook' | 'voxta' | 'charx' | 'v3' | 'v2';
-
 export function CardGrid({ onCardClick }: CardGridProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadRevision = useRef(0);
   const [showSettings, setShowSettings] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [cachedImages, setCachedImages] = useState<Map<string, string>>(new Map());
   const [tokenCounts, setTokenCounts] = useState<Map<string, number>>(new Map());
-  const [sortBy, setSortBy] = useState<SortOption>('edited');
-  const [filterBy, setFilterBy] = useState<FilterOption>('all');
+  const [sortBy, setSortBy] = useState<CardListSort>('edited');
+  const [filterBy, setFilterBy] = useState<CardListFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [cardsPerPage, setCardsPerPage] = useState(20);
@@ -80,22 +79,25 @@ export function CardGrid({ onCardClick }: CardGridProps) {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (searchQuery.trim() === debouncedSearch) return;
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
     searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
+      setDebouncedSearch(searchQuery.trim());
+      setCurrentPage(1);
     }, 300);
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, debouncedSearch]);
 
   useEffect(() => {
-    loadCards(debouncedSearch);
-  }, [currentPage, cardsPerPage, debouncedSearch, filterBy]);
+    void loadCards();
+    return () => { loadRevision.current++; };
+  }, [currentPage, cardsPerPage, debouncedSearch, filterBy, sortBy]);
 
   useEffect(() => {
     const counts = new Map<string, number>();
@@ -173,43 +175,43 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     };
   }, [federationEnabled]);
 
-  const loadCards = async (query: string = '') => {
+  const loadCards = async (query = debouncedSearch) => {
+    const revision = ++loadRevision.current;
     setLoading(true);
+    setLoadError(null);
     try {
       const config = getDeploymentConfig();
-      console.log('[CardGrid] Loading cards, mode:', config.mode);
-
       if (config.mode === 'light' || config.mode === 'static') {
         const localCards = await localDB.listCards();
-        console.log('[CardGrid] Found', localCards.length, 'cards in IndexedDB');
-        setCards(localCards);
-        setTotalCards(localCards.length);
-
         const images = new Map<string, string>();
         for (const card of localCards) {
           const imageData = await localDB.getImage(card.meta.id, 'thumbnail');
-          if (imageData) {
-            images.set(card.meta.id, imageData);
-          }
+          if (imageData) images.set(card.meta.id, imageData);
         }
-        console.log('[CardGrid] Loaded', images.size, 'cached images');
+        if (revision !== loadRevision.current) return;
+        setCards(localCards);
+        setTotalCards(localCards.length);
         setCachedImages(images);
       } else {
-        const response = await api.listCards(query, currentPage, cardsPerPage, filterBy === 'favorites');
-        if (response.data) {
-          // Safety check: ensure items is an array
-          setCards(Array.isArray(response.data.items) ? response.data.items : []);
-          setTotalCards(response.data.total || 0);
-        } else if (response.error) {
-          console.error('API error:', response.error);
-          setCards([]); // Fallback to empty
+        const response = await api.listCards(query, currentPage, cardsPerPage, filterBy === 'favorites', { filter: filterBy, sort: sortBy });
+        if (revision !== loadRevision.current) return;
+        if (response.error || !response.data) throw new Error(response.error || 'No response from the card library');
+        const lastPage = Math.max(1, Math.ceil(response.data.total / cardsPerPage));
+        if (currentPage > lastPage) {
+          setCurrentPage(lastPage);
+          return;
         }
+        setCards(response.data.items);
+        setTotalCards(response.data.total);
       }
     } catch (error) {
+      if (revision !== loadRevision.current) return;
       console.error('Failed to load cards:', error);
-      setCards([]); // Fallback to empty
+      setLoadError(error instanceof Error ? error.message : 'Failed to load cards');
+      setCards([]);
+      setTotalCards(0);
     } finally {
-      setLoading(false);
+      if (revision === loadRevision.current) setLoading(false);
     }
   };
 
@@ -244,6 +246,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           });
         }
       }
+      await loadCards();
     } catch (error) {
       console.error('Failed to delete card:', error);
       alert('Failed to delete card');
@@ -645,11 +648,6 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     }
   };
 
-  const getCardName = (card: Card) => {
-    const data = extractCardData(card);
-    return data.name || 'Untitled Card';
-  };
-
   const getCardImageSrc = (cardId: string) => {
     const config = getDeploymentConfig();
     if (config.mode === 'light' || config.mode === 'static') {
@@ -658,129 +656,29 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     return `/api/cards/${cardId}/thumbnail?size=400`;
   };
 
-  const hasAssets = (card: Card) => {
-    if (card.meta.assetCount !== undefined && card.meta.assetCount > 0) {
-      return true;
-    }
-    const isV3 = card.meta.spec === 'v3';
-    if (!isV3) return false;
-    const data = extractCardData(card) as CCv3Data['data'];
-    return (data.assets?.length ?? 0) > 0;
-  };
-
-  const getCardType = (card: Card): 'voxta' | 'charx' | 'v3' | 'v2' => {
-    if (card.meta.tags?.includes('voxta')) {
-      return 'voxta';
-    }
-    const extensions = getExtensions(card);
-    if (extensions.voxta) {
-      return 'voxta';
-    }
-    if (card.meta.tags?.includes('charx') || hasAssets(card)) {
-      return 'charx';
-    }
-    return card.meta.spec === 'v3' ? 'v3' : 'v2';
-  };
-
   const handleImageError = (cardId: string) => {
     setImageErrors((prev) => new Set(prev).add(cardId));
   };
 
-  const getFilteredCards = () => {
-    let filtered = cards;
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((card) => {
-        const name = getCardName(card).toLowerCase();
-        return name.includes(query);
-      });
-    }
-
-    // Apply type filter
-    if (filterBy !== 'all') {
-      filtered = filtered.filter((card) => {
-        if (filterBy === 'favorites') return !!card.meta.favorite;
-        if (filterBy === 'collection') return card.meta.spec === 'collection';
-        if (filterBy === 'lorebook') return card.meta.spec === 'lorebook';
-        const cardType = getCardType(card);
-        if (filterBy === 'voxta') return cardType === 'voxta';
-        if (filterBy === 'charx') return cardType === 'charx';
-        if (filterBy === 'v3') return cardType === 'v3';
-        if (filterBy === 'v2') return cardType === 'v2';
-        return true;
-      });
-    }
-
-    return filtered;
-  };
-
-  const getSortedCards = () => {
-    const filtered = getFilteredCards();
-    const sorted = [...(filtered || [])]; // Safety fallback
-    switch (sortBy) {
-      case 'newest':
-        sorted.sort(
-          (a, b) => new Date(b.meta.createdAt).getTime() - new Date(a.meta.createdAt).getTime()
-        );
-        break;
-      case 'oldest':
-        sorted.sort(
-          (a, b) => new Date(a.meta.createdAt).getTime() - new Date(b.meta.createdAt).getTime()
-        );
-        break;
-      case 'name':
-        sorted.sort((a, b) => {
-          const nameA = getCardName(a).toLowerCase();
-          const nameB = getCardName(b).toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-        break;
-      case 'edited':
-      default:
-        sorted.sort(
-          (a, b) => new Date(b.meta.updatedAt).getTime() - new Date(a.meta.updatedAt).getTime()
-        );
-    }
-    return sorted;
-  };
-
-  // Get paginated cards
-  const getPaginatedCards = () => {
-    const config = getDeploymentConfig();
-    const sorted = getSortedCards();
-
-    // In server mode, we already have paginated data in 'cards'
-    if (config.mode !== 'light' && config.mode !== 'static') {
-      return sorted;
-    }
-
-    // In client mode, we need to slice
-    const startIndex = (currentPage - 1) * cardsPerPage;
-    return sorted.slice(startIndex, startIndex + cardsPerPage);
-  };
-
-  // Calculate total pages
   const config = getDeploymentConfig();
   const isClientMode = config.mode === 'light' || config.mode === 'static';
+  // A server page is already searched, filtered, and sorted. Filtering it again
+  // would hide valid matches without changing the server's count.
+  const filteredCards = isClientMode
+    ? queryLocalCards(cards, debouncedSearch, { filter: filterBy, sort: sortBy })
+    : cards;
+  const getFilteredCards = () => filteredCards;
+  const totalFilteredCards = isClientMode ? filteredCards.length : totalCards;
+  const totalPages = Math.ceil(totalFilteredCards / cardsPerPage);
+  const displayedCards = isClientMode
+    ? filteredCards.slice((currentPage - 1) * cardsPerPage, currentPage * cardsPerPage)
+    : cards;
+  const searching = searchQuery.trim() !== debouncedSearch;
 
-  let totalPages = 0;
-  let totalFilteredCards = 0;
-
-  if (isClientMode) {
-    totalFilteredCards = getFilteredCards().length;
-    totalPages = Math.ceil(totalFilteredCards / cardsPerPage);
-  } else {
-    // In server mode, totalCards comes from the API response
-    totalFilteredCards = totalCards;
-    totalPages = Math.ceil(totalCards / cardsPerPage);
-  }
-
-  // Reset to page 1 when filter/search/count changes
+  // Deleting/un-starring the last item on a local page can shrink the page count.
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, filterBy, cardsPerPage]);
+    if (isClientMode) setCurrentPage(page => Math.min(page, Math.max(1, totalPages)));
+  }, [isClientMode, totalPages]);
 
   return (
     <div className="h-full flex flex-col bg-dark-bg">
@@ -801,11 +699,13 @@ export function CardGrid({ onCardClick }: CardGridProps) {
             {/* Search Input */}
             <div className="library-search relative">
               <input
-                type="text"
+                type="search"
+                aria-label="Search cards"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name..."
-                className="w-48 px-3 py-2 pl-8 bg-dark-bg border border-dark-border rounded text-sm text-dark-text placeholder:text-dark-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Search name or description…"
+                title="Search names, descriptions, and tags"
+                className="w-64 px-3 py-2 pl-8 bg-dark-bg border border-dark-border rounded text-sm text-dark-text placeholder:text-dark-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <svg
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-muted"
@@ -853,115 +753,122 @@ export function CardGrid({ onCardClick }: CardGridProps) {
           </div>
         </div>
 
-        {/* Selection Row - only show when cards exist */}
-        {cards.length > 0 && (
-          <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-t border-dark-border">
-            <button
-              onClick={toggleSelectionMode}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                selectionMode
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-dark-bg hover:bg-dark-border text-dark-text'
-              }`}
+        {/* Keep filters available even when the current search has no results. */}
+        <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-t border-dark-border">
+          <button
+            onClick={toggleSelectionMode}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              selectionMode
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-dark-bg hover:bg-dark-border text-dark-text'
+            }`}
+          >
+            {selectionMode ? 'Cancel Selection' : 'Select'}
+          </button>
+
+          <div className="h-4 w-px bg-dark-border" />
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-dark-muted">Filter:</span>
+            <select
+              aria-label="Filter cards"
+              value={filterBy}
+              onChange={(e) => { setFilterBy(e.target.value as CardListFilter); setCurrentPage(1); }}
+              className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
             >
-              {selectionMode ? 'Cancel Selection' : 'Select'}
-            </button>
-
-            <div className="h-4 w-px bg-dark-border" />
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-dark-muted">Filter:</span>
-              <select
-                value={filterBy}
-                onChange={(e) => setFilterBy(e.target.value as FilterOption)}
-                className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
-              >
-                <option value="all">All Types</option>
-                <option value="favorites">Favorites</option>
-                <option value="collection">Collections</option>
-                <option value="lorebook">Lorebooks</option>
-                <option value="voxta">Voxta</option>
-                <option value="charx">CharX</option>
-                <option value="v3">V3 (Standard)</option>
-                <option value="v2">V2 (Legacy)</option>
-              </select>
-            </div>
-
-            <div className="h-4 w-px bg-dark-border" />
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-dark-muted">Sort:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
-              >
-                <option value="edited">Last Edited</option>
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="name">Name</option>
-              </select>
-            </div>
-
-            <div className="h-4 w-px bg-dark-border" />
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-dark-muted">Count:</span>
-              <select
-                value={cardsPerPage}
-                onChange={(e) => setCardsPerPage(Number(e.target.value))}
-                className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
-              >
-                <option value={20}>20</option>
-                <option value={40}>40</option>
-                <option value={60}>60</option>
-                <option value={80}>80</option>
-              </select>
-            </div>
-
-            {selectionMode && (
-              <>
-                <div className="h-4 w-px bg-dark-border" />
-                <label className="flex items-center gap-2 text-sm text-dark-muted cursor-pointer hover:text-dark-text">
-                  <input
-                    type="checkbox"
-                    checked={
-                      getFilteredCards().length > 0 &&
-                      getFilteredCards().every((c) => selectedCards.has(c.meta.id))
-                    }
-                    onChange={toggleSelectAll}
-                    className="w-4 h-4 rounded border-dark-border"
-                  />
-                  Select All ({getFilteredCards().length}
-                  {filterBy !== 'all' ? ` ${filterBy}` : ''})
-                </label>
-                {selectedCards.size > 0 && (
-                  <>
-                    <span className="text-sm text-dark-muted">{selectedCards.size} selected</span>
-                    <button
-                      onClick={handleBulkDelete}
-                      className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded text-sm font-medium transition-colors"
-                      title={`Delete ${selectedCards.size} card(s)`}
-                    >
-                      Delete Selected
-                    </button>
-                  </>
-                )}
-              </>
-            )}
+              <option value="all">All Types</option>
+              <option value="favorites">Favorites</option>
+              <option value="collection">Collections</option>
+              <option value="lorebook">Lorebooks</option>
+              <option value="voxta">Voxta</option>
+              <option value="charx">CharX</option>
+              <option value="v3">V3 (Standard)</option>
+              <option value="v2">V2 (Legacy)</option>
+            </select>
           </div>
-        )}
+
+          <div className="h-4 w-px bg-dark-border" />
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-dark-muted">Sort:</span>
+            <select
+              aria-label="Sort cards"
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value as CardListSort); setCurrentPage(1); }}
+              className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
+            >
+              <option value="edited">Last Edited</option>
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="name">Name</option>
+            </select>
+          </div>
+
+          <div className="h-4 w-px bg-dark-border" />
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-dark-muted">Count:</span>
+            <select
+              aria-label="Cards per page"
+              value={cardsPerPage}
+              onChange={(e) => { setCardsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
+            >
+              <option value={20}>20</option>
+              <option value={40}>40</option>
+              <option value={60}>60</option>
+              <option value={80}>80</option>
+            </select>
+          </div>
+
+          {selectionMode && (
+            <>
+              <div className="h-4 w-px bg-dark-border" />
+              <label className="flex items-center gap-2 text-sm text-dark-muted cursor-pointer hover:text-dark-text">
+                <input
+                  type="checkbox"
+                  checked={
+                    getFilteredCards().length > 0 &&
+                    getFilteredCards().every((c) => selectedCards.has(c.meta.id))
+                  }
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded border-dark-border"
+                />
+                Select All ({getFilteredCards().length}
+                {filterBy !== 'all' ? ` ${filterBy}` : ''})
+              </label>
+              {selectedCards.size > 0 && (
+                <>
+                  <span className="text-sm text-dark-muted">{selectedCards.size} selected</span>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded text-sm font-medium transition-colors"
+                    title={`Delete ${selectedCards.size} card(s)`}
+                  >
+                    Delete Selected
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Grid */}
       <div className="flex-1 overflow-auto p-6">
-        {loading ? (
+        {loading || searching ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <CardSkeleton key={i} />
             ))}
           </div>
-        ) : cards.length === 0 ? (
+        ) : loadError ? (
+          <div role="alert" className="text-center text-dark-muted py-12">
+            <h2 className="text-xl font-semibold mb-2">Unable to load cards</h2>
+            <p>{loadError}</p>
+            <button onClick={() => void loadCards()} className="mt-4 btn-secondary">Try Again</button>
+          </div>
+        ) : totalFilteredCards === 0 && !debouncedSearch && filterBy === 'all' ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-dark-muted">
               <h2 className="text-xl font-semibold mb-2">No cards yet</h2>
@@ -991,7 +898,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {getPaginatedCards().map((card) => (
+              {displayedCards.map((card) => (
                 <CardItem
                   key={card.meta.id}
                   card={card}
@@ -1007,7 +914,10 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                   onExport={handleExport}
                   onDelete={handleDelete}
                   onImageError={handleImageError}
-                  onFavoriteChange={(id, favorite) => setCards(current => current.map(item => item.meta.id === id ? { ...item, meta: { ...item.meta, favorite } } : item))}
+                  onFavoriteChange={(id, favorite) => {
+                    setCards(current => current.map(item => item.meta.id === id ? { ...item, meta: { ...item.meta, favorite } } : item));
+                    if (!isClientMode && filterBy === 'favorites') void loadCards();
+                  }}
                 />
               ))}
             </div>

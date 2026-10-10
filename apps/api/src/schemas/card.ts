@@ -38,6 +38,8 @@ export const createVersionSchema = z.object({
 export const listCardsQuerySchema = z.object({
   favoritesOnly: z.enum(['true', 'false']).optional(),
   query: z.string().optional(),
+  filter: z.enum(['all', 'favorites', 'collection', 'lorebook', 'voxta', 'charx', 'v3', 'v2']).optional(),
+  sort: z.enum(['edited', 'newest', 'oldest', 'name']).optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
 });

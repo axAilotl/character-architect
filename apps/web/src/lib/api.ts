@@ -1,3 +1,4 @@
+import type { CardListOptions } from './card-list';
 import type { FavoriteState } from '@character-foundry/character-foundry/integrations';
 import type { LumiverseSettings } from './types';
 import type {
@@ -59,10 +60,12 @@ class ApiClient {
   }
 
   // Cards
-  async listCards(query?: string, page = 1, limit = 50, favoritesOnly = false) {
+  async listCards(query?: string, page = 1, limit = 50, favoritesOnly = false, options: CardListOptions = {}) {
     const params = new URLSearchParams();
     if (query) params.set('query', query);
     if (favoritesOnly) params.set('favoritesOnly', 'true');
+    if (options.filter) params.set('filter', options.filter);
+    if (options.sort) params.set('sort', options.sort);
     params.set('page', page.toString());
     params.set('limit', limit.toString());
 
