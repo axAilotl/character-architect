@@ -514,3 +514,11 @@ For bug reports, feature requests, or questions, please open an issue on GitHub.
 ---
 
 **Character Architect** - Professional character card editor with AI-powered tools, self-hosted, open source
+
+### Direct connections and favorites
+
+In full mode, open **Settings → Connections** to configure a self-hosted Lumiverse URL and optional session token or cookie. Use **Test connection**, then **Save settings**. The editor’s **→ Lumiverse** action saves the card and sends a PNG containing its definition and portrait.
+
+The **☆** buttons in the library and editor save favorites locally in all modes. Use the library’s **Favorites** filter to find starred cards. In full mode, cards sent from Character Archive are linked automatically: stars and unstars reconcile every 15 seconds while Archive runs, with retry after an outage. This does not require federation or a Chub account. Configure Architect’s API URL in Archive’s **Settings → Connections & favorites**.
+
+Shared card primitives are pinned to `@character-foundry/character-foundry@0.6.0`, including ZIP helpers from `/zip`.

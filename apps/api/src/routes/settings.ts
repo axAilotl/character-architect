@@ -10,7 +10,8 @@ const SETTINGS_PATH = config.settingsPath;
 // Path to store theme images
 const THEME_IMAGES_PATH = config.themeImagesPath;
 
-interface Settings {
+export interface Settings {
+  lumiverse?: { enabled: boolean; baseUrl: string; sessionToken: string; sessionCookie: string };
   sillyTavern?: {
     enabled: boolean;
     baseUrl: string;
@@ -19,7 +20,7 @@ interface Settings {
   };
 }
 
-function loadSettings(): Settings {
+export function loadSettings(): Settings {
   if (!existsSync(SETTINGS_PATH)) {
     return {};
   }
@@ -31,7 +32,7 @@ function loadSettings(): Settings {
   }
 }
 
-function saveSettings(settings: Settings) {
+export function saveSettings(settings: Settings) {
   const dir = dirname(SETTINGS_PATH);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

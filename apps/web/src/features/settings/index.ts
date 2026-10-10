@@ -1,3 +1,4 @@
+import { ConnectionsSettingsPanel } from './panels/ConnectionsSettingsPanel';
 import { registry } from '../../lib/registry';
 import { GeneralSettingsPanel } from './panels/GeneralSettingsPanel';
 import { ModulesSettingsPanel } from './panels/ModulesSettingsPanel';
@@ -10,6 +11,7 @@ import { BackupRestorePanel } from './panels/BackupRestorePanel';
 import { TemplatesSettingsPanel } from './panels/TemplatesSettingsPanel';
 
 export function registerCoreSettingsPanels() {
+  registry.registerSettingsPanel({ id: 'connections', label: 'Connections', component: ConnectionsSettingsPanel, order: 75, color: 'green' });
   registry.registerSettingsPanel({
     id: 'general',
     label: 'General',

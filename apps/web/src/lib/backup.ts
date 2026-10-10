@@ -2,7 +2,7 @@
 // Handles backup/restore for both full mode (via API) and lite/static mode (client-side)
 
 import { zipSync, strToU8, strFromU8, type Unzipped } from 'fflate';
-import { preflightZipSizes, streamingUnzipSync } from '@character-foundry/core/zip';
+import { preflightZipSizes, streamingUnzipSync } from '@character-foundry/character-foundry/zip';
 import { localDB, type StoredAsset, type StoredVersion } from './db';
 import { getDeploymentConfig } from '../config/deployment';
 import type { Card } from './types';

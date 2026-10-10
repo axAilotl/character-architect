@@ -19,8 +19,8 @@ export async function cardRoutes(fastify: FastifyInstance) {
     const validation = validateQuery(listCardsQuerySchema, request.query, reply);
     if (!validation.success) return;
 
-    const { query, page, limit } = validation.data;
-    const result = cardService.list(query, page, limit);
+    const { query, page, limit, favoritesOnly } = validation.data;
+    const result = cardService.list(query, page, limit, favoritesOnly === 'true');
     return result;
   });
 

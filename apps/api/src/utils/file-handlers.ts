@@ -56,7 +56,7 @@ import {
   preflightZipSizes,
   isPathSafe,
   type ZipSizeLimits,
-} from '@character-foundry/core/zip';
+} from '@character-foundry/character-foundry/zip';
 
 import { config } from '../config.js';
 

@@ -1,3 +1,5 @@
+import type { FavoriteState } from '@character-foundry/character-foundry/integrations';
+import type { LumiverseSettings } from '../features/settings/panels/ConnectionsSettingsPanel';
 import type {
   Card,
   TokenizeRequest,
@@ -57,9 +59,10 @@ class ApiClient {
   }
 
   // Cards
-  async listCards(query?: string, page = 1, limit = 50) {
+  async listCards(query?: string, page = 1, limit = 50, favoritesOnly = false) {
     const params = new URLSearchParams();
     if (query) params.set('query', query);
+    if (favoritesOnly) params.set('favoritesOnly', 'true');
     params.set('page', page.toString());
     params.set('limit', limit.toString());
 
@@ -513,6 +516,30 @@ class ApiClient {
   }
 
   // Settings
+  async getFavorite(id: string) {
+    return this.request<FavoriteState>(`/cards/${encodeURIComponent(id)}/favorite`);
+  }
+
+  async setFavorite(id: string, favorite: boolean) {
+    return this.request<FavoriteState>(`/cards/${encodeURIComponent(id)}/favorite`, { method: 'PUT', body: JSON.stringify({ favorite }) });
+  }
+
+  async getLumiverseSettings() {
+    return this.request<{ settings: LumiverseSettings }>('/settings/lumiverse');
+  }
+
+  async updateLumiverseSettings(settings: LumiverseSettings) {
+    return this.request<{ success: boolean }>('/settings/lumiverse', { method: 'PATCH', body: JSON.stringify(settings) });
+  }
+
+  async testLumiverseConnection(settings: LumiverseSettings) {
+    return this.request<{ success: boolean }>('/settings/lumiverse/test', { method: 'POST', body: JSON.stringify(settings) });
+  }
+
+  async pushToLumiverse(id: string) {
+    return this.request<{ success: boolean; remoteId: string }>(`/cards/${encodeURIComponent(id)}/push-to-lumiverse`, { method: 'POST' });
+  }
+
   async getSillyTavernSettings() {
     return this.request<{ settings: { enabled: boolean; baseUrl: string; importEndpoint: string; sessionCookie: string } }>(
       '/settings/sillytavern'

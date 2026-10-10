@@ -1,0 +1,11 @@
+--- a/dist/classes/Agent.js
++++ b/dist/classes/Agent.js
+@@ -153,7 +153,7 @@
+         // > are also accepted:
+         // >   ca, cert, ciphers, clientCertEngine, crl, dhparam, ecdhCurve, honorCipherOrder,
+         // >   key, passphrase, pfx, rejectUnauthorized, secureOptions, secureProtocol, servername, sessionIdContext.
+-        if (configuration.secureEndpoint) {
++        if (this.protocol === 'https:') {
+             // Determine servername - Node.js doesn't allow IP addresses as servername
+             const host = (_f = configuration.servername) !== null && _f !== void 0 ? _f : connectionConfiguration.host;
+             const servername = net_1.default.isIP(host) ? undefined : host;

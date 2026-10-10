@@ -40,6 +40,7 @@ export function isLorebookSpec(spec: Spec): boolean {
 // ============================================================================
 
 export interface CardMeta {
+  favorite?: boolean;
   id: string;
   name: string;
   spec: Spec;

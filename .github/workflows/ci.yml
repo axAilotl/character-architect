@@ -48,6 +48,9 @@ jobs:
       - name: Build workspace packages
         run: pnpm build:packages
 
+      - name: Check dependency compatibility
+        run: node scripts/dependency-compatibility-smoke.mjs
+
       - name: Type-check
         run: pnpm type-check
 

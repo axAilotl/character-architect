@@ -50,7 +50,7 @@ interface CardGridProps {
 }
 
 type SortOption = 'edited' | 'newest' | 'oldest' | 'name';
-type FilterOption = 'all' | 'collection' | 'lorebook' | 'voxta' | 'charx' | 'v3' | 'v2';
+type FilterOption = 'all' | 'favorites' | 'collection' | 'lorebook' | 'voxta' | 'charx' | 'v3' | 'v2';
 
 export function CardGrid({ onCardClick }: CardGridProps) {
   const [cards, setCards] = useState<Card[]>([]);
@@ -94,7 +94,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
 
   useEffect(() => {
     loadCards(debouncedSearch);
-  }, [currentPage, cardsPerPage, debouncedSearch]);
+  }, [currentPage, cardsPerPage, debouncedSearch, filterBy]);
 
   useEffect(() => {
     const counts = new Map<string, number>();
@@ -194,7 +194,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
         console.log('[CardGrid] Loaded', images.size, 'cached images');
         setCachedImages(images);
       } else {
-        const response = await api.listCards(query, currentPage, cardsPerPage);
+        const response = await api.listCards(query, currentPage, cardsPerPage, filterBy === 'favorites');
         if (response.data) {
           // Safety check: ensure items is an array
           setCards(Array.isArray(response.data.items) ? response.data.items : []);
@@ -700,6 +700,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     // Apply type filter
     if (filterBy !== 'all') {
       filtered = filtered.filter((card) => {
+        if (filterBy === 'favorites') return !!card.meta.favorite;
         if (filterBy === 'collection') return card.meta.spec === 'collection';
         if (filterBy === 'lorebook') return card.meta.spec === 'lorebook';
         const cardType = getCardType(card);
@@ -832,6 +833,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
               onClick={() => setShowSettings(true)}
               className="btn-secondary"
               title="Settings"
+              aria-label="Settings"
             >
               ⚙️
             </button>
@@ -881,6 +883,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 className="px-2 py-1 bg-dark-bg border border-dark-border rounded text-sm text-dark-text hover:bg-dark-surface transition-colors cursor-pointer"
               >
                 <option value="all">All Types</option>
+                <option value="favorites">Favorites</option>
                 <option value="collection">Collections</option>
                 <option value="lorebook">Lorebooks</option>
                 <option value="voxta">Voxta</option>
@@ -1010,6 +1013,7 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                   onExport={handleExport}
                   onDelete={handleDelete}
                   onImageError={handleImageError}
+                  onFavoriteChange={(id, favorite) => setCards(current => current.map(item => item.meta.id === id ? { ...item, meta: { ...item.meta, favorite } } : item))}
                 />
               ))}
             </div>

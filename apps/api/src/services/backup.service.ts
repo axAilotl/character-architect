@@ -7,8 +7,9 @@
  * Supports both API backups and client-side (lite/static) backups.
  */
 
+import { setFavorite } from '../db/favorites.js';
 import { Zip, ZipDeflate, zipSync, strToU8, strFromU8, type Unzipped } from 'fflate';
-import { preflightZipSizes, streamingUnzipSync } from '@character-foundry/core/zip';
+import { preflightZipSizes, streamingUnzipSync } from '@character-foundry/character-foundry/zip';
 import { createReadStream, createWriteStream, promises as fs } from 'fs';
 import { once } from 'events';
 import { tmpdir } from 'os';
@@ -811,6 +812,7 @@ export class BackupService {
           card.meta.memberCount || null
         );
 
+        if (typeof card.meta.favorite === 'boolean') setFavorite(this.db, card.meta.id, card.meta.favorite);
         importedCardIds.add(card.meta.id);
         result.imported.cards++;
         if (originalImage) result.imported.images++;
@@ -1048,6 +1050,7 @@ export class BackupService {
           card.meta.memberCount || null
         );
 
+        if (typeof card.meta.favorite === 'boolean') setFavorite(this.db, card.meta.id, card.meta.favorite);
         importedCardIds.add(card.meta.id);
         result.imported.cards++;
         if (originalImage) result.imported.images++;

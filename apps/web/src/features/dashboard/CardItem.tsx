@@ -1,3 +1,4 @@
+import { FavoriteButton } from '../../components/shared/FavoriteButton';
 import { useState } from 'react';
 import type { Card, CollectionData } from '../../lib/types';
 import type { CCv3Data } from '../../lib/types';
@@ -328,6 +329,7 @@ export interface CardItemProps {
   onToggleSelect: (cardId: string, e?: { stopPropagation?: () => void }) => void;
   onExport: (cardId: string, format: ExportFormat, e: React.MouseEvent) => void;
   onDelete: (cardId: string, e: React.MouseEvent) => void;
+  onFavoriteChange?: (cardId: string, favorite: boolean) => void;
   onImageError: (cardId: string) => void;
 }
 
@@ -345,6 +347,7 @@ export function CardItem({
   onExport,
   onDelete,
   onImageError,
+  onFavoriteChange,
 }: CardItemProps) {
   const config = getDeploymentConfig();
 
@@ -586,6 +589,7 @@ export function CardItem({
           <div className="flex items-center justify-between text-xs">
             <span className="text-white/60">{formatDate(card.meta.updatedAt)}</span>
             <div className="flex items-center gap-1">
+              <FavoriteButton card={card} onChange={favorite => onFavoriteChange?.(card.meta.id, favorite)} className="p-1.5 bg-black/40 hover:bg-black/60 rounded text-yellow-300 text-base leading-none" />
               <button
                 onClick={(e) => {
                   e.stopPropagation();

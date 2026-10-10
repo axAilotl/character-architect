@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - Monorepo via pnpm workspaces: `apps/api` (Fastify backend), `apps/web` (React + Vite UI), and local packages in `packages/*` (`defaults`, `plugins`, `import-core`).
-- Character Foundry functionality comes from the stable `@character-foundry/character-foundry` aggregate package. Keep `@character-foundry/core` only where its `/zip` export is required.
+- Character Foundry functionality comes from the stable `@character-foundry/character-foundry` aggregate package. Use its `/zip` export for ZIP helpers and `/integrations` for direct connection and favorite helpers.
 - **Defaults package** (`@card-architect/defaults`): Single source of truth for templates, snippets, presets, and wwwyzzerdd prompts. All shared JSON data lives in `packages/defaults/assets/`.
 - Reference docs live in `docs/`; synthetic shared fixtures live in `test-fixtures/`; Docker assets live in `docker/` with the root `docker-compose.yml` for the local stack.
 

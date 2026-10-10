@@ -1,6 +1,6 @@
 # Dependency Upgrade Log
 
-This log records dependency decisions made during the August 2026 Node 24 maintenance pass.
+This log records dependency decisions and validation for Character Architect. The initial sections describe the August 2026 Node 24 maintenance pass; subsequent dated sections record follow-up updates.
 
 ## Runtime baseline
 
@@ -69,3 +69,84 @@ This log records dependency decisions made during the August 2026 Node 24 mainte
 - Docker: both clean images build; the Nginx and API health checks pass; a real ffmpeg conversion succeeds; 13 cards persist across a full Compose restart; Node 24 and ffmpeg are present in the non-root runtime image.
 - Backup: the live Docker endpoint creates a valid staged ZIP with 13 cards that is accepted by both validation and preview. Shared browser/server manifest validation, strict merge tests, missing-asset rejection, failure injection, and settings/file round-trip tests cover the data-loss boundaries.
 - Cloudflare: Wrangler 4 accepts the static bundle in production dry-run mode. The final live URL and workflow result are recorded after push.
+
+## October 2026 production audit remediation (#37)
+
+Updates are applied individually, with the full fixture-backed test suite run after each install. The CI audit policy remains unchanged.
+
+### `fast-uri` 3.1.5 to 3.1.8
+
+- Compatibility: Keep the supported v3 line required by the existing schema stack; upstream recommends 3.1.8 for its normalization fixes.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://github.com/fastify/fast-uri/releases/tag/v3.1.8
+
+### `brace-expansion` 5.0.9 to 5.0.12
+
+- Compatibility: Preserve older major versions used by other dependency paths. The v5 patches bound pathological parsing while retaining normal expansion behavior.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://github.com/juliangruber/brace-expansion/compare/v5.0.9...v5.0.12
+
+### `dompurify` 3.4.14 to 3.4.16
+
+- Compatibility: Patch release fixes IN_PLACE sanitization and declaration exports; application sanitizer options need no migration.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://github.com/cure53/DOMPurify/releases/tag/3.4.16
+
+### `fastify` 5.12.1 to 5.12.5
+
+- Compatibility: Stay on Fastify 5; security and request-validation fixes preserve the application route API.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://github.com/fastify/fastify/releases/tag/v5.12.5
+
+### `@fastify/busboy` 3.2.0 to 3.2.2
+
+- Compatibility: Compatible v3 security update for the existing multipart plugin; checks cover direct PNG uploads.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://github.com/fastify/busboy/releases/tag/v3.2.2
+
+### `source-map-js` 1.2.1 to 1.2.2
+
+- Compatibility: Patch fixes indexed-map resource exhaustion and CSP compatibility without changing the mapping API.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://github.com/7rulnik/source-map-js/compare/v1.2.1...v1.2.2
+
+### `vue` 3.5.25 to 3.5.43
+
+- Compatibility: Update Vue and its exact-version renderer/compiler dependencies together for Milkdown. The stable 3.5 line includes the SSR attribute-name fix.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://github.com/vuejs/core/blob/v3.5.43/CHANGELOG.md
+
+### `prosemirror-view` 1.41.4 to 1.42.6
+
+- Compatibility: Stable v1 update validates pasted attributes and retains the public editor API. Tagged changelog inspected from the published package.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://www.npmjs.com/package/prosemirror-view/v/1.42.6
+
+### `sharp` 0.35.4 to 0.35.5
+
+- Compatibility: patch updates native image libraries and bounds checks; Node 24 is supported. Existing thumbnail, PNG and import tests exercise the image path.
+- Validation: full fixture-backed workspace tests passed after this update.
+- Source: https://github.com/lovell/sharp/releases/tag/v0.35.5
+
+### `katex` 0.16.27 to 0.19.0
+
+- Compatibility: private function-definition API, internal CSS classes and strict callbacks changed across 0.17–0.19. Architect/Milkdown uses public rendering APIs, matching package CSS, and default strict behavior. The override updates all rendering and stylesheet consumers together.
+- Validation: full fixture-backed workspace tests passed; separate inline/block, micromark, inherited-trust and malformed-math checks cover the actual rendering API.
+- Source: https://github.com/KaTeX/KaTeX/blob/v0.19.0/CHANGELOG.md
+
+### ONNX proxy helper: `global-agent` 3.0.0 to 4.1.3
+
+- Compatibility: ONNX 1.21.0 uses only the CommonJS `bootstrap()` export in its installer. The scoped override removes `roarr` and the unpatched `sprintf-js` dependency while retaining the existing inference runtime.
+- Patch: 4.1.3 tests `configuration.secureEndpoint`, which native Node HTTPS requests do not supply. Restore protocol detection through `this.protocol === 'https:'` so trusted CA, SNI and certificate verification options reach the TLS connection. This retains the secure certificate-verification default.
+- Validation: full fixture-backed workspace tests; actual ONNX installer with CUDA download skipped; FastEmbed module import; local HTTPS CONNECT with a trusted CA and SNI; rejection of an untrusted certificate; and NO_PROXY bypass all pass. The proxy and math checks run in CI through `scripts/dependency-compatibility-smoke.mjs`.
+- Sources: https://github.com/gajus/global-agent/blob/v4.1.3/src/classes/Agent.ts and https://github.com/microsoft/onnxruntime/blob/v1.21.0/js/node/script/install.js
+
+### Final audit
+
+`pnpm audit --prod --audit-level=low` reports no known vulnerabilities. No advisories were ignored, and the CI audit threshold is unchanged. The 25 findings recorded in issue #37 are resolved by the dependency updates and removal of the vulnerable formatting dependency.
+
+### ProseMirror model alignment
+
+`prosemirror-view` 1.42.6 selected model 1.25.12 while older Milkdown paths retained 1.25.4, producing incompatible `DOMOutputSpec` types. Pinning `prosemirror-model` 1.25.12 across all paths restores a single model instance without application casts or code changes. Its patch releases improve attribute validation and DOM parsing. The full test suite and type checks pass after alignment.
+
+Source: the published `prosemirror-model@1.25.12` CHANGELOG, https://www.npmjs.com/package/prosemirror-model/v/1.25.12
