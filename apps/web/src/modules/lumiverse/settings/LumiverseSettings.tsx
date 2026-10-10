@@ -2,14 +2,9 @@ import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api';
 import { getDeploymentConfig } from '../../../config/deployment';
 
-export interface LumiverseSettings {
-  enabled: boolean;
-  baseUrl: string;
-  sessionToken: string;
-  sessionCookie: string;
-}
+import type { LumiverseSettings } from '../../../lib/types';
 
-export function ConnectionsSettingsPanel() {
+export function LumiverseSettingsPanel() {
   const [settings, setSettings] = useState<LumiverseSettings>({
     enabled: false,
     baseUrl: '',
@@ -101,11 +96,6 @@ export function ConnectionsSettingsPanel() {
           </div>
         </>
       )}
-      <h3 className="text-lg font-semibold">Archive favorites</h3>
-      <p className="text-dark-muted">
-        Favorites save locally. Send a card from Archive to link it with Architect; subsequent stars
-        and unstars sync automatically while Archive is running. No Chub account is needed.
-      </p>
       {status && <p role="status">{status}</p>}
     </div>
   );

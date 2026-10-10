@@ -1,4 +1,4 @@
-import { ConnectionsSettingsPanel } from './panels/ConnectionsSettingsPanel';
+import { FederationOverviewPanel } from './panels/FederationOverviewPanel';
 import { registry } from '../../lib/registry';
 import { GeneralSettingsPanel } from './panels/GeneralSettingsPanel';
 import { ModulesSettingsPanel } from './panels/ModulesSettingsPanel';
@@ -11,10 +11,11 @@ import { BackupRestorePanel } from './panels/BackupRestorePanel';
 import { TemplatesSettingsPanel } from './panels/TemplatesSettingsPanel';
 
 export function registerCoreSettingsPanels() {
-  registry.registerSettingsPanel({ id: 'connections', label: 'Connections', component: ConnectionsSettingsPanel, order: 75, color: 'green' });
+  registry.registerSettingsPanel({ id: 'federation-overview', label: 'Connections', group: 'federation', component: FederationOverviewPanel, order: 0 });
   registry.registerSettingsPanel({
     id: 'general',
-    label: 'General',
+    label: 'Preferences',
+    group: 'general',
     component: GeneralSettingsPanel,
     order: 10,
     color: 'blue',
@@ -22,7 +23,8 @@ export function registerCoreSettingsPanels() {
 
   registry.registerSettingsPanel({
     id: 'modules',
-    label: 'Modules',
+    label: 'Overview',
+    group: 'modules',
     component: ModulesSettingsPanel,
     order: 15,
     color: 'orange',
@@ -30,7 +32,8 @@ export function registerCoreSettingsPanels() {
 
   registry.registerSettingsPanel({
     id: 'editor',
-    label: 'Editor',
+    label: 'Standard',
+    group: 'editors',
     component: EditorSettingsPanel,
     order: 25,
     color: 'blue',
@@ -46,7 +49,8 @@ export function registerCoreSettingsPanels() {
 
   registry.registerSettingsPanel({
     id: 'providers',
-    label: 'AI Providers',
+    label: 'Providers',
+    group: 'ai',
     component: ProvidersSettingsPanel,
     order: 40,
     color: 'blue',
@@ -54,7 +58,8 @@ export function registerCoreSettingsPanels() {
 
   registry.registerSettingsPanel({
     id: 'rag',
-    label: 'RAG',
+    label: 'Knowledge & RAG',
+    group: 'ai',
     component: RagSettingsPanel,
     order: 50,
     color: 'blue',

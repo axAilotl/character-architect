@@ -4,6 +4,7 @@ export const MODULE_METADATA: ModuleDefinition = {
   id: 'sillytavern',
   name: 'SillyTavern',
   description: 'Push character cards directly to SillyTavern via API.',
+  category: 'connection',
   defaultEnabled: false,
   badge: 'Push',
   color: 'pink',

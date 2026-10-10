@@ -31,9 +31,9 @@ export function EditorSettingsPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-2">Editor Settings</h3>
+        <h3 className="text-lg font-semibold mb-2">Standard editor</h3>
         <p className="text-dark-muted">
-          Configure how the character card editor behaves.
+          The standard editor is always available. Choose which fields it shows and your default export format.
         </p>
       </div>
 
@@ -56,12 +56,7 @@ export function EditorSettingsPanel() {
         </ul>
       </div>
 
-      <div className="p-3 bg-dark-bg rounded border border-dark-border">
-        <p className="text-xs text-dark-muted">
-          <strong>Focused Editor Fields</strong> have been moved to the Focused
-          module settings tab.
-        </p>
-      </div>
+
     </div>
   );
 }

@@ -260,3 +260,115 @@ body {
 #custom-theme-styles {
   /* Placeholder for dynamically injected custom CSS */
 }
+
+/* Shared workspace controls use theme tokens, including custom/light themes. */
+@layer components {
+  .icon-button {
+    @apply inline-flex items-center justify-center shrink-0 p-2 rounded-lg border border-dark-border;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    color: var(--color-muted);
+    background: transparent;
+  }
+  .icon-button:hover, .field-action:hover { color: var(--color-text); background: var(--color-border); }
+  .favorite-action { font-size: 1.35rem; }
+  .favorite-action[aria-pressed="true"] { color: #fbbf24; }
+  .field-action {
+    @apply inline-flex items-center justify-center rounded-md p-1.5 text-sm;
+    min-width: 2rem;
+    min-height: 2rem;
+    color: var(--color-muted);
+    border: 1px solid var(--color-border);
+    background: transparent;
+  }
+  .settings-heading { @apply text-lg font-semibold tracking-tight; }
+  .settings-description { @apply text-sm leading-relaxed mt-1; color: var(--color-muted); }
+  .settings-section { @apply rounded-xl border p-4 sm:p-5; background: var(--color-surface); }
+  .settings-list { @apply overflow-hidden rounded-xl border; background: var(--color-surface); }
+  .module-toggle { @apply flex items-center gap-5 px-4 sm:px-5 py-4 cursor-pointer; }
+  .module-toggle + .module-toggle { border-top: 1px solid var(--color-border); }
+  .module-switch {
+    appearance: none;
+    @apply relative shrink-0 rounded-full cursor-pointer p-0;
+    width: 2.5rem;
+    height: 1.5rem;
+    background: var(--color-border);
+    border: 1px solid var(--color-muted);
+  }
+  .module-switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-text);
+    transition: transform 120ms ease;
+  }
+  .module-switch:checked { background: var(--color-accent); border-color: var(--color-accent); }
+  .module-switch:checked::after { transform: translateX(16px); background: white; }
+  .module-switch:disabled { cursor: not-allowed; }
+  .settings-categories { @apply flex shrink-0 overflow-x-auto px-3 sm:px-5 gap-1 border-b; background: var(--color-surface); }
+  .settings-tab { @apply text-sm whitespace-nowrap py-3 px-3 rounded-none border-b-2 border-transparent; color: var(--color-muted); }
+  .settings-tab[aria-selected="true"] { border-color: var(--color-accent); color: var(--color-text); }
+  .settings-tab:hover { color: var(--color-text); }
+  .settings-subtabs { @apply flex gap-1 overflow-x-auto px-4 sm:px-6 py-3 shrink-0 border-b; }
+  .settings-subtab { @apply text-sm whitespace-nowrap rounded-lg px-3 py-1.5; color: var(--color-muted); }
+  .settings-subtab[aria-selected="true"] { background: var(--color-surface); color: var(--color-text); box-shadow: inset 0 0 0 1px var(--color-border); }
+  .editor-header { @apply flex items-center gap-4 px-4 py-3 shrink-0; min-height: 76px; }
+  .editor-header-actions { @apply flex items-center gap-2 shrink-0; }
+  .editor-header-actions > button, .editor-header-actions .btn-secondary { @apply text-sm whitespace-nowrap rounded-lg; }
+  .assistant-preset { @apply border rounded-lg px-3 py-2.5 text-left text-xs leading-relaxed; background: var(--color-bg); }
+  .assistant-preset:hover, .assistant-preset.is-selected { border-color: var(--color-accent); }
+  .assistant-preset.is-selected { box-shadow: inset 0 0 0 1px var(--color-accent); }
+}
+
+.app-dialog {
+  margin: auto;
+  padding: 0;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgb(0 0 0 / .35);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+}
+.app-dialog[open] { display: flex; flex-direction: column; }
+.app-dialog::backdrop { background: rgb(0 0 0 / .6); backdrop-filter: blur(4px); }
+.settings-dialog { width: 1120px; height: 84dvh; }
+.expanded-editor-dialog { width: 1280px; height: 88dvh; }
+.expanded-editor-text { background: var(--color-surface); font-size: 1rem; }
+.settings-content h3 { font-size: 1.125rem; letter-spacing: -.015em; }
+.settings-content :is(input, select, textarea) { max-width: 100%; }
+.settings-content :is(.p-6) { padding: 1.25rem; }
+.standard-editor-field textarea { line-height: 1.65; border-radius: .625rem; }
+.standard-editor-field input[type="text"] { border-radius: .625rem; }
+.ai-assistant { width: 440px; max-width: 100%; background: var(--color-surface); border-left: 1px solid var(--color-border); box-shadow: -12px 0 32px rgb(0 0 0 / .12); }
+.standard-editor-content.with-assistant { margin-right: 456px; }
+button:focus-visible, .module-switch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+@media (max-width: 1023px) {
+  .standard-editor-content.with-assistant { margin-right: 0; }
+  .ai-assistant { width: min(500px, 100%); }
+}
+@media (max-width: 639px) {
+  .editor-header { flex-wrap: wrap; gap: 10px; padding: 12px; }
+  .editor-header > :first-child { flex-basis: 100%; }
+  .editor-header-actions { width: 100%; justify-content: flex-end; }
+  .editor-header-actions > :first-child { margin-right: auto; }
+  .app-dialog { max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 12px; }
+  .settings-dialog, .expanded-editor-dialog { height: calc(100dvh - 16px); }
+  .settings-content .p-6 { padding: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .module-switch::after { transition: none; }
+}
+
+@media (max-width: 639px) {
+  .library-actions { width: 100%; }
+  .library-search { flex: 1 1 100%; }
+  .library-search input { width: 100%; }
+  .library-actions > :last-child { margin-left: auto; }
+}

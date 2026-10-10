@@ -18,8 +18,10 @@
 
 import { useSettingsStore } from '../store/settings-store';
 import { registry } from './registry';
+import { isModuleEnabled } from './module-state';
+import { migrateModulePreferences } from './module-preferences';
 import type { ModuleDefinition } from './registry/types';
-import { getModuleDefault, deploymentConfig } from '../config/deployment';
+import { deploymentConfig } from '../config/deployment';
 import { registerCoreTabs } from '../features/editor/tabs';
 import { registerCoreSettingsPanels } from '../features/settings/index';
 
@@ -141,17 +143,8 @@ async function loadOptionalModules(): Promise<void> {
       return false;
     }
 
-    const flagValue = features[module.featureFlag];
-    if (flagValue !== undefined) {
-      return flagValue === true;
-    }
-
-    const deploymentDefault = getModuleDefault(module.id);
-    if (deploymentDefault === false) {
-      return false;
-    }
-
-    return metadata?.defaultEnabled ?? false;
+    // Editor settings stay available; their card tabs still honor the module flag.
+    return metadata?.category === 'editor' || (metadata ? isModuleEnabled(metadata, features) : false);
   });
 
   // Load enabled modules in parallel
@@ -197,12 +190,19 @@ export async function initializeModules(): Promise<void> {
   // Register all module metadata first (for Settings toggles)
   registerAllModuleMetadata();
 
+  // Re-evaluate contribution conditions whenever a toggle changes, including in the library.
+  useSettingsStore.subscribe((state, previous) => {
+    if (state.features !== previous.features) registry.invalidateAndNotify();
+  });
+
   // Load core features
   await loadCoreFeatures();
 
   // Then load optional modules based on feature flags
   await loadOptionalModules();
 
+  // Preserve configured integrations without blocking application startup on a network call.
+  void migrateModulePreferences(registry.getModules());
   console.log('[Modules] Initialization complete');
 }
 
@@ -210,7 +210,7 @@ export async function initializeModules(): Promise<void> {
  * Re-check and load any newly enabled modules
  *
  * Call this when feature flags change to dynamically load new modules.
- * Note: This does not unload disabled modules (requires page refresh).
+ * Disabled modules remain registered; conditions immediately hide their contributions.
  */
 export async function reloadModules(): Promise<void> {
   await loadOptionalModules();

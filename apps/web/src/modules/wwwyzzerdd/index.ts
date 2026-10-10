@@ -8,7 +8,6 @@
 import { lazy } from 'react';
 import { registry } from '../../lib/registry';
 import { useSettingsStore } from '../../store/settings-store';
-import { getModuleDefault } from '../../config/deployment';
 export { MODULE_METADATA } from './metadata';
 
 // Lazy-load the components
@@ -29,12 +28,7 @@ const WwwyzzerddSettings = lazy(() =>
  * Works in all modes - uses client-side LLM in light/static mode
  */
 function isWwwyzzerddAvailable(): boolean {
-  const featureFlag = useSettingsStore.getState().features?.wwwyzzerddEnabled;
-  // If user has explicitly set the flag, use that; otherwise use deployment default
-  if (featureFlag !== undefined) {
-    return featureFlag;
-  }
-  return getModuleDefault('wwwyzzerdd');
+  return useSettingsStore.getState().features?.wwwyzzerddEnabled ?? false;
 }
 
 /**
@@ -55,12 +49,13 @@ export function registerWwwyzzerddModule(): void {
   // Register settings panel
   registry.registerSettingsPanel({
     id: 'wwwyzzerdd',
-    label: 'wwwyzzerdd',
+    label: 'Wizard',
     component: WwwyzzerddSettings,
-    row: 'modules',
+    group: 'editors',
+    moduleId: 'wwwyzzerdd',
     color: 'purple',
     order: 40,
-    condition: isWwwyzzerddAvailable,
+
   });
 
   console.log('[wwwyzzerdd] Module registered (tab + settings)');

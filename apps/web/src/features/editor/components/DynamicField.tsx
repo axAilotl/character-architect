@@ -324,7 +324,7 @@ export function DynamicField({
       activeProvider = llmSettings.providers[0];
     }
     if (!activeProvider) {
-      alert('Please configure an LLM provider in Settings > AI Providers first.');
+      alert('Please configure an LLM provider in Settings > AI > Providers first.');
       return;
     }
 

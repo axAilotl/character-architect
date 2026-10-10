@@ -1,163 +1,71 @@
-/**
- * Settings Modal for Application Configuration
- */
-
-import { useState, Suspense } from 'react';
+import { useState, Suspense, type KeyboardEvent } from 'react';
 import { useSettingsPanels, useModules } from '../../lib/registry/hooks';
-import { registry } from '../../lib/registry';
-import type { SettingsPanelDefinition, ModuleDefinition } from '../../lib/registry/types';
-import { useSettingsStore } from '../../store/settings-store';
+import { groupSettingsPanels } from '../../lib/registry/settings-navigation';
+import { ModuleToggle } from '../../features/settings/ModuleToggle';
+import { Dialog } from '../ui/Dialog';
 
-interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface SettingsModalProps { isOpen: boolean; onClose: () => void }
+
+function moveTab(event: KeyboardEvent<HTMLElement>) {
+  if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
+  const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+    : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  tabs[index]?.focus();
+  tabs[index]?.click();
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<string>('general');
-
-  // Get all registered settings panels
-  const allSettingsPanels = useSettingsPanels();
-
-  // Separate core panels and module panels
-  const coreSettingsPanels = allSettingsPanels.filter(
-    (panel) => panel.row === 'main' || !panel.row
-  );
-  const moduleSettingsPanels = allSettingsPanels.filter((panel) => panel.row === 'modules');
-
-  // Get registered modules for dynamic toggles in the sub-nav
-  // We only show module tabs if the module is enabled
-  const allRegisteredModules = useModules();
-  const features = useSettingsStore((state) => state.features);
-
-  // Check if a module is enabled based on its feature flag
-  const isModuleEnabled = (module: ModuleDefinition): boolean => {
-    const flagName = registry.moduleIdToFlagName(module.id);
-    return features?.[flagName] ?? module.defaultEnabled;
-  };
-
-  // Helper to get color class for panel tab
-  const getColorClass = (color: SettingsPanelDefinition['color'], isActive: boolean) => {
-    const colorMap: Record<string, { active: string; inactive: string }> = {
-      blue: {
-        active: 'border-b-2 border-blue-500 text-blue-500',
-        inactive: 'text-dark-muted hover:text-dark-text',
-      },
-      purple: {
-        active: 'border-b-2 border-purple-500 text-purple-500',
-        inactive: 'text-dark-muted hover:text-dark-text',
-      },
-      green: {
-        active: 'border-b-2 border-green-500 text-green-500',
-        inactive: 'text-dark-muted hover:text-dark-text',
-      },
-      orange: {
-        active: 'border-b-2 border-orange-500 text-orange-500',
-        inactive: 'text-dark-muted hover:text-dark-text',
-      },
-      red: {
-        active: 'border-b-2 border-red-500 text-red-500',
-        inactive: 'text-dark-muted hover:text-dark-text',
-      },
-      pink: {
-        active: 'border-b-2 border-pink-500 text-pink-500',
-        inactive: 'text-dark-muted hover:text-pink-text',
-      },
-      cyan: {
-        active: 'border-b-2 border-cyan-500 text-cyan-500',
-        inactive: 'text-dark-muted hover:text-cyan-text',
-      },
-      amber: {
-        active: 'border-b-2 border-amber-500 text-amber-500',
-        inactive: 'text-dark-muted hover:text-amber-text',
-      },
-      teal: {
-        active: 'border-b-2 border-teal-500 text-teal-500',
-        inactive: 'text-dark-muted hover:text-teal-text',
-      },
-    };
-    const classes = colorMap[color || 'blue'] || colorMap.blue;
-    return isActive ? classes.active : classes.inactive;
-  };
+  const [categoryId, setCategoryId] = useState('general');
+  const [selectedPanels, setSelectedPanels] = useState<Record<string, string>>({});
+  const panels = useSettingsPanels();
+  const modules = useModules();
+  const categories = groupSettingsPanels(panels);
+  const category = categories.find(item => item.id === categoryId) ?? categories[0];
+  const panel = category?.panels.find(item => item.id === selectedPanels[category.id]) ?? category?.panels[0];
+  const module = panel?.moduleId ? modules.find(item => item.id === panel.moduleId) : undefined;
 
   if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-slate-800 rounded-lg shadow-xl w-full max-w-5xl h-[67vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-dark-border flex justify-between items-center">
-          <h2 className="text-xl font-bold">Settings</h2>
-          <button
-            onClick={onClose}
-            className="text-dark-muted hover:text-dark-text transition-colors"
-          >
-            ✕
-          </button>
+    <Dialog label="Settings" onClose={onClose} className="settings-dialog">
+      <div className="flex items-center justify-between gap-4 px-5 sm:px-7 py-4 border-b border-dark-border shrink-0">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Settings</h2>
+          <p className="text-sm text-dark-muted mt-0.5">Make Architect your own.</p>
         </div>
-
-        {/* Settings Tabs - Row 1: Core */}
-        <div className="flex border-b border-dark-border overflow-x-auto">
-          {coreSettingsPanels.map((panel) => (
-            <button
-              key={panel.id}
-              className={`font-medium transition-colors whitespace-nowrap ${getColorClass(
-                panel.color,
-                activeTab === panel.id
-              )}`}
-              onClick={() => setActiveTab(panel.id)}
-            >
-              {panel.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Settings Tabs - Row 2: Module Settings (only if modules are enabled) */}
-        {moduleSettingsPanels.filter((panel) => {
-          const module = allRegisteredModules.find((m) => m.id === panel.id);
-          return !module || isModuleEnabled(module);
-        }).length > 0 && (
-          <div className="flex border-b border-dark-border overflow-x-auto bg-dark-bg/50">
-            {moduleSettingsPanels.map((panel) => {
-              const module = allRegisteredModules.find((m) => m.id === panel.id);
-              if (module && !isModuleEnabled(module)) {
-                return null;
-              }
-              return (
-                <button
-                  key={panel.id}
-                  className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${getColorClass(panel.color, activeTab === panel.id)}`}
-                  onClick={() => setActiveTab(panel.id)}
-                >
-                  {panel.label}
-                </button>
-              );
-            })}
+        <button type="button" className="icon-button" aria-label="Close settings" onClick={onClose}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
+        </button>
+      </div>
+      <div role="tablist" aria-label="Settings categories" onKeyDown={moveTab} className="settings-categories">
+        {categories.map(item => (
+          <button key={item.id} id={`settings-category-${item.id}`} type="button" role="tab"
+            aria-selected={category?.id === item.id} aria-controls="settings-category-content"
+            tabIndex={category?.id === item.id ? 0 : -1}
+            className="settings-tab" onClick={() => setCategoryId(item.id)}>{item.label}</button>
+        ))}
+      </div>
+      {category && <div role="tabpanel" id="settings-category-content" aria-labelledby={`settings-category-${category.id}`} className="flex flex-col min-h-0 flex-1">
+        {category.panels.length > 1 && (
+          <div role="tablist" aria-label={`${category.label} settings`} onKeyDown={moveTab} className="settings-subtabs">
+            {category.panels.map(item => (
+              <button key={item.id} id={`settings-panel-${item.id}`} type="button" role="tab" aria-selected={panel?.id === item.id}
+                aria-controls="settings-panel-content" tabIndex={panel?.id === item.id ? 0 : -1}
+                className="settings-subtab" onClick={() => setSelectedPanels(previous => ({ ...previous, [category.id]: item.id }))}>{item.label}</button>
+            ))}
           </div>
         )}
-
-        {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
-          {allSettingsPanels.map(
-            (panel) =>
-              activeTab === panel.id && (
-                <Suspense key={panel.id} fallback={<div>Loading {panel.label} settings...</div>}>
-                  <panel.component />
-                </Suspense>
-              )
-          )}
+        <div key={panel?.id} id="settings-panel-content" role={category.panels.length > 1 ? 'tabpanel' : undefined}
+          aria-labelledby={category.panels.length > 1 ? `settings-panel-${panel?.id}` : undefined}
+          className="settings-content flex-1 overflow-y-auto px-5 sm:px-7 py-6">
+          <div className="max-w-4xl mx-auto">
+            {module && <div className="settings-list mb-6"><ModuleToggle module={module} /></div>}
+            {panel && <Suspense fallback={<p className="text-dark-muted" role="status">Loading {panel.label} settings…</p>}><panel.component /></Suspense>}
+          </div>
         </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-dark-border flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+      </div>}
+    </Dialog>
   );
 }

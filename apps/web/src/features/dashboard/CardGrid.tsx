@@ -1,3 +1,4 @@
+import { SettingsButton } from '../../components/shared/SettingsButton';
 import { useState, useEffect, useRef } from 'react';
 import { generateId } from '@card-architect/import-core';
 import { useCardStore, extractCardData } from '../../store/card-store';
@@ -785,20 +786,20 @@ export function CardGrid({ onCardClick }: CardGridProps) {
     <div className="h-full flex flex-col bg-dark-bg">
       {/* Header */}
       <div className="bg-dark-surface border-b border-dark-border">
-        <div className="px-4 py-2 h-[72px] flex items-center justify-between">
+        <div className="library-toolbar px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="Character Architect" className="w-12 h-12" />
             <div>
-              <h1 className="text-lg font-bold">Character Architect</h1>
+              <h1 className="text-lg font-semibold tracking-tight">Character Architect</h1>
               <p className="text-xs text-dark-muted">
                 {totalCards} {totalCards === 1 ? 'card' : 'cards'}
                 {searchQuery && ` (${totalFilteredCards} matching)`}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="library-actions flex flex-wrap items-center gap-2">
             {/* Search Input */}
-            <div className="relative">
+            <div className="library-search relative">
               <input
                 type="text"
                 value={searchQuery}
@@ -829,17 +830,9 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 </button>
               )}
             </div>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="btn-secondary"
-              title="Settings"
-              aria-label="Settings"
-            >
-              ⚙️
-            </button>
             <label
               htmlFor="import-card-file"
-              className="btn-primary inline-flex items-center gap-1 cursor-pointer"
+              className="btn-primary rounded-lg text-sm inline-flex items-center gap-1 cursor-pointer"
               title="Import Character Card or Lorebook (JSON, PNG, CHARX, or VOXPKG)"
             >
               Import
@@ -853,15 +846,16 @@ export function CardGrid({ onCardClick }: CardGridProps) {
                 className="hidden"
               />
             </label>
-            <button onClick={handleNewCard} className="btn-secondary">
+            <button onClick={handleNewCard} className="btn-secondary text-sm rounded-lg">
               New Card
             </button>
+            <SettingsButton onClick={() => setShowSettings(true)} />
           </div>
         </div>
 
         {/* Selection Row - only show when cards exist */}
         {cards.length > 0 && (
-          <div className="px-4 flex items-center gap-3 border-t border-dark-border/50 h-[84px]">
+          <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-t border-dark-border">
             <button
               onClick={toggleSelectionMode}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
