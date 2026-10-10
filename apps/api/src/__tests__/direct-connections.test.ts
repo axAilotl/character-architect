@@ -85,11 +85,25 @@ describe('direct connections and local favorites', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().remoteId).toBe('lumi-123');
     const [url, form, options] = post.mock.calls[0];
-    expect(url).toBe('http://lumiverse:7860/app/api/characters/import');
+    expect(url).toBe('http://lumiverse:7860/app/api/v1/characters/import');
     expect(options?.headers?.Authorization).toBe('Bearer test-session');
     expect(form.getBuffer().includes(Buffer.from('name="file"'))).toBe(true);
     expect(form.getBuffer().includes(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toBe(true);
     expect(options?.maxRedirects).toBe(0);
+  });
+
+  it('tests the Lumiverse v1 API from root, API, and versioned URLs', async () => {
+    const get = vi.spyOn(axios, 'get').mockResolvedValue({ data: { data: [], total: 0 } });
+    for (const suffix of ['', '/api/', '/api/v1/']) {
+      const response = await app.inject({
+        method: 'POST', url: '/api/settings/lumiverse/test',
+        payload: { enabled: true, baseUrl: `http://lumiverse:7861/proxy${suffix}` },
+      });
+      expect(response.statusCode).toBe(200);
+    }
+    expect(get.mock.calls.map(([url]) => url)).toEqual(
+      Array(3).fill('http://lumiverse:7861/proxy/api/v1/characters?limit=1')
+    );
   });
 
   it('reports expired sessions and rejects invalid instance URLs', async () => {
