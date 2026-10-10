@@ -76,7 +76,9 @@ COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 
 # Copy entrypoint script
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh && \
+# Runtime files must remain readable after entrypoint switches to the configured user.
+RUN chmod -R a+rX /app && \
+    chmod +x /usr/local/bin/entrypoint.sh && \
     chown root:root /usr/local/bin/entrypoint.sh
 
 ENV NODE_ENV=production
