@@ -1,4 +1,5 @@
 import { getFavorite } from './favorites.js';
+import { cardListQuery, type CardListOptions } from './card-list-query.js';
 import Database from 'better-sqlite3';
 import { generateId } from '@card-architect/import-core';
 import type { Card, CardMeta, CardUpdate, CardVersion, Spec, CardAsset, CardAssetWithDetails, Asset } from '../types/index.js';
@@ -9,39 +10,15 @@ export class CardRepository {
   /**
    * List all cards with optional filtering
    */
-  list(query?: string, page = 1, limit = 50, favoritesOnly = false): { items: Card[]; total: number } {
-    // 1. Get total count
-    let countSql = 'SELECT COUNT(*) as total FROM cards';
-    const countParams: unknown[] = [];
-
-    if (query) {
-      countSql += ' WHERE (name LIKE ? OR tags LIKE ?)';
-      countParams.push(`%${query}%`, `%${query}%`);
-    }
-
-    if (favoritesOnly) countSql += (query ? ' AND' : ' WHERE') + ' id IN (SELECT card_id FROM card_favorites WHERE favorite = 1)';
-    const countStmt = this.db.prepare(countSql);
-    const { total } = countStmt.get(...countParams) as { total: number };
-
-    // 2. Get paginated items
-    let sql = `
+  list(query?: string, page = 1, limit = 50, favoritesOnly = false, options: CardListOptions = {}): { items: Card[]; total: number } {
+    const { where, params, orderBy } = cardListQuery(query, favoritesOnly, options);
+    const { total } = this.db.prepare(`SELECT COUNT(*) as total FROM cards c${where}`)
+      .get(...params) as { total: number };
+    const rows = this.db.prepare(`
       SELECT c.*,
              (SELECT COUNT(*) FROM card_assets WHERE card_id = c.id) as asset_count
-      FROM cards c
-    `;
-    const params: unknown[] = [];
-
-    if (query) {
-      sql += ' WHERE (c.name LIKE ? OR c.tags LIKE ?)';
-      params.push(`%${query}%`, `%${query}%`);
-    }
-
-    if (favoritesOnly) sql += (query ? ' AND' : ' WHERE') + ' c.id IN (SELECT card_id FROM card_favorites WHERE favorite = 1)';
-    sql += ' ORDER BY c.updated_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, (page - 1) * limit);
-
-    const stmt = this.db.prepare(sql);
-    const rows = stmt.all(...params) as unknown[];
+      FROM cards c${where}${orderBy} LIMIT ? OFFSET ?
+    `).all(...params, limit, (page - 1) * limit);
 
     return {
       items: rows.map((row) => this.rowToCard(row)),

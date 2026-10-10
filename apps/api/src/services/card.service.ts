@@ -1,3 +1,4 @@
+import type { CardListOptions } from '../db/card-list-query.js';
 /**
  * Card Service
  *
@@ -45,8 +46,8 @@ export class CardService {
   /**
    * List cards with optional search and pagination
    */
-  list(query?: string, page?: number, limit?: number, favoritesOnly = false): { items: Card[]; total: number } {
-    return this.cardRepo.list(query, page ?? 1, limit ?? 50, favoritesOnly);
+  list(query?: string, page?: number, limit?: number, favoritesOnly = false, options: CardListOptions = {}): { items: Card[]; total: number } {
+    return this.cardRepo.list(query, page ?? 1, limit ?? 50, favoritesOnly, options);
   }
 
   /**
