@@ -59,6 +59,7 @@ export const config = {
       'api.openai.com',
       'api.anthropic.com',
       'openrouter.ai',
+      'api.deepseek.com',
       // Cloud platforms
       'bedrock-runtime.us-east-1.amazonaws.com',
       'bedrock-runtime.us-west-2.amazonaws.com',
