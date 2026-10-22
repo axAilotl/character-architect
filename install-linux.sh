@@ -13,7 +13,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Config
-NODE_VERSION="24"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NODE_VERSION="$(cat "$SCRIPT_DIR/.node-version")"
 PNPM_VERSION="11.24.0"
 NVM_VERSION="0.40.1"
 
@@ -132,8 +133,6 @@ echo -e "${GREEN}[OK] pnpm $(pnpm --version) installed and active.${NC}"
 echo ""
 echo -e "${BLUE}[4/6] Installing project dependencies...${NC}"
 
-# Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 if [ ! -f "package.json" ]; then
