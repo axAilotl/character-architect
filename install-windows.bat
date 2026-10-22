@@ -17,7 +17,12 @@ if %errorlevel% neq 0 (
 
 :: Set variables
 set NVM_VERSION=1.2.2
-set NODE_VERSION=24
+set "NODE_VERSION="
+set /p "NODE_VERSION="<"%~dp0.node-version"
+if not defined NODE_VERSION (
+    echo [ERROR] Could not read .node-version next to this installer.
+    exit /b 1
+)
 set PNPM_VERSION=11.24.0
 set INSTALL_DIR=%USERPROFILE%
 
